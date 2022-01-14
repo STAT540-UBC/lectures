@@ -113,7 +113,7 @@ strong {
 }
 a, a > code {
   color: var(--link-color);
-  text-decoration: none;
+  text-decoration: underline;
 }
 .footnote {
   position: absolute;

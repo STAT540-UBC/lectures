@@ -24,8 +24,14 @@ class: center, middle, inverse, title-slide
 
 
 &lt;style type="text/css"&gt;
-.remark-code, .remark-inline-code {
-  background: #f0f0f0;
+pre {
+  white-space: pre-wrap;
+}
+.remark-code {
+  background: #f8f8f8;
+}
+.remark-inline-code {
+  background: "white";
 }
 .remark-code {
   font-size: 22px;
@@ -47,9 +53,6 @@ class: center, middle, inverse, title-slide
 }
 &lt;/style&gt;
 
-
-
-
 ## Learning objectives 
 
 * Understand general principles on organizing your data
@@ -64,7 +67,8 @@ class: center, middle, inverse, title-slide
 
 # Where to find code to make these plots
 
-- These slides were made using [this R Markdown file](https://github.com/STAT540-UBC/lectures/blob/main/lec03-eda/lec03-eda.Rmd); it contains the code used to generate the R plots shown here
+- These slides were made using [this R Markdown file](
+https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.Rmd); it contains the code used to generate the R plots shown here
 
 - [The companion notes (GitHub Markdown document)](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md) explore multiple ways of making these plots and more detailed info
   * Source Rmd for these notes [here](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.Rmd)
@@ -98,7 +102,7 @@ class: center, middle, inverse, title-slide
   - **Metadata file**: several covariates/experimental design variables for each sample ( `\(N\)` samples `\(\times\)` `\(P\)` covariates)
   
 
-- We read these into R (see [Rmd source code](https://github.com/STAT540-UBC/lectures/blob/main/lec03-eda/lec03-eda.Rmd) and [companion notes](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md)) as a `data.frame` or `tibble` - **matrix-like** objects that have column names, and variable types for each column:
+- We read these into R (see [Rmd source code](https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.Rmd) and [companion notes](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md)) as a `data.frame` or `tibble` - **matrix-like** objects that have column names, and variable types for each column:
 
 
 ```r
@@ -1102,7 +1106,6 @@ Expect correlations to be tighter **within** experimental groups than **across**
 <script>var slideshow = remark.create({
 "highlightStyle": "github",
 "highlightLines": true,
-"highlightSpans": true,
 "countIncrementalSlides": false,
 "ratio": "16:9"
 });

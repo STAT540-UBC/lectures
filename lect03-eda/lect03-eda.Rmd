@@ -10,7 +10,6 @@ output:
     nature:
       highlightStyle: github
       highlightLines: true
-      highlightSpans: true
       countIncrementalSlides: false
       ratio: "16:9"
 ---
@@ -34,13 +33,20 @@ style_mono_accent(
   title_slide_background_image = "https://raw.githubusercontent.com/STAT540-UBC/stat540-ubc.github.io/main/images/stat540-logo-s.png",
   title_slide_background_size = "15%",
   title_slide_background_position = "95% 85%",
-  link_color = "rgb(104, 27, 148)"
+  link_color = "rgb(104, 27, 148)",
+  link_decoration = "underline"
 )
 ```
 
 ```{css, echo = FALSE}
-.remark-code, .remark-inline-code {
-  background: #f0f0f0;
+pre {
+  white-space: pre-wrap;
+}
+.remark-code {
+  background: #f8f8f8;
+}
+.remark-inline-code {
+  background: "white";
 }
 .remark-code {
   font-size: 22px;
@@ -62,40 +68,6 @@ style_mono_accent(
 }
 ```
 
-
-```{r wrap-hook, include=FALSE}
-library(knitr)
-hook_output = knit_hooks$get('output')
-knit_hooks$set(output = function(x, options) {
-  # this hook is used only when the linewidth option is not NULL
-  if (!is.null(n <- options$linewidth)) {
-    x = knitr:::split_lines(x)
-    # any lines wider than n should be wrapped
-    if (any(nchar(x) > n)) x = strwrap(x, width = n)
-    x = paste(x, collapse = '\n')
-  }
-  
-  lines <- options$output.lines
-   if (is.null(lines)) {
-     return(hook_output(x, options))  # pass to default hook
-   }
-   x <- unlist(strsplit(x, "\n"))
-   if (length(lines)==1) {        # first n lines
-     if (length(x) > lines) {
-       # truncate the output
-       x <- c(head(x, lines))
-     }
-   } else {
-     x <- c(x[lines])
-   }
-   # paste these lines together
-   x <- paste(c(x, ""), collapse = "\n")
-
-  hook_output(x, options)
-})
-
-```
-
 ## Learning objectives 
 
 * Understand general principles on organizing your data
@@ -110,7 +82,8 @@ knit_hooks$set(output = function(x, options) {
 
 # Where to find code to make these plots
 
-- These slides were made using [this R Markdown file](https://github.com/STAT540-UBC/lectures/blob/main/lec03-eda/lec03-eda.Rmd); it contains the code used to generate the R plots shown here
+- These slides were made using [this R Markdown file](
+https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.Rmd); it contains the code used to generate the R plots shown here
 
 - [The companion notes (GitHub Markdown document)](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md) explore multiple ways of making these plots and more detailed info
   * Source Rmd for these notes [here](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.Rmd)
@@ -179,7 +152,7 @@ m$SeqRun=factor(m$SeqRun)
   - **Metadata file**: several covariates/experimental design variables for each sample ( $N$ samples $\times$ $P$ covariates)
   
 
-- We read these into R (see [Rmd source code](https://github.com/STAT540-UBC/lectures/blob/main/lec03-eda/lec03-eda.Rmd) and [companion notes](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md)) as a `data.frame` or `tibble` - **matrix-like** objects that have column names, and variable types for each column:
+- We read these into R (see [Rmd source code](https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.Rmd) and [companion notes](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md)) as a `data.frame` or `tibble` - **matrix-like** objects that have column names, and variable types for each column:
 
 ```{r}
 # data (expression) matrix
