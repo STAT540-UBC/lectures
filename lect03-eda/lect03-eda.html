@@ -75,16 +75,19 @@ https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.Rmd); it
 
 ---
 
-# Recall the CHD8 RNA-seq experiment
+# CHD8 RNA-seq experiment
 
-- [Gompers et al. (Nature Neuroscience 2017)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6008102/) analyzed 26 Chd8+/del5 and 18 WT littermates
+&lt;small&gt;
+- [Gompers et al. (Nature Neuroscience 2017)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6008102/) performed RNA-seq on mice from two different genotypes (18 WT vs 26 CHD8 mutant) and 5 developmental stages
 
-- “Using a statistical model that accounted for sex, developmental stage and sequencing batch, we tested for differential expression across 11,936 genes that were robustly expressed in our data sets”
+- "Using a statistical model that accounted for sex, developmental stage and sequencing batch, we tested for differential expression across 11,936 genes that were robustly expressed in our data sets"
 
-- We'll use this dataset throughout this lecture to illustrate EDA 
+- We'll use this dataset throughout this lecture to illustrate EDA
+
+&lt;/small&gt;
 
 &lt;div class="figure" style="text-align: center"&gt;
-&lt;img src="img/GompersDesign.png" alt="Figures from Gompers et al. (2017) paper" width="31%" /&gt;&lt;img src="img/GompersHeatmap.png" alt="Figures from Gompers et al. (2017) paper" width="31%" /&gt;
+&lt;img src="img/GompersDesign.png" alt="Figures from Gompers et al. (2017) paper" width="28%" /&gt;&lt;img src="img/GompersHeatmap.png" alt="Figures from Gompers et al. (2017) paper" width="28%" /&gt;
 &lt;p class="caption"&gt;Figures from Gompers et al. (2017) paper&lt;/p&gt;
 &lt;/div&gt;
 
@@ -129,7 +132,7 @@ dim(m)
 
 **Columns of main data matrix should match the rows of the metadata matrix _exactly_**
 
-These two objects should represent the same set of samples (and be in the same order)
+These two objects should represent the same set of samples (and be in the **same order**)
 
 
 ```r
@@ -453,7 +456,7 @@ Overall: &lt;span style="color: red;"&gt;*recommended for downstream analysis (e
 
 # Making sense of the data
 
-#### Data is what we observe, we want to infer something about “where it came from”
+#### Data is what we observe, we want to infer something about "where it came from"
 
 &lt;img src="img/statisticsdogma.png" width="80%" style="display: block; margin: auto;" /&gt;
 
@@ -463,7 +466,7 @@ Overall: &lt;span style="color: red;"&gt;*recommended for downstream analysis (e
 
 - The measured expression level of gene `\(g\)` is the combination of many effects
 
-- Analysis goal is often to determine relative role of effects - separate signal from “noise”
+- Analysis goal is often to determine relative role of effects - separate signal from "noise"
 
 
 &lt;img src="img/geneexpmodel.png" width="80%" style="display: block; margin: auto;" /&gt;
@@ -472,10 +475,10 @@ Overall: &lt;span style="color: red;"&gt;*recommended for downstream analysis (e
 
 # Variability: friend and foe
 
-- If there is no variability, you don’t have any information. The key is controlling/understanding sources of *wanted vs. unwanted* variability. One person’s noise may be another’s signal.
+- If there is no variability, you don't have any information. The key is controlling/understanding sources of *wanted vs. unwanted* variability. One person's noise may be another’s signal.
 
 - First line of defense: Know the enemy
-  - You can only “correct” for things you know about
+  - You can only "correct" for things you know about
   
   - **Keep track of potential sources of variance**: Batches of reagents, slides, personnel, processing dates, etc.
 
@@ -493,15 +496,15 @@ Overall: &lt;span style="color: red;"&gt;*recommended for downstream analysis (e
 
 &lt;big&gt;
 
-If you don’t **look** at the data, you are likely going to miss important things
+If you don't **look** at the data, you are likely going to miss important things
 
 - Not just at the beginning, but at every stage
 
 - That could mean making plots, or examining numerical patterns - probably both
 
-- “Sanity checks” should make up a lot of your early effort
+- "Sanity checks" should make up a lot of your early effort
 
-- Blindly following recipes/pipelines/vignettes/seminar code → trouble.
+- Blindly following recipes/pipelines/vignettes/seminar code → trouble
 
 ---
 
@@ -613,13 +616,13 @@ table(se$SeqRun)
 
 &lt;big&gt;
 
-- EDA is "compute a little and graph a lot"
+- EDA is "compute a little and plot a lot"
 
 - Exploratory plots can be quick and dirty - making them publication quality takes a lot of time and effort
 
 - I’ll show a few simple approaches that are common in genomics 
 
-- Reminder that code to generate the plots you see here is posted in the notes linked on slide 3
+- Reminder that code to generate the plots you see here is posted in the companion notes linked earlier
 
 ---
 
@@ -640,29 +643,15 @@ table(se$SeqRun)
 
 ---
 
-# Boxplots to compare samples
-
-.left-column[
-- Quick and dirty; reasonable tool to summarize large amounts of data
-
-- Not ideal if the distribution is multimodal
-
-- Don’t use box plots (alone) when you have small numbers of points; **show the points instead!**
-]
-.right-column[
-&lt;img src="lect03-eda_files/figure-html/unnamed-chunk-17-1.png" width="792" /&gt;
-]
-
----
 
 # Two views of the same data: &lt;br&gt; Which do you prefer?
 
 .right-column[
-&lt;img src="lect03-eda_files/figure-html/unnamed-chunk-18-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="lect03-eda_files/figure-html/unnamed-chunk-17-1.png" width="720" style="display: block; margin: auto;" /&gt;
 ]
 
 .left-column[
-
+How to best summarize patterns in the data?
 ]
 
 ---
@@ -670,7 +659,7 @@ table(se$SeqRun)
 # Two views of the same data: &lt;br&gt; Let the data speak for itself!
 
 .right-column[
-&lt;img src="lect03-eda_files/figure-html/unnamed-chunk-19-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="lect03-eda_files/figure-html/unnamed-chunk-18-1.png" width="720" style="display: block; margin: auto;" /&gt;
 ]
 
 .left-column[
@@ -683,7 +672,22 @@ table(se$SeqRun)
 
 ---
 
-# Examining distributions: Histograms and Density plots 
+# Comparing sample distributions: Boxplots
+
+.left-column[
+- Quick and dirty; reasonable tool to summarize large amounts of data
+
+- Not ideal if the distribution is multimodal
+
+- Don’t use box plots (alone) when you have small numbers of points; **show the points instead!**
+]
+.right-column[
+&lt;img src="lect03-eda_files/figure-html/unnamed-chunk-19-1.png" width="792" /&gt;
+]
+
+---
+
+# Comparing distributions: Histograms and Density plots 
 
 .pull-left[
 &lt;img src="lect03-eda_files/figure-html/histograms-1.png" width="504" /&gt;
@@ -731,11 +735,15 @@ table(se$SeqRun)
 # Pairwise (scatter) plots to compare samples
 
 .left-column[
-#### **This is nice but unwieldy (or won’t work) for large data sets**
+
+This is nice but unwieldy (or won’t work) for large data sets
+
 ]
 
 .right-column[
+
 &lt;img src="lect03-eda_files/figure-html/unnamed-chunk-23-1.png" width="648" style="display: block; margin: auto;" /&gt;
+
 ]
 
 ---
@@ -884,9 +892,9 @@ Additional exploratory techniques will be discussed later in the course
 
 - Not recommended to use these types of scales for continuous values
 
-- Rainbow or other scales with many distinct colours are better for factors/categorical variables
+- Rainbows or scales with many distinct colours are better for factors / categorical variables
 
-&lt;img src="img/matlab.png" width="40%" style="display: block; margin: auto;" /&gt;
+&lt;img src="img/matlab.png" width="30%" style="display: block; margin: auto;" /&gt;
 
 ---
 
@@ -1050,7 +1058,7 @@ Hard to define. To some extent, you’ll know it when you see it.
 
 - "... a value that lies 1.5 IQR beyond the upper or lower quartile"
 
-Features (e.g. genes) are not **usually** called “outliers” in the sense of “should remove from the data”
+Features (e.g. genes) are not **usually** called "outliers" in the sense of "should remove from the data"
 
 ---
 

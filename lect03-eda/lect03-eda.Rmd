@@ -90,15 +90,18 @@ https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.Rmd); it
 
 ---
 
-# Recall the CHD8 RNA-seq experiment
+# CHD8 RNA-seq experiment
 
-- [Gompers et al. (Nature Neuroscience 2017)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6008102/) analyzed 26 Chd8+/del5 and 18 WT littermates
+<small>
+- [Gompers et al. (Nature Neuroscience 2017)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6008102/) performed RNA-seq on mice from two different genotypes (18 WT vs 26 CHD8 mutant) and 5 developmental stages
 
-- “Using a statistical model that accounted for sex, developmental stage and sequencing batch, we tested for differential expression across 11,936 genes that were robustly expressed in our data sets”
+- "Using a statistical model that accounted for sex, developmental stage and sequencing batch, we tested for differential expression across 11,936 genes that were robustly expressed in our data sets"
 
-- We'll use this dataset throughout this lecture to illustrate EDA 
+- We'll use this dataset throughout this lecture to illustrate EDA
 
-```{r, echo=FALSE, out.width="31%", fig.show = 'hold', fig.cap = 'Figures from Gompers et al. (2017) paper', fig.align="center"}
+</small>
+
+```{r, echo=FALSE, out.width="28%", fig.show = 'hold', fig.cap = 'Figures from Gompers et al. (2017) paper', fig.align="center"}
 knitr::include_graphics(c("img/GompersDesign.png", "img/GompersHeatmap.png"))
 ```
 
@@ -168,7 +171,7 @@ dim(m)
 
 **Columns of main data matrix should match the rows of the metadata matrix _exactly_**
 
-These two objects should represent the same set of samples (and be in the same order)
+These two objects should represent the same set of samples (and be in the **same order**)
 
 ```{r}
 head(colnames(d))
@@ -365,7 +368,7 @@ knitr::include_graphics(c("img/summarizedexperiment.png"))
 
 # Making sense of the data
 
-#### Data is what we observe, we want to infer something about “where it came from”
+#### Data is what we observe, we want to infer something about "where it came from"
 
 ```{r, echo=FALSE, out.width="80%", fig.show = 'hold', fig.align = 'center'}
 knitr::include_graphics(c("img/statisticsdogma.png"))
@@ -377,7 +380,7 @@ knitr::include_graphics(c("img/statisticsdogma.png"))
 
 - The measured expression level of gene $g$ is the combination of many effects
 
-- Analysis goal is often to determine relative role of effects - separate signal from “noise”
+- Analysis goal is often to determine relative role of effects - separate signal from "noise"
 
 
 ```{r, echo=FALSE, out.width="80%", fig.show = 'hold', fig.align = 'center'}
@@ -388,10 +391,10 @@ knitr::include_graphics(c("img/geneexpmodel.png"))
 
 # Variability: friend and foe
 
-- If there is no variability, you don’t have any information. The key is controlling/understanding sources of *wanted vs. unwanted* variability. One person’s noise may be another’s signal.
+- If there is no variability, you don't have any information. The key is controlling/understanding sources of *wanted vs. unwanted* variability. One person's noise may be another’s signal.
 
 - First line of defense: Know the enemy
-  - You can only “correct” for things you know about
+  - You can only "correct" for things you know about
   
   - **Keep track of potential sources of variance**: Batches of reagents, slides, personnel, processing dates, etc.
 
@@ -409,15 +412,15 @@ knitr::include_graphics(c("img/geneexpmodel.png"))
 
 <big>
 
-If you don’t **look** at the data, you are likely going to miss important things
+If you don't **look** at the data, you are likely going to miss important things
 
 - Not just at the beginning, but at every stage
 
 - That could mean making plots, or examining numerical patterns - probably both
 
-- “Sanity checks” should make up a lot of your early effort
+- "Sanity checks" should make up a lot of your early effort
 
-- Blindly following recipes/pipelines/vignettes/seminar code → trouble.
+- Blindly following recipes/pipelines/vignettes/seminar code → trouble
 
 ---
 
@@ -490,13 +493,13 @@ knitr::include_graphics(c("img/viz.png"))
 
 <big>
 
-- EDA is "compute a little and graph a lot"
+- EDA is "compute a little and plot a lot"
 
 - Exploratory plots can be quick and dirty - making them publication quality takes a lot of time and effort
 
 - I’ll show a few simple approaches that are common in genomics 
 
-- Reminder that code to generate the plots you see here is posted in the notes linked on slide 3
+- Reminder that code to generate the plots you see here is posted in the companion notes linked earlier
 
 ---
 
@@ -524,7 +527,59 @@ d_long %>%
 
 ---
 
-# Boxplots to compare samples
+
+# Two views of the same data: <br> Which do you prefer?
+
+.right-column[
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 5, fig.align= 'center'}
+library(ggplot2)
+library(gridExtra)
+
+p1 <- d_long %>% 
+  filter(gene == "Chd8") %>%
+  ggplot(aes(Group, Expression)) + 
+    geom_errorbar(stat = "summary", width = 0.2) +
+    geom_bar(stat = "summary") +
+    ylab("Expression of Chd8")
+
+p2 <- d_long %>% 
+  filter(gene == "Chd8") %>%
+  ggplot(aes(Group, Expression)) + 
+    geom_boxplot(outlier.shape = NA) + 
+    geom_jitter(height=0, width = 0.1, colour = "grey") +
+    ylab("Expression of Chd8")
+
+p <- grid.arrange(p1, p2, nrow=1)
+
+```
+]
+
+.left-column[
+How to best summarize patterns in the data?
+]
+
+---
+
+# Two views of the same data: <br> Let the data speak for itself!
+
+.right-column[
+```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 5, fig.align= 'center'}
+p <- grid.arrange(p1, p2, nrow=1)
+
+```
+]
+
+.left-column[
+- What is the sample size? 
+
+- Is the distribution symmetrical, or skewed? 
+
+- Are there any outliers? 
+]
+
+---
+
+# Comparing sample distributions: Boxplots
 
 .left-column[
 - Quick and dirty; reasonable tool to summarize large amounts of data
@@ -543,75 +598,7 @@ ggplot(d_long, aes(Sample, Expression)) +
 
 ---
 
-# Two views of the same data: <br> Which do you prefer?
-
-.right-column[
-```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 5, fig.align= 'center'}
-library(ggplot2)
-library(gridExtra)
-
-set.seed(124)
-df <- data.frame(
-  Treatment = c(rep("Control", 25), rep("Treatment", 25)),
-  Response = c(pmax(0, rnorm(25, 5, 1.5)), pmax(0, rnorm(23, 7, 4)), 17.4, 19.8)
-)
-
-p1 <- ggplot(df, aes(x=Treatment, y=Response)) +
-  geom_errorbar(stat = "summary", width = 0.2) +
-  geom_bar(stat = "summary") 
-
-p2 <- ggplot(df, aes(x=Treatment, y=Response)) +
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(height=0, width = 0.1, colour = "grey")
-
-p <- grid.arrange(p1, p2, nrow=1)
-
-```
-]
-
-.left-column[
-
-]
-
----
-
-# Two views of the same data: <br> Let the data speak for itself!
-
-.right-column[
-```{r, echo = FALSE, warning = FALSE, message = FALSE, fig.width = 10, fig.height = 5, fig.align= 'center'}
-library(ggplot2)
-library(gridExtra)
-
-set.seed(124)
-df <- data.frame(
-  Treatment = c(rep("Control", 25), rep("Treatment", 25)),
-  Response = c(pmax(0, rnorm(25, 5, 1.5)), pmax(0, rnorm(23, 7, 4)), 17.4, 19.8)
-)
-
-p1 <- ggplot(df, aes(x=Treatment, y=Response)) +
-  geom_errorbar(stat = "summary", width = 0.2) +
-  geom_bar(stat = "summary") 
-
-p2 <- ggplot(df, aes(x=Treatment, y=Response)) +
-  geom_boxplot(outlier.shape = NA) + 
-  geom_jitter(height=0, width = 0.1, colour = "grey")
-
-p <- grid.arrange(p1, p2, nrow=1)
-
-```
-]
-
-.left-column[
-- What is the sample size? 
-
-- Is the distribution symmetrical, or skewed? 
-
-- Are there any outliers? 
-]
-
----
-
-# Examining distributions: Histograms and Density plots 
+# Comparing distributions: Histograms and Density plots 
 
 .pull-left[
 ```{r histograms, fig.width=7, fig.height=6, echo = FALSE}
@@ -709,16 +696,20 @@ grid.arrange(p1, p2, nrow=1)
 # Pairwise (scatter) plots to compare samples
 
 .left-column[
-#### **This is nice but unwieldy (or won’t work) for large data sets**
+
+This is nice but unwieldy (or won’t work) for large data sets
+
 ]
 
 .right-column[
-```{r, fig.width=9, fig.height=6.8, message = FALSE, echo = FALSE, fig.align='center'}
+
+```{r, fig.width=9, fig.height=6.5, message = FALSE, echo = FALSE, fig.align='center'}
 n<-1000
 ggpairs(d[sample(nrow(d), n),6:11], 
         lower=list(continuous=wrap(ggally_points, size=0.5, alpha=0.1))) +
   theme_bw(base_size=12)
 ```
+
 ]
 
 ---
@@ -896,9 +887,9 @@ knitr::include_graphics(c("img/seqdiv.png"))
 
 - Not recommended to use these types of scales for continuous values
 
-- Rainbow or other scales with many distinct colours are better for factors/categorical variables
+- Rainbows or scales with many distinct colours are better for factors / categorical variables
 
-```{r, echo=FALSE, out.width="40%", fig.show = 'hold', fig.align = 'center'}
+```{r, echo=FALSE, out.width="30%", fig.align = 'center'}
 knitr::include_graphics(c("img/matlab.png"))
 ```
 
@@ -1065,7 +1056,7 @@ Hard to define. To some extent, you’ll know it when you see it.
 
 - "... a value that lies 1.5 IQR beyond the upper or lower quartile"
 
-Features (e.g. genes) are not **usually** called “outliers” in the sense of “should remove from the data”
+Features (e.g. genes) are not **usually** called "outliers" in the sense of "should remove from the data"
 
 ---
 
@@ -1125,4 +1116,7 @@ Heatmap(as.matrix(cc), col=bcols,
 ```
 ]
 
-
+```{r cleanup, echo = FALSE, show = FALSE, warning=FALSE, message=FALSE, results='hide'}
+file.remove(rpkm.file)
+file.remove(meta.file)
+```
