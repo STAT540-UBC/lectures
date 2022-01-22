@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Two group comparisons</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="  Keegan Korthauer " />
+    <script src="libs/header-attrs-2.11/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <big><big>Two group comparisons</big></big>
+### <br><font size=6> Keegan Korthauer </font>
+### <font size=6> 24 January 2022 </font> <br><br><font size=4> with slide contributions from Jenny Bryan and Sara Mostafavi </font>
+
+---
+
+
+
+
+
+
+&lt;style type="text/css"&gt;
+pre {
+  white-space: pre-wrap;
+}
+.remark-code {
+  background: #f8f8f8;
+}
+.remark-inline-code {
+  background: "white";
+}
+.remark-code {
+  font-size: 22px;
+}
+.huge .remark-code { /*Change made here*/
+  font-size: 200% !important;
+}
+.tiny .remark-code { /*Change made here*/
+  font-size: 60% !important;
+}
+.smaller .remark-code { /*Change made here*/
+  font-size: 90% !important;
+}
+.smaller2 .remark-code { /*Change made here*/
+  font-size: 80% !important;
+}
+.smaller3 .remark-code { /*Change made here*/
+  font-size: 70% !important;
+}
+&lt;/style&gt;
+
+&lt;style&gt;
+div.blue { background-color:#e8f2f6; border-radius: 5px; padding: 20px;}
+&lt;/style&gt;
+
+
+# Reminders
+
+* Intro assignment due **today**
+
+* Project groups posted to Discussion board last week 
+
+* Initial project proposals due this **Friday** (Jan 28)
+
+* Reminder that (free online) resources for review of statistical concepts are listed in the [syllabus](https://stat540-ubc.github.io/syllabus.html#prerequisites-and-resources) 
+
+---
+
+#  Central dogma of statistics
+
+
+&lt;img src="img/statInference.png" width="650" style="display: block; margin: auto;" /&gt;
+&lt;center&gt;&lt;small&gt;&lt;a href="https://www.gs.washington.edu/academics/courses/akey/56008/lecture/lecture1.pdf" style="color:grey;"&gt;Image source: Josh Akey's Lecture notes&lt;/a&gt;&lt;/small&gt;&lt;/center&gt;
+
+&lt;br&gt;We want to understand a **population** (e.g. all individuals with a certain disease) but we can only study a &lt;font color=red&gt;**random sample**&lt;/font&gt; from it
+
+---
+
+#  Hypothesis Testing in Genomics
+
+
+&lt;img src="img/paperRef.PNG" width="600" style="display: block; margin: auto;" /&gt;
+
+[Akimoto et al. (2006)](https://doi.org/10.1073/pnas.0508214103)
+
+.pull-left[
+- Retina presents a model system for investigating **regulatory networks** underlying neuronal differentiation
+
+- **Nrl** transcription factor is known to be important for Rod development
+]
+.pull-right[
+&lt;img src="img/cellTypes.png" width="275" style="display: block; margin: auto;" /&gt;
+]
+
+--
+
+- **What happens if you delete Nrl?**
+
+---
+
+#  Why a Hypothesis Test?
+
+From the [Akimoto et al. (2006) paper](https://doi.org/10.1073/pnas.0508214103): 
+&gt;"we hypothesized that Nrl is the ideal transcription factor to gain insights into gene expression changes ..."
+
+&lt;div class = "blue"&gt;
+&lt;b&gt;Biological question:&lt;/b&gt; Is the expression level of gene &lt;ii&gt;A&lt;/i&gt; affected by knockout of the &lt;i&gt;Nrl&lt;/i&gt; gene?
+&lt;/div&gt;
+
+--
+
+We can use **statistical inference** to answer this biological question!
+
+
+---
+
+#  Statistical inference
+
+
+**Statistical inference**:
+
+We observe and study a **random sample** to make conclusions about a population (e.g., random sample of gene expressions from mice)
+
+
+.pull-left[
+**Experimental design**:
+* 5 developmental stages (E16, P2, P6, P10, 4Weeks)
+* 2 genotypes: Wild type (WT), Nrl Knockout (NrlKO)
+* 3-4 replicates for each combination
+]
+.pull-right[
+&lt;img src="img/NrlKOmouse.png" width="340" style="display: block; margin: auto 0 auto auto;" /&gt;
+]
+---
+
+
+
+# Reading in / exploring the data
+
+* Data obtained from the [Gene Expression Omnibus (GEO)](https://www.ncbi.nlm.nih.gov/geo/) repository
+
+  * Load directly into R session using [`GEOquery` package](https://www.bioconductor.org/packages/release/bioc/html/GEOquery.html)
+
+&lt;img src="https://www.ncbi.nlm.nih.gov/geo/img/geo_main.gif" width="340" style="display: block; margin: auto;" /&gt;
+
+* Practice with this in Seminars 4 and 5 (Seminar 5 uses the exact same data set!)
+
+* Review lecture 3 (exploratory data analysis) for general principles
+
+
+---
+
+# Two example genes: Irs4 and Nrl
+
+&lt;div class = "blue"&gt;
+&lt;b&gt;Biological question:&lt;/b&gt; Are these genes truly different in NrlKO compared to WT?
+&lt;/div&gt;
+
+--
+
+We can't answer this question in general; we can *only* study these genes in collected data (**gene expression values from a random sample of mice**):
+
+
+
+
+.smaller[
+
+```r
+twoGenes
+```
+
+```
+## # A tibble: 78 × 5
+##    gene  sample_id Expression dev_stage genotype
+##    &lt;chr&gt; &lt;chr&gt;          &lt;dbl&gt; &lt;fct&gt;     &lt;fct&gt;   
+##  1 Irs4  GSM92610        7.71 4_weeks   NrlKO   
+##  2 Irs4  GSM92611        7.77 4_weeks   NrlKO   
+##  3 Irs4  GSM92612        7.73 4_weeks   NrlKO   
+##  4 Irs4  GSM92613        7.57 4_weeks   NrlKO   
+##  5 Irs4  GSM92614        7.95 E16       NrlKO   
+##  6 Irs4  GSM92615        7.52 E16       NrlKO   
+##  7 Irs4  GSM92616        8.08 E16       NrlKO   
+##  8 Irs4  GSM92617        7.71 P10       NrlKO   
+##  9 Irs4  GSM92618        7.87 P10       NrlKO   
+## 10 Irs4  GSM92619        7.75 P10       NrlKO   
+## # … with 68 more rows
+```
+]
+
+---
+
+# Visualizing Irs4 and Nrl genes in our sample
+
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-10-1.png" width="792" style="display: block; margin: auto;" /&gt;
+
+
+
+
+---
+
+#  Statistical Hypothesis
+
+** Experimental design:** (ignoring developmental time for now)
+  - 2 conditions: WT *vs* NrlKO
+  - we observe the expression of many genes in a random sample of mice from each condition
+
+** Biological hypothesis:** for *some* genes, the expression levels are different between conditions
+
+** Statistical hypotheses:** (for each gene `\(g=1,...,G\)`)
+  - H&lt;sub&gt;0&lt;/sub&gt; (null hypothesis): the expression level of gene `\(g\)` is the *same* in both conditions
+  -  H&lt;sub&gt;A&lt;/sub&gt; (alternative hypothesis): the expression level of gene `\(g\)` is *different* between conditions
+---
+
+
+# Notation 
+
+Random variables and estimates (we can observe):
+
+`\(Y_i\)` : expression of gene `\(g\)` in the WT sample `\(i\)`
+
+`\(Z_i\)`: expression of gene `\(g\)` in NrlKO sample `\(i\)` 
+
+`\(Y_1, Y_2,..., Y_{n_Y}\)` : a **random sample** of size `\(n_Y\)` WT mice 
+
+`\(Z_1, Z_2,..., Z_{n_Z}\)` : a **random sample** of size `\(n_Z\)` NrlKO mice 
+
+`\(\bar{Y}=\frac{\sum_{i=1}^{n_Y}Y_i}{n_Y}\)`: sample mean of gene `\(g\)` expression from WT mice
+
+`\(\bar{Z}=\frac{\sum_{i=1}^{n_Z}Z_i}{n_Z}\)`: sample mean of gene `\(g\)` expression from NrlKO mice
+
+
+---
+
+# Notation 
+
+Population parameters (unknown/unobservable):
+
+`\(\mu_Y = E[Y]\)` : the (population) expected expression of gene `\(g\)` in WT mice
+
+`\(\mu_Z = E[Z]\)` : the (population) expected expression of gene `\(g\)` in NrlKO mice
+
+---
+
+# Is there enough evidence to reject H&lt;sub&gt;0&lt;/sub&gt;? &lt;/font&gt;
+
+## `\(H_0: \mu_Y = \mu_Z\)`
+
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-11-1.png" width="792" style="display: block; margin: auto;" /&gt;
+
+**Statistical Inference**: random samples are used to learn about the population 
+
+---
+
+# What we observe: sample averages: `\(\bar{Y}\)` vs `\(\bar{Z}\)`
+
+.pull-left[
+
+```r
+meanExp &lt;- twoGenes %&gt;%
+  group_by(gene, genotype) %&gt;%
+  summarize(meanExpr = mean(Expression)) %&gt;%
+  spread(genotype, meanExpr) %&gt;% 
+  mutate(diffExp = NrlKO - WT)
+meanExp
+```
+
+```
+## # A tibble: 2 × 4
+## # Groups:   gene [2]
+##   gene  NrlKO    WT diffExp
+##   &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;
+## 1 Irs4   7.74  7.77 -0.0261
+## 2 Nrl    6.09 11.2  -5.15
+```
+]
+
+
+.pull-right[
+This code uses [tidy data wrangling functions](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf) to calculate:
+
+* the mean expression of each gene per genotype group
+* the difference in mean expression of each gene in Nrl KO vs WT groups
+]
+
+---
+
+
+## Is the difference between `\(\bar{Y}\)` and `\(\bar{Z}\)` enough to reject H&lt;sub&gt;0&lt;/sub&gt;?
+
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-13-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+
+- The sample means, `\(\bar{Y}\)` vs `\(\bar{Z}\)`, by themselves are not enough to make conclusions about the population
+
+- What is a "large" difference? "large" relative to what?
+---
+
+## What can we use to interpret the size of the mean difference?
+
+
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-14-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+## `$$\frac{\bar{Y}-\bar{Z}}{??}$$`
+
+---
+
+## What can we use to interpret the size of the mean difference?
+
+.pull-left[
+"Large" relative to the **observed variation:**
+]
+.pull-right[
+## `\(\frac{\bar{Y}-\bar{Z}}{\sqrt{Var(\bar{Y}-\bar{Z})}}\)`
+]
+
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-15-1.png" width="720" style="display: block; margin: auto;" /&gt;
+---
+
+# Quantifying observed variation
+
+* Recall that if `\(Var(Y_i)=\sigma_Y^2\)`, then `\(Var(\bar{Y})=\frac{\sigma_Y^2}{n_Y}\)`
+
+* Assume that the random variables within each group are *independent and identically distributed* (iid), and that the groups are independent. More specifically, that
+  1. `\(Y_1, Y_2,..., Y_{n_Y}\)` are iid, 
+  2. `\(Z_1, Z_2,..., Z_{n_Z}\)` are iid, and
+  3. `\(Y_i, Z_j\)` are independent. Then, it follows that
+$$ Var(\bar{Z}-\bar{Y})=\frac{\sigma_Z^2}{n_Z}+\frac{\sigma_Y^2}{n_Y}$$
+* If we also assume equal population variances:&lt;/big&gt; `\(\sigma_Z^2=\sigma_Y^2=\sigma^2\)`, then
+`$$Var(\bar{Z}-\bar{Y})=\frac{\sigma_Z^2}{n_Z}+\frac{\sigma_Y^2}{n_Y}=\sigma^2\left[\frac{1}{n_Z}+\frac{1}{n_Y}\right]$$`
+
+---
+
+class: middle
+
+# But how can we calculate population variance `\(\sigma\)` if it is **unknown**?
+
+---
+
+
+## ...using the sample variances (combined, somehow)!
+
+.pull-left[
+
+```r
+twoGenes %&gt;%
+  group_by(gene, genotype) %&gt;%
+  summarize(groupVar = var(Expression))
+```
+
+```
+## # A tibble: 4 × 3
+## # Groups:   gene [2]
+##   gene  genotype groupVar
+##   &lt;chr&gt; &lt;fct&gt;       &lt;dbl&gt;
+## 1 Irs4  NrlKO      0.0233
+## 2 Irs4  WT         0.0240
+## 3 Nrl   NrlKO      0.594 
+## 4 Nrl   WT         1.22
+```
+]
+.pull-right[
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-17-1.png" width="540" style="display: block; margin: auto;" /&gt;
+
+For example, for Nrl in WT:
+
+`$$\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2=1.22$$`
+]
+---
+
+# Combining sample variances 
+
+Plug these sample variances into your chosen formula for the variance of the difference of sample means:
+
+* Assuming **equal** variance of Y's and Z's
+
+`$$\hat{V}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\text{pooled}}^2\left[\frac{1}{n_Y}+\frac{1}{n_Z}\right]$$`
+`$$\hat{\sigma}_{\text{pooled}}^2=S_Y^2\frac{n_Y-1}{n_Y+n_Z-2}+S_Z^2\frac{n_z-1}{n_Y+n_Z-2}$$`
+
+
+* Assuming **unequal** variance of Y's and Z's (Welch's t-test)
+`$$\hat{V}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\bar{Z}_n-\bar{Y}_n}^2=\frac{S_Y^2}{n_Y}+\frac{S_Z^2}{n_Z}$$`
+
+&gt; Recall: the 'hat' (^) is used to distinguish an 'estimate' from a 'parameter'
+
+---
+
+
+
+
+
+# Test Statistic
+
+`\(T=\frac{\bar{Z}_n-\bar{Y}_n}{\sqrt{\hat{V}(\bar{Z_n}-\bar{Y_n})}}\)`
+
+
+```r
+meanExp %&gt;% 
+    mutate(t = diffExp / sqrt(s2Diff)) %&gt;%
+    mutate(tWelch = diffExp / sqrt(s2DiffWelch))
+```
+
+```
+## # A tibble: 2 × 8
+## # Groups:   gene [2]
+##   gene  NrlKO    WT diffExp s2DiffWelch  s2Diff  tWelch       t
+##   &lt;chr&gt; &lt;dbl&gt; &lt;dbl&gt;   &lt;dbl&gt;       &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;
+## 1 Irs4   7.74  7.77 -0.0261     0.00243 0.00243  -0.529  -0.529
+## 2 Nrl    6.09 11.2  -5.15       0.0925  0.0942  -17.0   -16.8
+```
+
+Can we now say whether the observed differences are 'big'?
+
+--
+
+The difference is about half a standard deviation for Irs4 and ~17 standard deviations for Nrl
+
+---
+
+# What to do with this statistic?
+
+* The test statistic T is a **random variable** because it's based on our **random sample**
+
+* We need a measure of its **uncertainty** to determine how big T is:
+
+  * If we were to repeat the experiment many times, what's the probability of observing a value of T **as extreme** as the one we observed?
+
+--
+
+* We need a probability distribution!
+
+* However, this is unknown to us so we need to **make more assumptions**
+
+---
+
+# Null distribution assumptions
+
+* If we know how our statistic behaves when the *null hypothesis is true*, then we can evaluate how extreme our observed data is
+
+  * The **null distribution** is the probability distribution of T under H&lt;sub&gt;0&lt;/sub&gt;
+
+* Let's assume that `\(Y_i\)` and `\(Z_i\)` follow (unknown) probability distributions called `\(F\)` and `\(G\)`:  
+`$$(Y_i \sim F, \text{ and } Z_i \sim G)$$`
+
+* Depending on the assumptions we make about `\(F\)` and `\(G\)`, theory tells us specific **null distributions** for our test statistic
+
+
+---
+
+## Willing to assume that F and G are normal distributions?
+
+.pull-left[
+**2-sample *t*-test:**
+ &lt;center&gt; (equal variances)
+`$$T\sim t_{n_Y+n_Z-2}$$`
+]
+.pull-right[
+**Welch's 2-sample *t*-test:**
+&lt;center&gt; (unequal variances)
+`$$T\sim t_{&lt;something\,ugly&gt;}$$`
+]
+
+--
+
+## Unwilling to assume that F and G are normal distributions? But you feel that n&lt;sub&gt;Y&lt;/sub&gt; and n&lt;sub&gt;Z&lt;/sub&gt; are large enough?
+
+Then the t-distributions above or even a normal distribution are decent approximations
+
+---
+
+# Student's *t*-distribution
+
+Recall that T is a **random variable**. Under certain assumptions, we can prove that T follows a *t*-distribution.
+
+
+&lt;img src="img/tdist.png" width="400" style="display: block; margin: auto;" /&gt;
+
+
+
+The *t*-distribution has one parameter: df = degrees of freedom
+
+---
+
+#  Hypothesis testing: Step 1
+
+### 1. Formulate your hypothesis as a statistical hypothesis
+
+In our example:
+
+`$$H_0: \mu_Y = \mu_Z \text{ vs } H_A: \mu_Y \neq \mu_Z$$`
+
+---
+
+# Hypothesis testing: Step 2
+
+### 2a. Define a &lt;font color=red&gt;test statistic&lt;/font&gt;
+
+In our example: 2-sample *t*-test
+
+### 2b. Compute the &lt;font color=red&gt;observed value&lt;/font&gt; for the test statistic
+
+For our two example genes:
+
+
+```r
+twoGenes %&gt;% 
+  group_by(gene) %&gt;%
+  summarize(t = t.test(Expression ~ genotype,
+                            var.equal=TRUE)$statistic)
+```
+
+```
+## # A tibble: 2 × 2
+##   gene        t
+##   &lt;chr&gt;   &lt;dbl&gt;
+## 1 Irs4   -0.529
+## 2 Nrl   -16.8
+```
+
+---
+
+# Hypothesis testing: Step 3
+
+### 3. Compute the probability of seeing a test statistic at least as extreme as that observed, under the null &lt;font color=red&gt;sampling distribution&lt;/font&gt; (this is the definition of the &lt;font color=red&gt;p-value&lt;/font&gt;) 
+
+For our two example genes:
+
+
+```r
+twoGenes %&gt;% 
+  group_by(gene) %&gt;%
+  summarize(pvalue = t.test(Expression ~ genotype,
+                            var.equal=TRUE)$p.value)
+```
+
+```
+## # A tibble: 2 × 2
+##   gene    pvalue
+##   &lt;chr&gt;    &lt;dbl&gt;
+## 1 Irs4  6.00e- 1
+## 2 Nrl   6.73e-19
+```
+
+---
+
+# In other words, assuming that H&lt;sub&gt;0&lt;/sub&gt; is true: 
+
+For Irs4, the probability of seeing a test statistic as extreme as that observed `\((t = -0.53)\)` is pretty high `\((p = 0.6)\)`.
+
+But for Nrl, the probability of seeing a test statistic as extreme as that observed `\((t = -16.8)\)` is extremely low `\((p=6.76 \times 10^{-19})\)`
+
+
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-23-1.png" width="792" style="display: block; margin: auto;" /&gt;
+
+
+---
+
+# Hypothesis Testing: Step 4
+
+### 4. Make a decision about significance of results, based on a pre-specified value (alpha, significance level)
+
+
+The significance level `\(\alpha\)` is often set at 0.05. However, this value is arbitrary and may depend on the study.
+
+
+.pull-left[
+**Irs4**
+
+Using `\(\alpha=0.05\)`, since the p-value for the Irs4 test is greater than 0.05, we conclude that there is &lt;font color=red&gt; not enough evidence &lt;/font&gt; in the data to claim that Irs4 has differential expression in WT compared to NrlKO models. 
+
+We do not reject H&lt;sub&gt;0&lt;/sub&gt;!
+]
+
+.pull-right[
+**Nrl**
+
+Using `\(\alpha=0.05\)`, since the p-value for the Nrl test is much less than 0.05, we conclude that there is &lt;font color=red&gt;significant evidence &lt;/font&gt; in the data to claim that Nrl has differential expression in WT compared to NrlKO models. 
+
+We reject H&lt;sub&gt;0&lt;/sub&gt;!
+]
+
+---
+
+# `t.test` function in R
+
+.pull-left[
+Assuming equal variances
+.smaller[
+
+```r
+twoGenes %&gt;% filter(gene == "Nrl") %&gt;%
+  t.test(Expression ~ genotype, 
+         var.equal=TRUE, data = .)
+```
+
+```
+## 
+## 	Two Sample t-test
+## 
+## data:  Expression by genotype
+## t = -16.798, df = 37, p-value &lt; 2.2e-16
+## alternative hypothesis: true difference in means between group NrlKO and group WT is not equal to 0
+## 95 percent confidence interval:
+##  -5.776672 -4.533071
+## sample estimates:
+## mean in group NrlKO    mean in group WT 
+##            6.089579           11.244451
+```
+]]
+
+.pull-right[
+Assuming equal variances
+.smaller[
+
+```r
+twoGenes %&gt;% filter(gene == "Nrl") %&gt;%
+  t.test(Expression ~ genotype, 
+         var.equal=FALSE, data = .)
+```
+
+```
+## 
+## 	Welch Two Sample t-test
+## 
+## data:  Expression by genotype
+## t = -16.951, df = 34.01, p-value &lt; 2.2e-16
+## alternative hypothesis: true difference in means between group NrlKO and group WT is not equal to 0
+## 95 percent confidence interval:
+##  -5.772864 -4.536879
+## sample estimates:
+## mean in group NrlKO    mean in group WT 
+##            6.089579           11.244451
+```
+]]
+
+
+---
+
+
+# What is a p-value?
+
+Likelihood of obtaining a test statistic at least &lt;font color=green&gt; as extreme as the one observed&lt;/font&gt;, given that the null hypothesis is true (we are making a *conditional probability* statement)
+
+# What is a p-value &lt;font color=red&gt;NOT&lt;/font&gt;?
+
+- Not the probability that the &lt;font color=red&gt;null hypothesis is true&lt;/font&gt;
+
+- Not the probability that the &lt;font color=red&gt;finding is a “fluke”&lt;/font&gt;
+
+- Not the probability of &lt;font color=red&gt;falsely rejecting the null&lt;/font&gt;
+
+- Does not &lt;font color=red&gt;indicate the size or importance&lt;/font&gt; of observed effects. 
+
+---
+
+
+# "Genome-wide" testing of differential expression
+
+- In genomics, we often perform thousands of statistical tests (e.g., a *t*-test per gene)
+
+- The distribution of p-values across all tests provides good diagnostics/insights
+
+- Is it mostly uniform (flat)? If not, is the departure from uniform expected based on biological knowledge?
+
+- We will revisit these topics in greater detail in later lectures
+
+---
+
+# Different kinds of *t*-tests:
+
+
+- One sample *or* **two samples**
+
+- One-sided *or* **two sided**
+
+- Paired *or* **unpaired**
+
+- Equal variance *or* unequal variance
+
+---
+
+
+# Types of Errors in Hypothesis Testing
+
+&lt;img src="img/hypError.png" width="675" style="display: block; margin: auto;" /&gt;
+
+&lt;br&gt;
+$$ \alpha = P(\text{Type I Error}), \text{   } \beta = P(\text{Type II Error}), \text{   Power} = 1- \beta$$ 
+---
+
+# `\(H_0\)`: "*Innocent until proven guilty*"
+
+
+
+* The default state is `\(H_0 \rightarrow\)` we only reject if we have enough evidence
+
+* If `\(H_0\)`: Innocent and `\(H_A\)`: Guilty, then
+
+    * Type I Error `\((\alpha)\)`: Wrongfully convict innocent (*False Positive*)
+    
+    * Type II Error `\((\beta)\)`: Fail to convict criminal (*False Negative*)
+
+---
+
+# What are alternatives to the *t*-test?
+
+
+&lt;div class = "blue"&gt;
+What if you don't wish to assume the underlying data is normally distributed &lt;b&gt;AND&lt;/b&gt; you aren't sure your samples are large enough to invoke CLT? &lt;/div&gt;
+
+* First, one could use the t test statistic but use a **bootstrap approach** to compute its p-value; we'll revisit this topic later
+
+* Alternatively, there are *non-parametric* tests that are available here:
+
+  - **Wilcoxon rank sum test**, aka Mann Whitney, uses ranks to test differences in population means
+
+  - **Kolmogorov-Smirnov test** uses the empirical CDF to test differences in population cumulative distributions
+
+---
+
+
+# Wilcoxon rank sum test
+
+
+Rank all data, **ignoring the grouping** variable
+
+**Test statistic** = sum of the ranks for one group (optionally, subtract the minimum possible which is `\(\frac{n_Y(n_Y+1)}{2}\)`)
+
+(Alternative but equivalent formulation based on the number of `\(y_i, z_i\)` pairs for which `\(y_i \geq z_i\)`)
+
+The null distribution of such statistics can be worked out or approximated
+
+---
+
+# `wilcox.test` function in R
+
+.smaller[
+
+```r
+wilcox.test(Expression ~ genotype, 
+            data = twoGenes  %&gt;% filter(gene == "Irs4"))
+```
+
+```
+## 
+## 	Wilcoxon rank sum exact test
+## 
+## data:  Expression by genotype
+## W = 160, p-value = 0.4115
+## alternative hypothesis: true location shift is not equal to 0
+```
+
+```r
+wilcox.test(Expression ~ genotype, 
+            data = twoGenes  %&gt;% filter(gene == "Nrl"))
+```
+
+```
+## 
+## 	Wilcoxon rank sum exact test
+## 
+## data:  Expression by genotype
+## W = 1, p-value = 5.804e-11
+## alternative hypothesis: true location shift is not equal to 0
+```
+]
+
+---
+
+# Kolmogorov-Smirnov test (two sample)
+
+**Null hypothesis**: F = G, i.e. the distributions are the same
+
+Estimate each CDF with the empirical CDF (ECDF)
+
+`$$\hat{F}(x)=\frac{1}{n}\sum_{i=1}^n{I[x_i\leq{x}]}$$`
+
+**Test statistic** is the maximum of the absolute difference between the ECDFs
+
+`$$max|\hat{F}(x)-\hat{G}(x)|$$`
+
+Null distribution does not depend on F, G (!)
+&lt;br&gt;(I'm suppressing detail here)
+
+---
+
+# Kolmogorov-Smirnov test (two sample)
+
+&lt;img src="lect05-twogroup_files/figure-html/unnamed-chunk-28-1.png" width="1008" style="display: block; margin: auto;" /&gt;
+
+---
+
+# `ks.test` function in R
+
+.smaller2[
+
+```r
+Nrlgene &lt;- twoGenes %&gt;% filter(gene == "Nrl")
+ks.test(Nrlgene$Expression[Nrlgene$genotype == "WT"],
+        Nrlgene$Expression[Nrlgene$genotype == "NrlKO"])
+```
+
+```
+## 
+## 	Two-sample Kolmogorov-Smirnov test
+## 
+## data:  Nrlgene$Expression[Nrlgene$genotype == "WT"] and Nrlgene$Expression[Nrlgene$genotype == "NrlKO"]
+## D = 0.95, p-value = 5.804e-10
+## alternative hypothesis: two-sided
+```
+
+```r
+Irs4gene &lt;- twoGenes %&gt;% filter(gene == "Irs4")
+ks.test(Irs4gene$Expression[Irs4gene$genotype == "WT"],
+        Irs4gene$Expression[Irs4gene$genotype == "NrlKO"])
+```
+
+```
+## 
+## 	Two-sample Kolmogorov-Smirnov test
+## 
+## data:  Irs4gene$Expression[Irs4gene$genotype == "WT"] and Irs4gene$Expression[Irs4gene$genotype == "NrlKO"]
+## D = 0.28421, p-value = 0.3278
+## alternative hypothesis: two-sided
+```
+]
+
+---
+
+
+# Discussion and questions
+
+
+* What if you are unsure whether your sample size is large enough? 
+
+  * Outliers with small samples could be problematic
+
+* Which test result should one report ... the 2-sample *t*-test, the Wilcoxon, or the KS?
+
+* Treat p-values as one type of evidence that you should incorporate with others
+
+* It is worrisome when methods that are equally appropriate and defensible give very different answers
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
