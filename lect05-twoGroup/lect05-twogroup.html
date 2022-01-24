@@ -122,7 +122,7 @@ We can use **statistical inference** to answer this biological question!
 
 **Statistical inference**:
 
-We observe and study a **random sample** to make conclusions about a population (e.g., random sample of gene expressions from mice)
+We observe and study a **random sample** to make conclusions about a population (e.g. gene expression measurements from a random sample of mice)
 
 
 .pull-left[
@@ -376,12 +376,12 @@ Plug these sample variances into your chosen formula for the variance of the dif
 
 * Assuming **equal** variance of Y's and Z's
 
-`$$\hat{V}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\text{pooled}}^2\left[\frac{1}{n_Y}+\frac{1}{n_Z}\right]$$`
+`$$\hat{Var}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\text{pooled}}^2\left[\frac{1}{n_Y}+\frac{1}{n_Z}\right]$$`
 `$$\hat{\sigma}_{\text{pooled}}^2=S_Y^2\frac{n_Y-1}{n_Y+n_Z-2}+S_Z^2\frac{n_z-1}{n_Y+n_Z-2}$$`
 
 
 * Assuming **unequal** variance of Y's and Z's (Welch's t-test)
-`$$\hat{V}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\bar{Z}_n-\bar{Y}_n}^2=\frac{S_Y^2}{n_Y}+\frac{S_Z^2}{n_Z}$$`
+`$$\hat{Var}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\bar{Z}_n-\bar{Y}_n}^2=\frac{S_Y^2}{n_Y}+\frac{S_Z^2}{n_Z}$$`
 
 &gt; Recall: the 'hat' (^) is used to distinguish an 'estimate' from a 'parameter'
 
@@ -393,7 +393,7 @@ Plug these sample variances into your chosen formula for the variance of the dif
 
 # Test Statistic
 
-`\(T=\frac{\bar{Z}_n-\bar{Y}_n}{\sqrt{\hat{V}(\bar{Z_n}-\bar{Y_n})}}\)`
+`\(T=\frac{\bar{Z}_n-\bar{Y}_n}{\sqrt{\hat{Var}(\bar{Z_n}-\bar{Y_n})}}\)`
 
 
 ```r
@@ -466,20 +466,20 @@ The difference is about half a standard deviation for Irs4 and ~17 standard devi
 
 ## Unwilling to assume that F and G are normal distributions? But you feel that n&lt;sub&gt;Y&lt;/sub&gt; and n&lt;sub&gt;Z&lt;/sub&gt; are large enough?
 
-Then the t-distributions above or even a normal distribution are decent approximations
+Then the t-distributions above (or even a normal distribution) are decent approximations
 
 ---
 
 # Student's *t*-distribution
 
-Recall that T is a **random variable**. Under certain assumptions, we can prove that T follows a *t*-distribution.
+Summary: `\(T=\frac{\bar{Z}_n-\bar{Y}_n}{\sqrt{\hat{Var}(\bar{Z_n}-\bar{Y_n})}}\)` is a **random variable**, and under certain assumptions, we can prove that T follows a *t*-distribution
 
 
 &lt;img src="img/tdist.png" width="400" style="display: block; margin: auto;" /&gt;
 
 
 
-The *t*-distribution has one parameter: df = degrees of freedom
+Recall that the *t*-distribution has one parameter: df = degrees of freedom
 
 ---
 
@@ -587,7 +587,7 @@ We reject H&lt;sub&gt;0&lt;/sub&gt;!
 
 .pull-left[
 Assuming equal variances
-.smaller[
+.smaller2[
 
 ```r
 twoGenes %&gt;% filter(gene == "Nrl") %&gt;%
@@ -612,7 +612,7 @@ twoGenes %&gt;% filter(gene == "Nrl") %&gt;%
 
 .pull-right[
 Assuming equal variances
-.smaller[
+.smaller2[
 
 ```r
 twoGenes %&gt;% filter(gene == "Nrl") %&gt;%
@@ -635,6 +635,7 @@ twoGenes %&gt;% filter(gene == "Nrl") %&gt;%
 ```
 ]]
 
+Check out `?t.test` for more options, including how to specify one-sided tests
 
 ---
 
@@ -651,7 +652,7 @@ Likelihood of obtaining a test statistic at least &lt;font color=green&gt; as ex
 
 - Not the probability of &lt;font color=red&gt;falsely rejecting the null&lt;/font&gt;
 
-- Does not &lt;font color=red&gt;indicate the size or importance&lt;/font&gt; of observed effects. 
+- Does not &lt;font color=red&gt;indicate the size or importance&lt;/font&gt; of observed effects
 
 ---
 
@@ -712,7 +713,7 @@ What if you don't wish to assume the underlying data is normally distributed &lt
 
 * First, one could use the t test statistic but use a **bootstrap approach** to compute its p-value; we'll revisit this topic later
 
-* Alternatively, there are *non-parametric* tests that are available here:
+* Alternatively, there are *non-parametric* tests that are available:
 
   - **Wilcoxon rank sum test**, aka Mann Whitney, uses ranks to test differences in population means
 

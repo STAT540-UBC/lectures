@@ -150,7 +150,7 @@ We can use **statistical inference** to answer this biological question!
 
 **Statistical inference**:
 
-We observe and study a **random sample** to make conclusions about a population (e.g., random sample of gene expressions from mice)
+We observe and study a **random sample** to make conclusions about a population (e.g. gene expression measurements from a random sample of mice)
 
 
 .pull-left[
@@ -330,35 +330,8 @@ $\mu_Z = E[Z]$ : the (population) expected expression of gene $g$ in NrlKO mice
 
 ```{r echo=FALSE, fig.height=4.8, fig.width = 11, warning = FALSE, fig.align='center'}
 
-irsMean <-   irsLim +
-             stat_summary(geom = 'point',
-                          fun = 'mean',
-                          color = 'black',
-                          fill = 'black',
-                          shape = 17,
-                          size = 2) +
-             stat_summary(aes(label=paste("mean = ",round(..y..,2))), 
-                          fun = mean, 
-                          geom="text",
-                          color = 'black',
-                          size=5, 
-                          vjust = 3)
 
-nrlMean <-   nrlLim +
-             stat_summary(geom = 'point',
-                          fun = 'mean',
-                          color = 'black',
-                          fill = 'black',
-                          shape = 17,
-                          size = 2) +
-             stat_summary(aes(label=paste("mean = ",round(..y..,2))),
-                          fun = mean, 
-                          geom="text",
-                          color = 'black',
-                          size=5, 
-                          vjust = 3)
-
-grid.arrange(irsMean + ylim(5, 13), nrlMean + ylim(5, 13), ncol = 2)
+grid.arrange(irsLim + ylim(5, 13), nrlLim + ylim(5, 13), ncol = 2)
 
 ```
 
@@ -393,6 +366,34 @@ This code uses [tidy data wrangling functions](https://www.rstudio.com/wp-conten
 ## Is the difference between $\bar{Y}$ and $\bar{Z}$ enough to reject H<sub>0</sub>?
 
 ``` {r echo=FALSE,fig.height=4.2, fig.width=10, fig.align="center"}
+irsMean <-   irsLim +
+             stat_summary(geom = 'point',
+                          fun = 'mean',
+                          color = 'black',
+                          fill = 'black',
+                          shape = 17,
+                          size = 2) +
+             stat_summary(aes(label=paste("mean = ",round(..y..,2))), 
+                          fun = mean, 
+                          geom="text",
+                          color = 'black',
+                          size=5, 
+                          vjust = 3)
+
+nrlMean <-   nrlLim +
+             stat_summary(geom = 'point',
+                          fun = 'mean',
+                          color = 'black',
+                          fill = 'black',
+                          shape = 17,
+                          size = 2) +
+             stat_summary(aes(label=paste("mean = ",round(..y..,2))),
+                          fun = mean, 
+                          geom="text",
+                          color = 'black',
+                          size=5, 
+                          vjust = 3)
+                          
 grid.arrange(irsMean + ylim(5, 13), nrlMean + ylim(5, 13), ncol = 2)
 ```
 
@@ -501,12 +502,12 @@ Plug these sample variances into your chosen formula for the variance of the dif
 
 * Assuming **equal** variance of Y's and Z's
 
-$$\hat{V}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\text{pooled}}^2\left[\frac{1}{n_Y}+\frac{1}{n_Z}\right]$$
+$$\hat{Var}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\text{pooled}}^2\left[\frac{1}{n_Y}+\frac{1}{n_Z}\right]$$
 $$\hat{\sigma}_{\text{pooled}}^2=S_Y^2\frac{n_Y-1}{n_Y+n_Z-2}+S_Z^2\frac{n_z-1}{n_Y+n_Z-2}$$
 
 
 * Assuming **unequal** variance of Y's and Z's (Welch's t-test)
-$$\hat{V}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\bar{Z}_n-\bar{Y}_n}^2=\frac{S_Y^2}{n_Y}+\frac{S_Z^2}{n_Z}$$
+$$\hat{Var}(\bar{Z_n}-\bar{Y_n})=\hat{\sigma}_{\bar{Z}_n-\bar{Y}_n}^2=\frac{S_Y^2}{n_Y}+\frac{S_Z^2}{n_Z}$$
 
 > Recall: the 'hat' (^) is used to distinguish an 'estimate' from a 'parameter'
 
@@ -561,7 +562,7 @@ by(twoGenes, twoGenes$gene, function(theDat) {
 
 # Test Statistic
 
-$T=\frac{\bar{Z}_n-\bar{Y}_n}{\sqrt{\hat{V}(\bar{Z_n}-\bar{Y_n})}}$
+$T=\frac{\bar{Z}_n-\bar{Y}_n}{\sqrt{\hat{Var}(\bar{Z_n}-\bar{Y_n})}}$
 
 ```{r}
 meanExp %>% 
@@ -624,13 +625,13 @@ $$T\sim t_{<something\,ugly>}$$
 
 ## Unwilling to assume that F and G are normal distributions? But you feel that n<sub>Y</sub> and n<sub>Z</sub> are large enough?
 
-Then the t-distributions above or even a normal distribution are decent approximations
+Then the t-distributions above (or even a normal distribution) are decent approximations
 
 ---
 
 # Student's *t*-distribution
 
-Recall that T is a **random variable**. Under certain assumptions, we can prove that T follows a *t*-distribution.
+Summary: $T=\frac{\bar{Z}_n-\bar{Y}_n}{\sqrt{\hat{Var}(\bar{Z_n}-\bar{Y_n})}}$ is a **random variable**, and under certain assumptions, we can prove that T follows a *t*-distribution
 
 
 ```{r, fig.align="center", echo = FALSE, out.width=400}
@@ -639,7 +640,7 @@ knitr::include_graphics("img/tdist.png")
 
 
 
-The *t*-distribution has one parameter: df = degrees of freedom
+Recall that the *t*-distribution has one parameter: df = degrees of freedom
 
 ---
 
@@ -694,7 +695,7 @@ For Irs4, the probability of seeing a test statistic as extreme as that observed
 But for Nrl, the probability of seeing a test statistic as extreme as that observed $(t = -16.8)$ is extremely low $(p=6.76 \times 10^{-19})$
 
 
-```{r echo=FALSE, fig.height=5, fig.width=11, warning = FALSE, fig.align='center'}
+```{r echo=FALSE, fig.height=4.75, fig.width=11, warning = FALSE, fig.align='center'}
 
 # function modified from webr package to plot tail area of t-test
 plot.test=function(x,...){
@@ -837,7 +838,7 @@ We reject H<sub>0</sub>!
 
 .pull-left[
 Assuming equal variances
-.smaller[
+.smaller2[
 ```{r, linewidth=50}
 twoGenes %>% filter(gene == "Nrl") %>%
   t.test(Expression ~ genotype, 
@@ -847,7 +848,7 @@ twoGenes %>% filter(gene == "Nrl") %>%
 
 .pull-right[
 Assuming equal variances
-.smaller[
+.smaller2[
 ```{r, linewidth=50}
 twoGenes %>% filter(gene == "Nrl") %>%
   t.test(Expression ~ genotype, 
@@ -855,6 +856,7 @@ twoGenes %>% filter(gene == "Nrl") %>%
 ```
 ]]
 
+Check out `?t.test` for more options, including how to specify one-sided tests
 
 ---
 
@@ -871,7 +873,7 @@ Likelihood of obtaining a test statistic at least <font color=green> as extreme 
 
 - Not the probability of <font color=red>falsely rejecting the null</font>
 
-- Does not <font color=red>indicate the size or importance</font> of observed effects. 
+- Does not <font color=red>indicate the size or importance</font> of observed effects
 
 ---
 
@@ -934,7 +936,7 @@ What if you don't wish to assume the underlying data is normally distributed <b>
 
 * First, one could use the t test statistic but use a **bootstrap approach** to compute its p-value; we'll revisit this topic later
 
-* Alternatively, there are *non-parametric* tests that are available here:
+* Alternatively, there are *non-parametric* tests that are available:
 
   - **Wilcoxon rank sum test**, aka Mann Whitney, uses ranks to test differences in population means
 
@@ -1013,7 +1015,7 @@ p1 <- twoGenes %>%
 ggplot(aes(x = Expression, group = genotype, color = genotype))+
   stat_ecdf(size=1) +
     theme(legend.position ="top") +
-    xlab("Sample") +
+    xlab("Expression") +
     ylab("ECDF") +
     #geom_line(size=1) +
     geom_segment(aes(x = x0[1], y = y0[1], xend = x0[1], yend = y1[1]),
@@ -1047,7 +1049,7 @@ p2 <- twoGenes %>%
 ggplot(aes(x = Expression, group = genotype, color = genotype))+
   stat_ecdf(size=1) +
     theme(legend.position ="top") +
-    xlab("Sample") +
+    xlab("Expression") +
     ylab("ECDF") +
     #geom_line(size=1) +
     geom_segment(aes(x = x02[1], y = y02[1], xend = x02[1], yend = y12[1]),
