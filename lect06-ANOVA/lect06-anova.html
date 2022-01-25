@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Linear models and ANOVA</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="  Keegan Korthauer " />
+    <script src="libs/header-attrs-2.11/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <big><big>Linear models and ANOVA</big></big>
+### <br><font size=6> Keegan Korthauer </font>
+### <font size=6> 26 January 2022 </font> <br><br><font size=4> with slide contributions from Gabriela Cohen Freue and Jenny Bryan </font>
+
+---
+
+
+
+
+
+
+&lt;style type="text/css"&gt;
+pre {
+  white-space: pre-wrap;
+}
+.remark-code {
+  background: #f8f8f8;
+}
+.remark-inline-code {
+  background: "white";
+}
+.remark-code {
+  font-size: 22px;
+}
+.huge .remark-code { /*Change made here*/
+  font-size: 200% !important;
+}
+.tiny .remark-code { /*Change made here*/
+  font-size: 60% !important;
+}
+.smaller .remark-code { /*Change made here*/
+  font-size: 90% !important;
+}
+.smaller2 .remark-code { /*Change made here*/
+  font-size: 80% !important;
+}
+.smaller3 .remark-code { /*Change made here*/
+  font-size: 70% !important;
+}
+&lt;/style&gt;
+
+&lt;style&gt;
+div.blue { background-color:#e8f2f6; border-radius: 5px; padding: 20px;}
+&lt;/style&gt;
+
+## Recap: Are these genes different in NrlKO vs WT?
+
+H&lt;sub&gt;0&lt;/sub&gt;: the expression level of gene `\(g\)` is the same in both conditions
+
+Is there **enough** evidence in the data to reject H&lt;sub&gt;0&lt;/sub&gt;?
+
+
+
+
+&lt;img src="lect06-anova_files/figure-html/unnamed-chunk-4-1.png" width="792" style="display: block; margin: auto;" /&gt;
+
+---
+
+## **Statistics**: learn about a population from a random sample
+
+.pull-left[
+&lt;center&gt;**Population** (Unknown)
+`$$Y \sim F, \,\, Z \sim G$$`
+`$$E[Y] = \mu_Y, \,\, E[Z] = \mu_Z$$`
+`$$Var[Y] = {\sigma}_Y^2,\,\, Var[Z] = {\sigma}_Z^2$$`
+`$$H_0: \mu_Y = \mu_Z$$`
+
+`$$H_A: \mu_Y \neq \mu_Z$$`
+
+]
+.pull-right[
+&lt;center&gt; **Sample** (Observed, with randomness)
+
+`$$(Y_1, Y_2, ..., Y_{n_Y}) \text{ and } (Z_1, Z_2, ..., Z_{n_Z})$$`
+`\(\hat{\mu}_Y = \bar{Y} = \frac{\sum_{i=1}^{n_Y} Y_i}{n_Y}\)`
+
+`\(\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2\)`
+
+(with similar quantities for `\(Z:\)` `\(\bar{Z}\)` and `\(S^2_Z)\)`
+
+`\(T = \frac{\bar{Y}-\bar{Z}}{\sqrt{\hat{Var}(\bar{Y}-\bar{Z}))}}\)`
+
+`\(\bar{Y}, \bar{Z}, S^2_Y, S^2_Z\)` and `\(T\)` are examples of **statistics** computed from the sample
+]
+
+---
+
+# Summary: Hypothesis testing
+
+1. Formulate scientific hypothesis as a **statistical hypothesis** `\((H_0 \text{ vs } H_A)\)`
+
+2. Define a **test statistic** to test `\(H_0\)` and compute its **observed value**. For example:
+
+  - 2-sample *t*-test
+  - Welch *t*-test (unequal variance)
+  - Wilcoxon rank-sum test
+  - Kolmogorov-Smirnov test
+
+3. Compute the probability of seeing a test statistic as extreme as that observed, under the **null sampling distribution** (p-value) 
+4. Make a decision about the **significance** of the results, based on a pre-specified significance level ( `\(\alpha\)` )
+---
+
+# We can run these tests in R 
+
+Example: use the `t.test` function to test `\(H_0\)` using a classical 2-sample *t*-test with equal variance.
+.smaller[
+
+```r
+filter(twoGenes, gene == "Irs4") %&gt;%
+  t.test(expression ~ genotype, data = ., var.equal = TRUE)
+```
+
+```
+## 
+## 	Two Sample t-test
+## 
+## data:  expression by genotype
+## t = 0.52854, df = 37, p-value = 0.6003
+## alternative hypothesis: true difference in means between group WT and group NrlKO is not equal to 0
+## 95 percent confidence interval:
+##  -0.07384018  0.12595821
+## sample estimates:
+##    mean in group WT mean in group NrlKO 
+##            7.765671            7.739612
+```
+]
+---
+
+# Which test should I use??
+
+* How to decide which test to carry out (e.g. t-test, Wilcoxon, KS)?
+
+* Are assumptions met for each one?
+
+  * If so, parametric tests (e.g. t-test) tend to have slightly higher power (ability to reject H&lt;sub&gt;0&lt;/sub&gt; when H&lt;sub&gt;0&lt;/sub&gt; is false)
+  
+  * But if assumptions are potentially violated, non-parametric tests (Wilcoxon, KS) are a safer choice (albeit conservative)
+
+
+
+---
+
+# Today's Learning Objectives
+
+1. Compare means of different groups (2 or more) using a **linear regression model**
+
+  - Understand how 'indicator' variables represent the levels of a qualitative explanatory variable
+
+2. Write a linear model using matrix notation
+
+  - understand which matrix is built by R
+  
+3. Distinguish between **single** and **joint** hypothesis tests
+
+  - e.g. `\(t\)`-tests vs `\(F\)`-tests
+  
+---
+
+# 3 ways to test `\(H_0: \mu_1 = \mu_2\)`
+
+**2-sample t-test (with equal variance)**
+.smaller[
+
+```r
+filter(twoGenes, gene == "Irs4") %&gt;%
+  t.test(expression ~ genotype, data = ., var.equal = TRUE)
+```
+]
+
+**(One-way) Analysis of Variance (ANOVA)**
+.smaller[
+
+```r
+filter(twoGenes, gene == "Irs4") %&gt;%
+  aov(expression ~ genotype, data = .) %&gt;%
+  summary()
+```
+]
+
+**Linear regression model**
+.smaller[
+
+```r
+filter(twoGenes, gene == "Irs4") %&gt;%
+  lm(expression ~ genotype, data = .) %&gt;%
+  summary()
+```
+]
+
+---
+
+# All three methods give the same result!&lt;sup&gt;*&lt;/sup&gt;
+
+.pull-left[
+.smaller[
+**2-sample t-test (equal variance)**
+
+
+```
+##
+## Two Sample t-test
+##
+## data: expression by genotype
+*## t = 0.52854, df = 37, p-value = 0.6003
+## alternative hypothesis: true difference
+in means between group WT and group NrlKO
+is not equal to 0
+## 95 percent confidence interval:
+## -0.07384018 0.12595821
+## sample estimates:
+## mean in group WT mean in group NrlKO
+## 7.765671 7.739612
+```
+
+&lt;small&gt;
+&lt;sup&gt;*&lt;/sup&gt;Note differences in sign between t-test &amp; linear regression: pay attention to which group is 'reference'
+&lt;/small&gt;
+]]
+
+.pull-right[
+.smaller[
+**(One-way) Analysis of Variance (ANOVA)**
+
+```
+## Df Sum Sq Mean Sq F value Pr(&gt;F)
+*## genotype 1 0.0066 0.006617 0.279 0.6
+## Residuals 37 0.8764 0.023685
+```
+**Linear regression model**
+
+```
+## Coefficients:
+## Estimate Std. Error t value Pr(&gt;|t|)
+## (Intercept) 7.76567 0.03441 225.659 &lt;2e-16 ***
+*## genotypeNrlKO -0.02606 0.04930 -0.529 0.6
+```
+]]
+
+
+---
+# These are not coincidences!
+
+.pull-left[
+.smaller[
+**2-sample t-test (equal variance)**
+
+
+```
+## $`t statistic`
+##         t 
+## 0.5285386 
+## 
+## $`p-value`
+## [1] 0.6002819
+## 
+## $`mean difference`
+## [1] 0.02605902
+## 
+## $`(t statistic)^2`
+##        t 
+## 0.279353
+```
+]]
+
+.pull-right[
+.smaller[
+**(One-way) Analysis of Variance (ANOVA)**
+
+```
+## $`F statistic`
+## [1] 0.279353
+## 
+## $`p-value`
+## [1] 0.6002819
+```
+**Linear regression model**
+
+```
+## $`t statistic`
+## [1] -0.5285386
+## 
+## $`p-value`
+## [1] 0.6002819
+## 
+## $`coefficient estimate`
+## [1] -0.02605902
+```
+]]
+
+---
+
+## *t*-test vs linear regression: why the same results?
+
+.smaller[
+
+```r
+list("t statistic" = irs4.ttest$statistic, 
+     "p-value" = irs4.ttest$p.value)
+```
+
+```
+## $`t statistic`
+##         t 
+## 0.5285386 
+## 
+## $`p-value`
+## [1] 0.6002819
+```
+
+
+
+```r
+list("t statistic" = irs4.lm$coeff[2,3],
+     "p-value" = irs4.lm$coeff[2,4])
+```
+
+```
+## $`t statistic`
+## [1] -0.5285386
+## 
+## $`p-value`
+## [1] 0.6002819
+```
+]
+
+---
+
+## *t*-test vs linear regression: where's the *line*?
+
+&lt;img src="lect06-anova_files/figure-html/unnamed-chunk-17-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+--
+
+Note that the `\(x\)`-axis in these plots is not numerical, thus a line in this space does not have any mathematical meaning. 
+
+&lt;div class = "blue"&gt;
+Why can we run a t-test with a &lt;font color = "red"&gt;linear&lt;/font&gt; regression model?
+&lt;/div&gt;
+---
+
+# From *t*-test to linear regression
+
+
+Let's change the notation to give a common framework to all methods
+
+`$$Y \sim G; \; E[Y] = \mu_Y$$`
+ &lt;center&gt; **↓** &lt;/center&gt;
+
+`$$Y = \mu_Y + \varepsilon_Y; \; \varepsilon_Y \sim G; \; E[\varepsilon_Y] = 0$$` 
+
+--
+
+### Why is this equivalent?
+
+`$$E[Y] = E[\mu_Y + \varepsilon_Y] = \mu_Y + E[\varepsilon_Y] = \mu_Y$$`
+We are just rewriting `\(Y\)` here
+
+---
+
+# From *t*-test to linear regression
+
+
+Let's change the notation to give a common framework to all methods
+
+`$$Y \sim G; \; E[Y] = \mu_Y$$`
+ &lt;center&gt; **↓** &lt;/center&gt;
+
+`$$Y = \mu_Y + \varepsilon_Y; \; \varepsilon_Y \sim G; \; E[\varepsilon_Y] = 0$$` 
+
+
+### We can use indices to accommodate multiple groups, i.e., 
+
+&lt;font size=5&gt; `$$Y_{ij} = \mu_j + \varepsilon_{ij};\; \; \varepsilon_{ij} \sim G_j; \; \;E[\varepsilon_{ij}] = 0;$$` &lt;/font&gt;
+&lt;br&gt;
+where `\(j = \textrm{\{WT, NrlKO}\}\)` (or `\(j=\textrm{\{1, 2}\}\)` ) identifies the groups; 
+and `\(i=1, \ldots, n_j\)` identifies the observations within each group
+&lt;br&gt;
+
+--
+
+ &gt; For example: `\(Y_{11}\)` is the first observation in group 1 or WT
+ 
+---
+
+# This is called the **cell-means model**
+
+The goal is to test `\(H_0 : \mu_1 = \mu_2\)`
+
+using data from the model
+
+`$$Y_{ij} = \mu_j + \varepsilon_{ij};\; \; \varepsilon_{ij} \sim G; \; \;E[\varepsilon_{ij}] = 0;$$`
+&lt;br&gt;
+where `\(j\)` indexes groups (e.g. WT vs NrlKO) and `\(i\)` indexes samples within group
+&lt;br&gt;
+
+&gt; We assume a common distribution `\(G\)` for all groups (equal variance assumption)
+
+--
+
+### Note that the population means are given by `\(E[Y_{ij}] = \mu_j\)`, i.e., the model is written with a &lt;font color = "red"&gt;cell-means&lt;/font&gt; `\((\mu_j)\)` parametrization
+
+--
+
+Why the name? 'Cell' here refers to a cell of a table - e.g. make a table of means by group, and `\(\mu_j\)` represents the population value for each cell `\(j\)` in the table
+
+---
+
+## Recall: sample mean estimator of population mean 
+
+Note that for each group, the **population** mean is given by 
+ `$$E[Y_{ij}] = \mu_j,$$` 
+
+* A natural *estimator* of the population mean is the &lt;font color = "red"&gt;**sample**&lt;/font&gt; mean
+
+* Classical hypothesis testing methods use the group sample means as estimators
+
+* See, for example, the `t.test` function in R:
+
+
+```r
+irs4.ttest$estimate
+```
+
+```
+##    mean in group WT mean in group NrlKO 
+##            7.765671            7.739612
+```
+
+---
+
+## However, the `lm` function reports other estimates; &lt;font color = "red"&gt;why?&lt;/font&gt;  
+
+
+
+
+```r
+irs4.ttest$estimate
+```
+
+```
+##    mean in group WT mean in group NrlKO 
+##            7.765671            7.739612
+```
+
+```r
+irs4.lm$coefficients[,1]
+```
+
+```
+##   (Intercept) genotypeNrlKO 
+##    7.76567142   -0.02605902
+```
+
+--
+
+&lt;big&gt;
+&lt;center&gt; **↓**
+&lt;br&gt;
+.pull-left[
+`(Intercept)` estimate from `lm` is the **sample mean** of WT group 
+]
+.pull-right[
+but `genotypeNrlKO` estimate from `lm` is **not** the sample mean of the NrlKO group. What is it then?
+]
+---
+
+## Parameterization: how to write the model?
+
+- By default, the `lm` function does not use the cell-means parameterization 
+
+- The goal is to *compare* the means, not to study each in isolation
+
+Let's reformulate from &lt;font color=red&gt;**cell-means**&lt;/font&gt; `\((\mu_j)\)`:  `$$Y_{ij} = \mu_j + \varepsilon_{ij};\; \; \varepsilon_{ij} \sim G; \; \;E[\varepsilon_{ij}] = 0;$$`
+
+**&lt;center&gt;↓&lt;/center&gt;**
+
+to &lt;font color = "red"&gt;**reference-treatment effect**&lt;/font&gt; `\((\theta,\tau_j)\)`: `$$Y_{ij} = \theta+\tau_j + \varepsilon_{ij};\; \; \tau_1=0, \; \; \varepsilon_{ij} \sim G; \; \;E[\varepsilon_{ij}] = 0;$$`
+
+--
+
+* Note that for each group, the population mean is given by `\(E[Y_{ij}] = \theta+\tau_j=\mu_j,\)`
+and `\(\tau_2=\mu_2-\mu_1=E[Y_{i2}] -E[Y_{i1}]\)` *compares* the means
+
+* `\(\tau_1\)` must be set to zero, since group 1 is the *reference* group
+---
+
+
+## Relation between parameterizations
+
+&lt;img src="img/param_2.png" width="800" style="display: block; margin: auto;" /&gt;
+
+---
+
+## `lm` output
+
+* the sample mean of the **reference** group (WT): `\(\hat\theta\)` 
+*  **treatment effect**: `\(\hat\tau_2\)`
+  * i.e., difference between the sample means of both groups
+ 
+For gene Irs4:
+
+
+.smaller2[ 
+
+```r
+irs4.lm$coefficients[, 1]
+```
+
+```
+##   (Intercept) genotypeNrlKO 
+##    7.76567142   -0.02605902
+```
+
+```r
+irs4.means$meanExpr[irs4.means$genotype == "WT"]
+```
+
+```
+## [1] 7.765671
+```
+
+```r
+irs4.means$meanExpr[irs4.means$genotype == "NrlKO"] -
+    irs4.means$meanExpr[irs4.means$genotype == "WT"]
+```
+
+```
+## [1] -0.02605902
+```
+]
+
+---
+
+## `lm` output
+
+* the sample mean of the **reference** group (WT): `\(\hat\theta\)` 
+*  **treatment effect**: `\(\hat\tau_2\)`
+  * i.e., difference between the sample means of both groups
+ 
+For gene Nrl:
+
+
+.smaller2[ 
+
+```r
+nrl.lm$coefficients[, 1]
+```
+
+```
+##   (Intercept) genotypeNrlKO 
+##     11.244451     -5.154872
+```
+
+```r
+nrl.means$meanExpr[nrl.means$genotype == "WT"]
+```
+
+```
+## [1] 11.24445
+```
+
+```r
+nrl.means$meanExpr[nrl.means$genotype == "NrlKO"] -
+    nrl.means$meanExpr[nrl.means$genotype == "WT"]
+```
+
+```
+## [1] -5.154872
+```
+]
+
+---
+
+## We still haven't answered our question ... where's the line?? 
+
+&lt;Big&gt; 
+`$$Y_{ij} = \theta+\tau_j + \varepsilon_{ij};\; \; \tau_1=0, \; \; \varepsilon_{ij} \sim G; \; \;E[\varepsilon_{ij}] = 0;$$`
+
+&lt;img src="lect06-anova_files/figure-html/unnamed-chunk-26-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Indicator variables
+
+&lt;big&gt;
+
+Let's re-write our model using **indicator** (aka 'dummy') variables:
+
+`$$Y_{ij} = \theta+\tau_j + \varepsilon_{ij}\;\; \text{where} \; \; \tau_1=0; \; \; \varepsilon_{ij} \sim G; \; \;E[\varepsilon_{ij}] = 0;$$`
+**&lt;center&gt;↓&lt;/center&gt;**
+
+`$$Y_{ij} = \theta+\tau_2 x_{ij} + \varepsilon_{ij} \;\; \text{where} \; \; x_{ij}=\bigg\{\begin{array}{l} 
+1\text{ if } j=2\\
+0 \text{ otherwise}\\
+\end{array}$$`
+
+--
+
+&gt; Note that `\(Y_{i1} = \theta + \varepsilon_{i1}\)`, because `\(x_{i1}=0\)` 
+&gt; and `\(Y_{i2} = \theta + \tau_2+ \varepsilon_{i2}\)`, because `\(x_{i2}=1\)` (for all `\(i\)`)
+
+The second form is written as a *linear* ( `\(y=a + bx +\varepsilon\)` ) regression model, with a special (**indicator**) explanatory variable `\(x_{ij}\)`
+---
+
+
+  
+### Using indicator variables to model our categorical variable `genotype` &lt;br&gt; we can perform a  &lt;font color = "red"&gt;2-sample *t*-test&lt;/font&gt; with a linear model
+
+`$$Y_{ij} = \theta+\tau_2 x_{ij} + \varepsilon_{ij}\;\text{where}\; \; x_{ij}=\bigg\{\begin{array}{l}
+1 \text{ if } j=2\\
+0 \text{ if } j=1\\
+\end{array}$$`
+
+- Recall that `\(\tau_2 = \mu_2 - \mu_1\)`
+
+- The *t*-test in the linear model is carried out on `\(H_0: \tau_2 = 0\)`, where `\(\tau_2\)` is the difference in population means (here NrlKO - WT)
+
+.smaller[
+.pull-left[
+
+```r
+list("t statistic"=irs4.ttest$stat,
+     "p-value"=irs4.ttest$p.value)
+```
+
+```
+## $`t statistic`
+##         t 
+## 0.5285386 
+## 
+## $`p-value`
+## [1] 0.6002819
+```
+]
+.pull-right[
+
+```r
+list("t statistic"=irs4.lm$coeff[2,3],
+     "p-value"=irs4.lm$coeff[2,4])
+```
+
+```
+## $`t statistic`
+## [1] -0.5285386
+## 
+## $`p-value`
+## [1] 0.6002819
+```
+]
+]
+
+---
+
+## Beyond 2-group comparisons
+
+&lt;img src="img/more_2_groups.png" width="700" style="display: block; margin: auto;" /&gt;
+
+---
+
+### Indicator variables can be used to model one *or more* categorical variables, each with 2 *or more* levels!
+
+**2-sample *t*-test** using a linear model
+
+`$$Y_{ij} = \theta+\tau_2 x_{ij} + \varepsilon_{ij}\;\; \text{where} \; \; x_{ij}=\bigg\{\begin{array}{l}
+1 \text{ if } j=2\\
+0 \text{ if } j=1\\
+\end{array}$$`
+
+**1-way ANOVA with many levels** `\(^{*}\)` using a linear model - e.g for 3 groups:
+`$$Y_{ij} = \theta+\tau_2 x_{ij2} + \tau_3 x_{ij3} +\varepsilon_{ij}\;\; \text{where} \; x_{ij2}=\bigg\{\begin{array}{l}
+1\text{ if } j=2\\
+0 \text{ otherwise}\\
+\end{array}\; \text{ and } \; x_{ij3}=\bigg\{\begin{array}{l}
+1\text{ if } j=3\\
+0 \text{ otherwise}\\
+\end{array}$$`
+
+&lt;div class = "blue"&gt;
+This is why R can estimate all of them with &lt;tt&gt;lm()&lt;/tt&gt;
+&lt;/div&gt;
+
+&lt;small&gt;
+`\(^{*}\)` in general; yet *another* parameterization can be used to present ANOVA 
+
+---
+
+### **t-test**
+  &gt; Special case of &lt;font color = "red"&gt;ANOVA&lt;/font&gt;, but with ANOVA you can compare **more than two groups** and **more than one factor**.
+  
+    
+### **ANOVA**
+
+  &gt; Special case of &lt;font color = "red"&gt;linear regression&lt;/font&gt;, but with linear regression you can include **quantitative variables** in the model. 
+  
+  
+### **Linear regression**
+
+  &gt; Provides a unifying framework to model the association between a response and **many quantitative and qualitative variables**. 
+
+**In R:** all three can be computed using the `lm()` function. 
+---
+
+# Linear models using matrix notation
+
+&lt;img src="img/linear_form.png" width="700" style="display: block; margin: auto;" /&gt;
+
+### It will become handy to write our model using matrix notation
+
+---
+
+## Let's form a design matrix `\((X)\)` for a 3-group comparison
+
+`$$Y_{ij} = \theta+\tau_2  x_{ij2} + \tau_3 x_{ij3} +\varepsilon_{ij}$$`
+&lt;div style= "float:right; position: relative; top: -25px;"&gt;
+&lt;img src="img/model_matrix_I.png" width="600" style="display: block; margin: auto 0 auto auto;" /&gt;
+&lt;/div&gt;
+
+First column in `\(X\)` for reference treatment parameterization is all 1s
+
+Second &amp; third columns contain `\(x_{ij2}\)` and `\(x_{ij3}\)`:
+
+* `\(x_{i12}=x_{i13}=0\)` for the reference group
+
+* `\(x_{i22}=1\)` for the 2nd group 
+
+* `\(x_{i33}=1\)` for the 3rd group
+
+
+---
+
+&lt;div style= "top: -15px;"&gt;
+&lt;img src="img/model_matrix_II.png" width="700" style="display: block; margin: auto;" /&gt;
+&lt;/div&gt;
+
+ &lt;font color = "red"&gt; `\(Y_{i1}= 1 \times \theta + 0 \times \tau_2 + 0 \times \tau_3 + \varepsilon_{i1} =\theta + \varepsilon_{i1}\)`
+
+ &lt;font color = "blue"&gt; `\(Y_{i2}= 1 \times \theta + 1 \times \tau_2 + 0 \times \tau_3 + \varepsilon_{i2}=\theta + \tau_2+\varepsilon_{i2}\)`
+
+ &lt;font color = "green"&gt; `\(Y_{i3}= 1 \times \theta + 0 \times \tau_2 + 1 \times \tau_3 + \varepsilon_{i3}=\theta + \tau_3+\varepsilon_{i3}\)`
+
+&lt;font color = "black"&gt;
+`$$\; Y_{ij} = \theta +\tau_2  x_{ij2} + \tau_3  x_{ij3} + \varepsilon_{ij}$$`
+
+---
+
+
+&lt;img src="img/rf_tx_matrix.png" width="650" style="display: block; margin: auto;" /&gt;
+
+The model is still written with a reference-treatment parameterization (difference of means)
+
+`\(E[Y_{i1}]=\theta\)`
+&lt;br&gt;
+
+`\(E[Y_{i2}]=\theta+\tau_2 \; \rightarrow \tau_2=E[Y_{i2}]-E[Y_{i1}]=\mu_2-\mu_1\)`
+&lt;br&gt;
+
+`\(E[Y_{i3}]=\theta+\tau_3 \; \rightarrow \tau_3=E[Y_{i3}]-E[Y_{i1}]=\mu_3-\mu_1\)`
+
+---
+
+
+### Linear regression can include *quantitative* &amp; *qualitative* covariates 
+
+
+&lt;img src="img/LM_vbles.png" width="625" style="display: block; margin: auto;" /&gt;
+
+Here we mean **linear** in the parameters `\(\boldsymbol{\alpha}\)`; `\(X\)` can contain `\(x^2\)`, `\(log(x)\)`, etc
+
+---
+
+# How it works in practice using `lm()` in R
+
+&lt;big&gt;
+`$$Y = X\alpha + \varepsilon$$` 
+&lt;center&gt; **↓**
+&lt;br&gt;
+
+```
+lm(y ~ x, data = yourData)
+```
+
+&lt;/center&gt;
+.pull-left[
+**`y ~ x`:**  formula
+&lt;br&gt;**`y`:** numeric
+&lt;br&gt;**`x`:** numeric and/or factor
+]
+
+.pull-right[
+**`yourData`:** `data.frame` (or `tibble`) in which `x` and `y` are to be found 
+]
+&lt;br&gt;
+&lt;/big&gt;
+By default, R uses the reference-treatment parametrization but you can control that!
+---
+
+# Special `factor` class in R 
+
+&lt;big&gt;
+`\(Y=X\alpha+\varepsilon\)`
+&lt;small&gt;
+
+- Mathematically, `\(X\)` is a numeric matrix
+
+- If your data contains categorical variables (e.g., `genotype`), you need to set them as **factors**
+
+  * especially important if your categorical variables are encoded numerically!!
+  
+  * `lm` will automatically treat character variables as factors)
+
+- R creates appropriate indicator variables for factors!
+
+
+```r
+str(twoGenes$genotype)
+```
+
+```
+##  Factor w/ 2 levels "WT","NrlKO": 2 2 2 2 2 2 2 2 2 2 ...
+```
+---
+
+## Under the hood, R creates a numeric `\(X\)`
+
+.pull-left[
+.smaller[
+
+```r
+mm &lt;- model.matrix(~genotype, data = twoGenes)
+# show first 3 and last 3 rows of
+# model.matrix
+head(mm, 3)
+```
+
+```
+##   (Intercept) genotypeNrlKO
+## 1           1             1
+## 2           1             1
+## 3           1             1
+```
+
+```r
+tail(mm, 3)
+```
+
+```
+##    (Intercept) genotypeNrlKO
+## 76           1             0
+## 77           1             0
+## 78           1             0
+```
+]
+]
+
+.pull-right[
+.smaller[
+
+```r
+# show first 3 and last 3 values of genotype
+twoGenes %&gt;%
+    slice(c(1:3, (n() - 3):n())) %&gt;%
+    pull(genotype)
+```
+
+```
+## [1] NrlKO NrlKO NrlKO WT    WT    WT    WT   
+## Levels: WT NrlKO
+```
+]
+]
+
+---
+
+## Beyond 2-group comparisons in our case study:
+
+&lt;div class="blue"&gt;
+Is the expression of gene X the same at all developmental stages?
+&lt;/div&gt;
+
+--
+
+`$$H_0 : \mu_{E16} = \mu_{P2} = \mu_{P6} = \mu_{P10} = \mu_{4W}$$`
+
+--
+
+Let's look at another two genes for some variety
+
+&lt;center&gt;
+
+
+&lt;img src="lect06-anova_files/figure-html/unnamed-chunk-39-1.png" width="900" style="display: block; margin: auto;" /&gt;
+
+
+&lt;small&gt;
+Note: 4W = 4_weeks
+
+---
+
+### The sample means: `\(\hat\mu_{E16}, \; \hat\mu_{P2}, \; \hat\mu_{P6}, \; \hat\mu_{P10}, \; \hat\mu_{4W}\)`
+
+.pull-left[
+.small[
+
+```r
+twoGenes %&gt;% 
+  group_by(gene, dev_stage) %&gt;%
+  summarize(meanExpr = mean(expression)) %&gt;%
+  pivot_wider(values_from = meanExpr, names_from = gene)
+```
+
+```
+## # A tibble: 5 × 3
+##   dev_stage BB114814 Cdc14a
+##   &lt;fct&gt;        &lt;dbl&gt;  &lt;dbl&gt;
+## 1 E16         5.5409 7.5443
+## 2 P2          5.8447 7.5836
+## 3 P6          5.7842 7.5540
+## 4 P10         6.3750 7.5710
+## 5 4_weeks     9.1733 7.5590
+```
+]
+]
+
+.pull-right[
+&lt;img src="lect06-anova_files/figure-html/unnamed-chunk-41-1.png" width="432" style="display: block; margin: auto;" /&gt;
+]
+
+---
+
+## BB114814 gene with notable time effect
+
+
+```r
+twoGenes %&gt;% filter(gene == "BB114814") %&gt;%
+  group_by(dev_stage) %&gt;%
+  summarize(cellMeans = mean(expression)) %&gt;%
+  mutate(timeEffect = cellMeans - cellMeans[1])
+```
+
+```
+## # A tibble: 5 × 3
+##   dev_stage cellMeans timeEffect
+##   &lt;fct&gt;         &lt;dbl&gt;      &lt;dbl&gt;
+## 1 E16          5.5409    0      
+## 2 P2           5.8447    0.30379
+## 3 P6           5.7842    0.24328
+## 4 P10          6.3750    0.83412
+## 5 4_weeks      9.1733    3.6324
+```
+
+"Effect" here means compared to reference/baseline (E16)
+
+---
+
+## BB114814 gene with notable time effect
+
+.pull-left[
+
+```
+## # A tibble: 5 × 3
+##   dev_stage cellMeans timeEffect
+##   &lt;fct&gt;         &lt;dbl&gt;      &lt;dbl&gt;
+## 1 E16          5.5409    0      
+## 2 P2           5.8447    0.30379
+## 3 P6           5.7842    0.24328
+## 4 P10          6.3750    0.83412
+## 5 4_weeks      9.1733    3.6324
+```
+]
+.pull-right[
+&lt;img src="lect06-anova_files/figure-html/unnamed-chunk-44-1.png" width="576" style="display: block; margin: auto;" /&gt;
+]
+
+--
+
+Can you guess the size of the `\(X\)` matrix?
+&gt; How many indicator variables do we need?
+
+---
+
+## Gene BB114814 with notable time effect
+
+We need 4 indicator variables to estimate and test 4 time differences (between 5 time points):
+&gt; `\(x_{P2}\)`: P2 vs E16 &lt;br&gt;
+&gt; `\(x_{P6}\)`: P6 vs E16 &lt;br&gt;
+&gt; `\(x_{P10}\)`: P10 vs E16 &lt;br&gt;
+&gt; `\(x_{4W}\)`: 4W vs E16
+
+--
+
+Mathematically:
+
+`$$Y_{ij}=\theta+\tau_{P2} x_{ijP2}+\tau_{P6} x_{ijP6}+\tau_{P10} x_{ijP10}+\tau_{4W} x_{ij4W}+\varepsilon_{ij}$$`
+
+**Notation**: `\(x_{ijk}\)`: 
+
+- `\(i\)` indexes for the observation/sample within group
+- `\(j\)` indexes the group (here: level of `dev_stage`)
+- `\(k\)` is the name of the indicator variable
+
+---
+
+## Under the hood, R creates a numeric `\(X\)`
+
+.smaller2[
+
+```r
+model.matrix(~dev_stage, data = twoGenes) %&gt;%
+    head(19)
+```
+
+```
+##    (Intercept) dev_stageP2 dev_stageP6 dev_stageP10 dev_stage4_weeks
+## 1            1           0           0            0                1
+## 2            1           0           0            0                1
+## 3            1           0           0            0                1
+## 4            1           0           0            0                1
+## 5            1           0           0            0                0
+## 6            1           0           0            0                0
+## 7            1           0           0            0                0
+## 8            1           0           0            1                0
+## 9            1           0           0            1                0
+## 10           1           0           0            1                0
+## 11           1           0           0            1                0
+## 12           1           1           0            0                0
+## 13           1           1           0            0                0
+## 14           1           1           0            0                0
+## 15           1           1           0            0                0
+## 16           1           0           1            0                0
+## 17           1           0           1            0                0
+## 18           1           0           1            0                0
+## 19           1           0           1            0                0
+```
+]
+
+---
+
+### Hypothesis tests in `lm` output
+
+.smaller2[
+
+```
+##   dev_stage cellMeans timeEffect
+*## 1 E16          5.5409    0      
+## 2 P2           5.8447    0.30379
+## 3 P6           5.7842    0.24328
+## 4 P10          6.3750    0.83412
+## 5 4_weeks      9.1733    3.6324
+```
+
+
+```r
+twoGenes %&gt;% filter(gene == "BB114814") %&gt;%
+  lm(expression ~ dev_stage, data = .) %&gt;%
+  summary() %&gt;% .$coef
+```
+
+```
+##                   Estimate Std. Error   t value     Pr(&gt;|t|)
+*## (Intercept)      5.5409162  0.1021560 54.239748 1.314828e-34
+## dev_stageP2      0.3037855  0.1398829  2.171713 3.694652e-02
+## dev_stageP6      0.2432795  0.1398829  1.739166 9.105366e-02
+## dev_stageP10     0.8341163  0.1398829  5.962962 9.620151e-07
+## dev_stage4_weeks 3.6323772  0.1398829 25.967276 5.303201e-24
+```
+
+]
+
+.pull-left[
+&lt;font size=5&gt;
+`\(H_0: \theta=0\)` or `\(H_0: \mu_{E16}=0\)`
+
+**Estimate**: `\(\hat\theta=\hat\mu_{E16}=\bar{Y}_{\cdot E16}\)`
+]
+
+.pull-right[
+&gt; we are not usually interested in testing this hypothesis: baseline mean = 0
+]
+
+---
+
+### Hypothesis tests in `lm` output
+
+.smaller2[
+
+```
+##   dev_stage cellMeans timeEffect
+## 1 E16          5.5409    0      
+*## 2 P2           5.8447    0.30379
+## 3 P6           5.7842    0.24328
+## 4 P10          6.3750    0.83412
+## 5 4_weeks      9.1733    3.6324
+```
+
+
+```r
+twoGenes %&gt;% filter(gene == "BB114814") %&gt;%
+  lm(expression ~ dev_stage, data = .) %&gt;%
+  summary() %&gt;% .$coef
+```
+
+```
+##                   Estimate Std. Error   t value     Pr(&gt;|t|)
+## (Intercept)      5.5409162  0.1021560 54.239748 1.314828e-34
+*## dev_stageP2      0.3037855  0.1398829  2.171713 3.694652e-02
+## dev_stageP6      0.2432795  0.1398829  1.739166 9.105366e-02
+## dev_stageP10     0.8341163  0.1398829  5.962962 9.620151e-07
+## dev_stage4_weeks 3.6323772  0.1398829 25.967276 5.303201e-24
+```
+
+]
+
+.pull-left[
+&lt;font size=5&gt;
+`\(H_0: \tau_{P2}=0\)` or `\(H_0: \mu_{P2}=\mu_{E16}\)`
+
+**Estimate**: `\(\hat{\tau}_{P2}=\hat{\mu}_{P2}-\hat{\mu}_{E16}=\bar{Y}_{\cdot P2}-\bar{Y}_{\cdot E16}\)`
+]
+.pull-right[
+&gt; we *are* usually interested in testing this hypothesis: change from E16 to 2 days old = 0
+]
+---
+
+### Hypothesis tests in `lm` output
+
+.smaller2[
+
+```
+##   dev_stage cellMeans timeEffect
+## 1 E16          5.5409    0      
+## 2 P2           5.8447    0.30379
+## 3 P6           5.7842    0.24328
+## 4 P10          6.3750    0.83412
+*## 5 4_weeks      9.1733    3.6324
+```
+
+
+```r
+twoGenes %&gt;% filter(gene == "BB114814") %&gt;%
+  lm(expression ~ dev_stage, data = .) %&gt;%
+  summary() %&gt;% .$coef
+```
+
+```
+##                   Estimate Std. Error   t value     Pr(&gt;|t|)
+## (Intercept)      5.5409162  0.1021560 54.239748 1.314828e-34
+## dev_stageP2      0.3037855  0.1398829  2.171713 3.694652e-02
+## dev_stageP6      0.2432795  0.1398829  1.739166 9.105366e-02
+## dev_stageP10     0.8341163  0.1398829  5.962962 9.620151e-07
+*## dev_stage4_weeks 3.6323772  0.1398829 25.967276 5.303201e-24
+```
+
+]
+
+.pull-left[
+&lt;font size=5&gt;
+`\(H_0: \tau_{4W}=0\)` or `\(H_0: \mu_{4W}=\mu_{E16}\)`
+
+**Estimate**: `\(\hat\tau_{4W}=\hat\mu_{4W}-\hat\mu_{E16}=\bar{Y}_{\cdot 4W}-\bar{Y}_{\cdot E16}\)`
+]
+
+.pull-right[
+&gt; we *are* usually interested in testing this hypothesis: change from E16 to 4 weeks old = 0
+]
+---
+
+# Notice the standard error estimates
+
+
+```
+##                   Estimate Std. Error   t value     Pr(&gt;|t|)
+## (Intercept)      5.5409162  0.1021560 54.239748 1.314828e-34
+## dev_stageP2      0.3037855  0.1398829  2.171713 3.694652e-02
+## dev_stageP6      0.2432795  0.1398829  1.739166 9.105366e-02
+## dev_stageP10     0.8341163  0.1398829  5.962962 9.620151e-07
+## dev_stage4_weeks 3.6323772  0.1398829 25.967276 5.303201e-24
+```
+
+
+All data points are used to estimate the variance of the error term for the indicator variables
+
+---
+
+## Two types of null hypotheses: single vs joint
+
+&lt;big&gt;
+  &lt;font size = 5&gt;$$Y = X \alpha + \varepsilon$$&lt;/font&gt;
+    `$$\alpha = (\theta, \tau_{P2}, \tau_{P6}, \tau_{P10}, \tau_{4W})$$`
+      
+&lt;small&gt;
+.pull-left[
+`\(H_0: \tau_j = 0\)`
+vs
+`\(H_0: \tau_j \neq 0\)`
+
+**for each *j* individually**
+          
+          
+For example: Is gene A differentially expressed 2 days after birth (compared to embryonic day 16)?
+
+&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp; `\(H_0: \tau_{P2}=0\)`
+
+&lt;div class="blue"&gt;
+This can be tested with a &lt;b&gt;t-test&lt;/b&gt;
+&lt;/div&gt;
+]
+    
+.pull-right[
+`\(H_0: \tau_j = 0\)`
+        vs
+`\(H_0: \tau_j \neq 0\)`
+
+**for all *j* at the same time**
+        
+For example: Is gene A significantly affected by time? In other words, is gene A differentially expressed at *any* time point?
+        
+&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;  `\(H_0: \tau_{P2}=\tau_{P6}=\tau_{P10}=\tau_{4W}=0\)`
+
+&lt;div class="blue"&gt;
+How do we test this null hypothesis??
+&lt;/div&gt;
+]
+
+---
+
+## *F*-test and overall significance of one or more coefficients
+
+- the *t*-test in linear regression allows us to test single hypotheses:
+      `$$H_0 : \tau_j = 0$$`
+      `$$H_A : \tau_j \neq 0$$`
+- but we often like to test multiple hypotheses *simultaneously*: 
+      `$$H_0 : \tau_{P2} = \tau_{P6} = \tau_{P10} = \tau_{4W}=0\textrm{ [AND statement]}$$`
+      `$$H_A : \tau_j \neq 0 \textrm{ for some j [OR statement]}$$`
+- the ***F*-test** allows us to test such compound tests
+
+   * more on this type of test next week
+---
+
+## `\(H_0: \tau_j = 0\)` vs `\(H_0: \tau_j \neq 0\)` for each `\(j\)` **individually**
+
+.smaller[
+
+```
+## 
+## Call:
+## lm(formula = expression ~ dev_stage, data = .)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -0.78553 -0.13324 -0.04796  0.17038  0.51846 
+## 
+## Coefficients:
+##                  Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)        5.5409     0.1022  54.240  &lt; 2e-16 ***
+*## dev_stageP2        0.3038     0.1399   2.172   0.0369 *  
+*## dev_stageP6        0.2433     0.1399   1.739   0.0911 .  
+*## dev_stageP10       0.8341     0.1399   5.963 9.62e-07 ***
+*## dev_stage4_weeks   3.6324     0.1399  25.967  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.2703 on 34 degrees of freedom
+## Multiple R-squared:  0.9662,	Adjusted R-squared:  0.9623 
+## F-statistic: 243.3 on 4 and 34 DF,  p-value: &lt; 2.2e-16
+```
+]
+    
+---
+
+## `\(H_0: \tau_j = 0\)` vs `\(H_0: \tau_j \neq 0\)` for all `\(j\)` **together**
+
+.smaller[
+
+```
+## 
+## Call:
+## lm(formula = expression ~ dev_stage, data = .)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -0.78553 -0.13324 -0.04796  0.17038  0.51846 
+## 
+## Coefficients:
+##                  Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)        5.5409     0.1022  54.240  &lt; 2e-16 ***
+## dev_stageP2        0.3038     0.1399   2.172   0.0369 *  
+## dev_stageP6        0.2433     0.1399   1.739   0.0911 .  
+## dev_stageP10       0.8341     0.1399   5.963 9.62e-07 ***
+## dev_stage4_weeks   3.6324     0.1399  25.967  &lt; 2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.2703 on 34 degrees of freedom
+## Multiple R-squared:  0.9662,	Adjusted R-squared:  0.9623 
+*## F-statistic: 243.3 on 4 and 34 DF,  p-value: &lt; 2.2e-16
+```
+]
+    
+---
+    
+
+## To conclude
+
+1. We can use different parametrizations to write statistical models
+ *  **cell-means** `\((\mu_j)\)`:  `\(Y_{ij} = \mu_j + \varepsilon_{ij}\;\; \text{where} \; \varepsilon_{ij} \sim G; \; \;E[\varepsilon_{ij}] = 0;\)`
+
+ * **reference-treatment effect** `\((\theta,\tau_j)\)`: (used by default by `lm`)
+`$$Y_{ij} = \theta+\tau_j + \varepsilon_{ij}\;\; \text{where} \; \tau_1=0, \; \; \varepsilon_{ij} \sim G; \; \;E[\varepsilon_{ij}] = 0;$$`
+2. We can compare group means  (2 or more) using a linear model
+
+  - **indicator variables** (e.g., `\(x_{ijP2}\)`) to model the levels of a qualitative explanatory variables
+  `$$Y_{ij}=\theta+\tau_{P2} x_{ijP2}+\tau_{P6} x_{ijP6}+\tau_{P10} x_{ijP10}+\tau_{4W} x_{ij4W}+\varepsilon_{ij}$$`
+  - qualitative variables need to be set as "factors" in the data `\(\rightarrow\)` R creates the indicator variables
+
+---
+class:middle
+
+3\. We can write a **linear model** using matrix notation: 
+
+`$$Y = X \alpha + \varepsilon$$`
+
+4\. Linear models can include **quantitative &amp; qualitative covariates** 
+
+&lt;img src="img/LM_vbles.png" width="350" style="display: block; margin: auto;" /&gt;
+
+5\. We use different tests to distinguish between **single** and **joint** hypotheses:
+  - e.g. `\(t\)`-tests vs `\(F\)`-tests
+  
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
