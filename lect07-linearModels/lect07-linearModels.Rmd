@@ -1310,7 +1310,7 @@ anova(addFit) %>% tidy()
 
 For example: does development have a significant effect on gene expression?
 
-<div class=blue> Compare the models with and without `dev_stage`!</div>
+<div class=blue> Compare the models with and without <tt>dev_stage</tt>!</div>
 
 
 **Model 1**: `expression ~ genotype`
