@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Continuous models and intro to limma</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="  Keegan Korthauer " />
+    <script src="libs/header-attrs-2.11/header-attrs.js"></script>
+    <link rel="stylesheet" href="xaringan-themer.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: center, middle, inverse, title-slide
+
+# <big>Continuous models and intro to <tt>limma</tt></big>
+### <br><font size=6> Keegan Korthauer </font>
+### <font size=6>2 February 2022 </font> <br><br><font size=4> with slide contributions from Gabriela Cohen Freue and Jenny Bryan </font>
+
+---
+
+
+
+
+
+
+&lt;style type="text/css"&gt;
+pre {
+  white-space: pre-wrap;
+}
+.remark-code {
+  background: #f8f8f8;
+}
+.remark-inline-code {
+  background: "white";
+}
+.remark-code {
+  font-size: 22px;
+}
+.huge .remark-code { /*Change made here*/
+  font-size: 200% !important;
+}
+.tiny .remark-code { /*Change made here*/
+  font-size: 60% !important;
+}
+.smaller .remark-code { /*Change made here*/
+  font-size: 90% !important;
+}
+.smaller2 .remark-code { /*Change made here*/
+  font-size: 80% !important;
+}
+.smaller3 .remark-code { /*Change made here*/
+  font-size: 70% !important;
+}
+&lt;/style&gt;
+
+&lt;style&gt;
+div.blue { background-color:#e8f2f6; border-radius: 5px; padding: 20px;}
+&lt;/style&gt;
+
+# Summary so far
+
+&lt;big&gt;
+
+* ***t*** **-tests** can be used to test the equality of 2 population means
+
+* **ANOVA** can be used to test the equality of more than 2 population means
+
+* **Linear regression** provides a general framework for modeling the relationship between a response variable and different types of explanatory variables
+
+  * *t*-tests can be used to test the significance of *individual* coefficients
+  
+  * *F*-tests can be used to test the simultaneous significance of *multiple* coefficients (e.g. multiple levels of a single categorical factor, or multiple factors at once)
+  
+---
+
+# Learning objectives for today
+
+* Understand how linear regression represents continuous variables
+
+  * Be familiar with the intuition behind how the regression line is estimated (Ordinary Least Squares)
+
+  * Interpret parameters in a multiple linear regression model with continuous and factor variables
+  
+* Explain the motivation behind specialized methods regression models in high-dimensional settings
+  * e.g. Empirical Bayes techniques in `limma`
+
+---
+
+## What if we treat age as a continuous variable?
+
+
+
+
+
+
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-5-1.png" width="1008" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Linear model with age as continuous covariate
+
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-6-1.png" width="1008" style="display: block; margin: auto;" /&gt;
+
+* Linear looks reasonable for gene Tmem176a, but not so much for Klf9
+
+* For now, assume linear is reasonable
+
+---
+
+# Simple Linear Regression (Matrix form)
+
+`$$\large \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$`
+
+For 1 continuous/quantitative covariate:
+
+`$$\mathbf{Y} = \begin{bmatrix}
+  y_{1} \\
+  y_{2} \\
+  \vdots \\
+  y_{n} \\
+\end{bmatrix}, \hspace{1em}
+\mathbf{X} = \begin{bmatrix}
+  1 &amp; x_{1} \\
+  1 &amp; x_{2} \\
+  \vdots &amp; \vdots \\
+  1 &amp; x_{n} \\
+\end{bmatrix}, \hspace{1em}
+\boldsymbol\alpha = \begin{bmatrix}
+  \alpha_{0} \\
+  \alpha_{1} \\
+\end{bmatrix}, \hspace{1em}
+\boldsymbol\varepsilon=\begin{bmatrix}
+  \varepsilon_{1} \\
+  \varepsilon_{2} \\
+  \vdots \\
+  \varepsilon_{n} \\
+\end{bmatrix}$$`
+
+* `\(\alpha_0=\)` the **intercept** (expected value of `\(y\)` when `\(x\)` is equal to zero)
+
+* `\(\alpha_1=\)` the **slope** (expected change in `\(y\)` for every one-unit increase in `\(x\)`)
+
+---
+
+# Simple Linear Regression (Matrix form)
+
+`$$\huge \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$`
+
+Remember / convince yourself that the matrix algebra yields simple linear equations:
+`$$\begin{bmatrix}
+  y_{1} \\
+  y_{2} \\
+  \vdots \\
+  y_{n} \\
+\end{bmatrix}=\begin{bmatrix}
+  1 &amp; x_{1} \\
+  1 &amp; x_{2} \\
+  \vdots &amp; \vdots \\
+  1 &amp; x_{n} \\
+\end{bmatrix}\begin{bmatrix}
+  \alpha_{0} \\
+  \alpha_{1} \\
+\end{bmatrix}+\begin{bmatrix}
+  \varepsilon_{1} \\
+  \varepsilon_{2} \\
+  \vdots \\
+  \varepsilon_{n} \\
+\end{bmatrix}=\begin{bmatrix}
+  1*\alpha_0 + x_{1}\alpha_{1} \\
+  1*\alpha_0 + x_{2}\alpha_{1} \\
+   \vdots \\
+  1*\alpha_0 + x_{n}\alpha_{1} \\
+\end{bmatrix}+\begin{bmatrix}
+  \varepsilon_{1} \\
+  \varepsilon_{2} \\
+  \vdots \\
+  \varepsilon_{n} \\
+\end{bmatrix}$$`
+
+`$$=\begin{bmatrix}
+  \alpha_0 + x_{1}\alpha_{1} + \varepsilon_{1} \\
+  \alpha_0 + x_{2}\alpha_{1} + \varepsilon_{2}\\
+   \vdots \\
+  \alpha_0 + x_{n}\alpha_{1} + \varepsilon_{n} \\
+\end{bmatrix}$$`
+`$$\Rightarrow y_i = \alpha_0 + x_i\alpha_1 + \varepsilon_i$$`
+---
+
+# SLR with continuous age covariate
+
+.pull-left[
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-7-1.png" width="504" /&gt;
+]
+
+
+&lt;br&gt;
+Interpretation of **intercept**:
+.smaller2[
+
+```r
+filter(twoGenes, gene == "Tmem176a") %&gt;%
+lm(expression ~ age, data = .) %&gt;%
+  summary() %&gt;% .$coeff
+```
+
+```
+##                Estimate  Std. Error  t value     Pr(&gt;|t|)
+*## (Intercept)  8.10007931 0.113949630 71.08474 3.579302e-41
+## age         -0.06137385 0.008214834 -7.47110 6.742526e-09
+```
+]
+
+`\(H_0: \alpha_0 = 0\)`
+tests the null hypothesis that the intercept is zero - usually, not of interest
+
+
+---
+
+## SLR with continuous age covariate
+
+.pull-left[
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-9-1.png" width="504" /&gt;
+]
+
+&lt;br&gt;
+Interpretation of **slope**:
+.smaller2[
+
+```r
+filter(twoGenes, gene == "Tmem176a") %&gt;%
+lm(expression ~ age, data = .) %&gt;%
+  summary() %&gt;% .$coeff
+```
+
+```
+##                Estimate  Std. Error  t value     Pr(&gt;|t|)
+## (Intercept)  8.10007931 0.113949630 71.08474 3.579302e-41
+*## age         -0.06137385 0.008214834 -7.47110 6.742526e-09
+```
+]
+
+`\(H_0: \alpha_1 = 0\)`
+tests the null hypothesis that there is no association between gene expression and age - usually of interest
+
+
+---
+
+# How do we estimate the intercept and slope? 
+
+Is there an **optimal** line?
+
+
+
+```r
+filter(twoGenes, gene == "Tmem176a") %&gt;%
+lm(expression ~ age, data = .) %&gt;%
+  summary()
+```
+
+```
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+*## (Intercept)  8.100079   0.113950  71.085  &lt; 2e-16 ***
+*## age         -0.061374   0.008215  -7.471 6.74e-09 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.5535 on 37 degrees of freedom
+## Multiple R-squared:  0.6014,	Adjusted R-squared:  0.5906 
+## F-statistic: 55.82 on 1 and 37 DF,  p-value: 6.743e-09
+```
+
+
+---
+
+# Which one is the *best* line?
+
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-12-1.png" width="576" style="display: block; margin: auto;" /&gt;
+
+---
+
+# Ordinary Least Squares
+
+.pull-left[
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-13-1.png" width="504" style="display: block; margin: auto;" /&gt;
+]
+
+
+.pull-right[
+* **Ordinary Least Squares (OLS)** regression: parameter estimates minimize the sum of squared errors
+
+* **Error**: vertical `\((y)\)` distance between the true regression line (unobserved) and the real observation 
+
+* **Residual**: vertical `\((y)\)` distance between the fitted regression line and the real observation (estimated error)
+]
+
+---
+
+# OLS interactive demo
+
+Visual representation of the squared errors in OLS: [http://setosa.io/ev/ordinary-least-squares-regression/](http://setosa.io/ev/ordinary-least-squares-regression/)
+
+Visit the link and take a few minutes to explore the first two plots:
+
+1. In the first plot, drag individual points around and observe how the line changes
+
+2. In the second plot, adjust the slope and intercept dials and observe how the second plot changes 
+  - note: you can reset to default values by refreshing the page
+
+&lt;div class="blue"&gt;
+In general, what happens to the total area of the squares when you modify the slope and intercept from the default values?
+&lt;/div&gt;
+  
+---
+
+## OLS Estimator for Simple Linear Regression (1 covariate)
+
+* Mathematically: `\(\varepsilon_i\)` represents the error 
+`$$y_i = \alpha_0 + \alpha_1x_i + \varepsilon_i,  i = 1, ..., n$$`
+
+* We want to find the line (i.e. an intercept and slope) such that the sum of squared errors is minimized
+`$$S(\alpha_0, \alpha_1)= \sum_{i=1}^n (y_i - \alpha_0 - \alpha_1 x_i)^2$$`
+    
+    * `\(\varepsilon_i=y_i - \alpha_0 - \alpha_1 x_i\)` is the error 
+    
+    * `\(S(\alpha_0, \alpha_1)\)` is called an *objective function*
+    
+* How to obtain estimates `\((\hat{\alpha}_0, \hat{\alpha}_1)\)` ? Let's look at a more general case
+
+---
+
+## OLS for Multiple Linear Regression (p covariates)
+
+* Mathematically:  
+`$$S(\alpha_0, \alpha_1, \alpha_2, ..., \alpha_p) = \sum_{i=1}^n (y_i - \alpha_0 - \alpha_1 x_{1i} - \alpha_2 x_{2i} - ... - \alpha_p x_{pi})^2$$`
+`$$=(\mathbf{y}-\mathbf{X}\boldsymbol\alpha)^T(\mathbf{y}-\mathbf{X}\boldsymbol\alpha)$$`
+
+* We need to find values of `\(\boldsymbol\alpha=(\alpha_0, \alpha_1, ..., \alpha_p)\)` that minimize the sum of squares `\(S\)`
+
+--
+
+* To do so, take partial derviatives with respect to each coefficient, set to zero, and solve the system of equations:
+
+`$$\frac{\partial S}{\partial\alpha_0}=\begin{bmatrix}
+  \frac{\partial S}{\partial\alpha_0} \\
+  \frac{\partial S}{\partial\alpha_1} \\
+  \vdots\\
+  \frac{\partial S}{\partial\alpha_p} \\
+\end{bmatrix}=\begin{bmatrix}
+  0 \\
+  0 \\
+  \vdots\\
+  0 \\
+\end{bmatrix}$$`
+
+---
+
+# Properties of OLS regression 
+
+**Regression model**: `\(\mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}\)`
+
+**OLS estimator**: `\(\hat{\boldsymbol\alpha} =(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}\)`
+
+**Fitted/predicted values**: `\(\hat{\mathbf{y}} = \mathbf{X} \hat{\boldsymbol\alpha}\)`
+
+`$$= \mathbf{X} (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y} = \mathbf{H}\mathbf{y}$$` 
+where `\(\mathbf{H}=\mathbf{X} (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\)` is called the "hat matrix"
+
+--
+
+**Additional assumptions** (required for results on the next few slides):
+1. `\(\boldsymbol\varepsilon\)` have mean zero
+
+2. `\(\boldsymbol\varepsilon\)` are iid (implies constant variance)
+
+Further, if `\(\boldsymbol\varepsilon\)` are iid **Normal**, then OLS estimator is also MLE (Maximum Likelihood Estimator)
+
+---
+
+# Properties of OLS regression (cont'd)
+
+
+**Residuals**: (note NOT the same as errors `\(\boldsymbol\varepsilon\)`) `$$\hat{\boldsymbol\varepsilon} = \mathbf{y} - \hat{\mathbf{y}} = \mathbf{y} -  \mathbf{X} \hat{\boldsymbol\alpha}$$` 
+
+**Estimated error variance**: `$$\hat{\sigma}^2 =  \frac{1}{n-p} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}$$`
+
+**Estimated covariance matrix of** `\(\hat{\boldsymbol\alpha}\)`: `$$\hat{Var}(\hat{\boldsymbol\alpha}) = \hat{\sigma}^2(\mathbf{X}^T\mathbf{X})^{-1}$$`
+
+**Estimated standard errors for estimated regression coefficients**: 
+`\(\hat{se}(\hat{\alpha}_j)\)`, obtained by taking the square root of the diagonal elements of `\(\hat{Var}(\hat{\boldsymbol\alpha})\)`
+
+---
+
+# Inference in Regression (normal iid errors)
+
+&lt;big&gt;
+
+How to test `\(H_0: \alpha_j = 0\)`?
+
+With a ***t*-test**! 
+
+Under `\(H_0\)`, 
+
+`$$\frac{\hat{\alpha}_j}{\hat{se}(\hat{\alpha}_j)} \sim t_{n-p}$$`
+
+So a *p*-value is obtained by computing a tail probability for the observed value of `\(\hat{\alpha}_j\)` from a `\(t_{n-p}\)` distribution
+
+---
+
+## Inference - what if we don't assume Normal errors?
+
+--
+&lt;big&gt;
+
+How to test `\(H_0: \alpha_j = 0\)`?
+
+Assuming large enough sample size, with a ***t*-test**! 
+
+Under `\(H_0\)`, &lt;font color="red"&gt; asymptotically (by CLT)&lt;/font&gt;
+
+`$$\frac{\hat{\alpha}_j}{\hat{se}(\hat{\alpha}_j)} \sim t_{n-p}$$`
+
+So &lt;font color="red"&gt;with a large enough sample size&lt;/font&gt; a *p*-value for this hypothesis test is obtained by computing a tail probability for the observed value of `\(\hat{\alpha}_j\)` from a `\(t_{n-p}\)` distribution
+
+---
+
+# Diagnostics: `plot(lm(y~x))`
+
+.left-column[
+Do our assumptions hold?
+* Constant variance
+* iid errors
+* Normality of errors
+]
+
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-14-1.png" width="720" style="display: block; margin: auto;" /&gt;
+
+---
+
+# **Linear** regression 
+
+* The nature of the regression function `\(y=f(x|\boldsymbol\alpha)\)` is one of the defining characteristics of a regression model
+
+* `\(f\)` is not linear in `\(\boldsymbol\alpha \Rightarrow\)` **nonlinear model**
+
+  * For example, consider nonlinear parametric regression: $$ y_i = \frac{1}{1 + e^{\alpha_0 + \alpha_1 x_i}} + \varepsilon$$
+    
+
+* `\(f\)` is linear in `\(\boldsymbol\alpha \Rightarrow\)` **linear model** 
+  * We just examined simple linear regression (a linear model): `\(y_i = \alpha_0 + \alpha_1x_i + \varepsilon_i\)`
+
+  * What we could do instead: polynomial regression (also a linear model) `$$y_i = \alpha_0 + \alpha_1x_i + \alpha_2x_i^2 + \varepsilon_i$$`
+
+
+---
+
+## Polynomial regression 
+
+
+
+.smaller[
+
+```r
+quadfit &lt;- lm(expression ~ age + I(age^2), data = oneGene)
+summary(quadfit)
+```
+
+```
+## 
+## Call:
+## lm(formula = expression ~ age + I(age^2), data = oneGene)
+## 
+## Residuals:
+##     Min      1Q  Median      3Q     Max 
+## -1.6253 -0.6436  0.1023  0.4955  1.6996 
+## 
+## Coefficients:
+##              Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  8.482542   0.160883  52.725  &lt; 2e-16 ***
+## age         -0.147339   0.032626  -4.516 6.52e-05 ***
+## I(age^2)     0.005009   0.001164   4.303 0.000123 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Residual standard error: 0.7527 on 36 degrees of freedom
+## Multiple R-squared:  0.362,	Adjusted R-squared:  0.3265 
+## F-statistic: 10.21 on 2 and 36 DF,  p-value: 0.0003069
+```
+]
+
+---
+
+## Polynomial regression 
+
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-17-1.png" width="576" style="display: block; margin: auto;" /&gt;
+Note that **this is still a linear model**, because it is linear in the `\(\alpha_j\)` 
+
+---
+
+## Putting it all together (continuous + categorical variables)
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-18-1.png" width="648" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Interaction between continuous and categorical variables
+
+&lt;big&gt;
+
+
+```r
+lm(expression ~ age*genotype, data = filter(twoGenes, gene=="Tmem176a")) %&gt;% 
+  summary() %&gt;% .$coeff
+```
+
+```
+##                       Estimate Std. Error    t value     Pr(&gt;|t|)
+## (Intercept)        8.031510398 0.15654982 51.3032221 1.567640e-34
+## age               -0.066454446 0.01141757 -5.8203672 1.331685e-06
+## genotypeNrlKO      0.142283869 0.22824752  0.6233753 5.370794e-01
+## age:genotypeNrlKO  0.009873243 0.01644292  0.6004556 5.520712e-01
+```
+
+`(Intercept)`: Intercept of WT line
+
+`age`: slope of WT (reference) line
+
+`genotypeNrlKO`: difference in intercepts (KO vs WT)
+
+`age:genotypeNrlKO`: difference in slopes (KO vs WT)
+
+---
+
+# Reminder about the Intercept
+
+&lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-20-1.png" width="648" style="display: block; margin: auto;" /&gt;
+
+Intercept terms refer to the estimates when the continuous covariate is equal to zero. Note that this is not usually very interesting on its own. 
+
+---
+
+## Interaction between continuous and categorical variables
+
+
+`$$\Large y_{ij} = \alpha_{0} + \tau_{KO}x_{ij, KO} + \tau_{Age} x_{ij, Age} + \tau_{KO:Age} x_{ij, KO}x_{ij, Age}$$`
+
+where
+* `\(j \in \{ WT, NrlKO\}\)`, `\(i = 1,2,...,n_j\)`
+* `\(x_{ij, KO}\)` is the indicator variable for WT vs KO ( `\(x_{ij, KO}=1\)` for `\(j=NrlKO\)` and 0 for `\(j=WT\)` ) 
+* `\(x_{ij, Age}\)` is the continuous age covariate
+
+Interpretation of parameters:
+* `\(\alpha_0\)` is the expected expression in WT for age = 0
+* The "intercept" for the knockouts is: `\(\alpha_0 + \tau_{KO}\)`
+* `\(\tau_{Age}\)` is the expected increase in expression in WT for every 1 day increase in age 
+* The slope for the knockouts is: `\(\tau_{Age} + \tau_{KO:Age}\)`
+
+---
+
+# Nested models
+
+As always, you can assess the relevance of several terms at once - such as everything involving genotype - with an ***F*-test**:
+
+
+```r
+anova(lm(expression ~ age*genotype, data = filter(twoGenes, gene=="Klf9")),
+      lm(expression ~ age, data = filter(twoGenes, gene=="Klf9")))
+```
+
+```
+## Analysis of Variance Table
+## 
+## Model 1: expression ~ age * genotype
+## Model 2: expression ~ age
+##   Res.Df    RSS Df Sum of Sq      F Pr(&gt;F)
+## 1     35 45.948                           
+## 2     37 45.984 -2 -0.036415 0.0139 0.9862
+```
+
+We don't have evidence that genotype affects the intercept or the slope
+
+---
+
+# *F*-tests in regression
+
+| Model | Example | # params (df) | RSS |
+| ----- | ------- | ------------- | ---- |
+| Reduced | expression ~ age | `\(p_{Red}=2\)` | `\(RSS_{Red}\)` |
+| Full | expression ~ age * genotype | `\(p_{Full}=4\)` | `\(RSS_{Full}\)`|
+
+**Full:**
+`\(y_{ij} = \alpha_{0} + \tau_{KO}x_{ij, KO} + \tau_{Age} x_{ij, Age} + \tau_{KO:Age} x_{ij, KO}x_{ij, Age}\)`
+
+**Reduced:**
+`\(y_{ij} = \alpha_{0} + \tau_{Age} x_{ij, Age}\)`
+
+Under `\(H_0:\)` the reduced model explains the same amount variation in the outcome as the full,
+
+`$$F = \frac{\frac{RSS_{Red}-RSS_{Full}}{p_{Full}-p_{Red}}}{\frac{RSS_{Full}}{n-p_{Full}}} \sim \text{  } F_{p_{Fill}-p_{Red},\text{ } n-{p_{Full}}}$$`
+A significant *F*-test means we reject the null; we have evidence that the full model explains significantly more variation in the outcome than the reduced.
+
+---
+# Linear regression summary
+
+* linear model framework is extremely general 
+
+* one extreme (simple): two-sample common variance *t*-test
+
+* another extreme (flexible): a polynomial, potentially different for each level of some factor
+
+    * dichotomous variable? 👍
+    
+    * categorical variable? 👍
+    
+    * quantitative variable? 👍
+    
+    * various combinations of the above? 👍
+    
+* Don't be afraid to build models with more than 1 covariate
+
+---
+
+# What about the other 45 thousand probesets??
+
+
+```r
+eset
+```
+
+```
+## ExpressionSet (storageMode: lockedEnvironment)
+## assayData: 45101 features, 39 samples 
+##   element names: exprs 
+## protocolData: none
+## phenoData
+##   sampleNames: GSM92610 GSM92611 ... GSM92648 (39 total)
+##   varLabels: title geo_accession ... age (40 total)
+##   varMetadata: labelDescription
+## featureData: none
+## experimentData: use 'experimentData(object)'
+##   pubMedIds: 16505381 
+## Annotation: GPL1261
+```
+
+---
+
+# Linear regression of many genes
+
+
+`$$\Large \mathbf{Y}_g = \mathbf{X}_g \boldsymbol\alpha_g + \boldsymbol\varepsilon_g$$`
+&lt;big&gt;
+
+* The g in the subscript reminds us that we'll be fitting a model like this *for each gene g* that we have measured for all samples
+
+* Most of the time, the design matrices `\(\mathbf{X}_g\)` are, in fact, the same for all `\(g\)`. This means we can just use `\(\mathbf{X}\)`
+
+* Note this means the residual degrees of freedom are also the same for all `\(g\)` 
+`$$d_g = d = n - \text{dimension of } \boldsymbol\alpha = n-p$$`
+
+---
+
+# Linear regression of many genes (cont'd)
+
+* Data model: `\(\large\mathbf{Y}_g = \mathbf{X} \boldsymbol\alpha_g + \boldsymbol\varepsilon_g\)`
+
+* Unknown error variance: `\(\large Var(\boldsymbol\varepsilon_g) = \sigma^2_g\)`
+
+* Estimated error variance: `\(\large\hat{\sigma}^2_g = s^2_g = \frac{1}{n-p}\hat{\boldsymbol\varepsilon_g}^T\hat{\boldsymbol\varepsilon_g}\)`
+
+* Estimated variance of parameter estimates: `\(\large\hat{Var}(\hat{\boldsymbol\alpha_g}) =  s^2_g (\mathbf{X}^T\mathbf{X})^{-1} =  s^2_g \mathbf{V}\)`
+
+  * `\(\bf{V}\)` is the "unscaled covariance" matrix, and is the same for all genes! 
+
+  * Estimated standard errors for estimated regression coefficients: 
+`\(\large\hat{se}(\hat{\alpha}_{jg})\)`
+    - obtained by taking the square root of the `\(j^{th}\)` diagonal element of `\(\hat{Var}(\hat{\boldsymbol\alpha}_g)\)`, which is `\(s_g\sqrt{v_{jj}}\)`
+
+---
+
+class: middle 
+## So far, nothing is new - these are the "regular" *t* statistics for gene *g* and parameter *j*:
+
+`$$t_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_{d} \text{ under } H_0$$`
+
+But there are *so* many of them!! 😲
+
+---
+
+## Observed (i.e. empirical) issues with the "standard" *t*-test &lt;br&gt; approach for assessing differential expression 
+
+&lt;img src="img/Volcano_eg.jpg" width="600" style="display: block; margin: auto;" /&gt;
+
+---
+
+## Observed (i.e. empirical) issues with the "standard" *t*-test approach for assessing differential expression 
+
+&lt;big&gt;
+&lt;center&gt;
+&lt;div class = "blue"&gt;
+Some genes with very &lt;b&gt;small p-values&lt;/b&gt; (i.e. large -log10 p-values) are not &lt;b&gt;biologically meaningful&lt;/b&gt; (small effect size, e.g. fold change)
+&lt;/div&gt;
+
+---
+
+## How do we end up with small p-values but subtle effects?
+
+&lt;big&gt;
+
+`$$\large t_{gj} = \frac{\hat{\alpha}_{gj}}{\hat{se}(\hat{\alpha}_{gj})} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_d \text{ under } H_0$$`
+--
+
+* Small variance estimate `\(s_g\)` leads to large *t* statistic `\(\rightarrow\)` small *p*-value
+
+--
+
+* Recall: estimates of sample variance from small sample sizes tend to under-estimate the true variance!
+
+--
+
+* This has led to the development of specialized methodology for assessing genome-wide differential expression 
+
+---
+
+# Empirical Bayesian techniques: `limma`
+
+.pull-left[
+&lt;img src="img/limma_paper.png" width="600" style="display: block; margin: auto;" /&gt;
+
+[Smyth 2004](http://www.statsci.org/smyth/pubs/ebayes.pdf)
+]
+.pull-right[
+&lt;img src="img/limma_bioc.png" width="500" style="display: block; margin: auto;" /&gt;
+]
+
+---
+
+# Why use `limma` instead of regular *t*-tests?
+
+.center[&lt;img src="https://raw.githubusercontent.com/Bioconductor/BiocStickers/master/limma/limma.png" width="200"/&gt;]
+
+* **Borrows information** from all genes to get a better estimate of the variance (especially in smaller sample size settings)
+
+--
+
+* Efficiently fits many regression models **without replicating unnecessary calculations**!
+
+--
+
+* Arranges output in a convenient way to ease further analysis, visualization, and interpretation
+
+---
+
+# How does Empirical Bayes work?
+
+&lt;big&gt;
+
+.pull-left[
+* **Empirical**: observed
+
+* **Bayesian**: incorporate 'prior' information
+
+* Intuition: estimate prior information from data; *shrink* (nudge) all estimates toward the consensus
+]
+
+
+.pull-right[
+**Shrinkage = borrowing information across all genes**
+&lt;img src="img/shrink.jpg" width="450" style="display: block; margin: auto;" /&gt;
+]
+
+---
+
+# Genome-wide OLS fits
+
+
+* Gene by gene:
+
+  * `lm(y ~ x, data = gene)` for each gene
+  
+  * For example, using `dplyr::group_modify` and `broom::tidy`
+ 
+--
+
+* All genes at once, using `limma`: 
+
+  * `lmFit(myDat, desMat)`
+  
+  * `myDat` contains expression values for all genes
+  
+  * `desMat` is a specially formatted design matrix (more on this later)
+  
+  * Or, even better, `lmFit(eset, desMat)` where `eset` is an [`ExpressionSet`](https://kasperdanielhansen.github.io/genbioconductor/html/ExpressionSet.html) object
+  
+---
+
+class: middle
+
+##'Industrial scale' model fitting is good, because computations involving just the design matrix `\(\mathbf{X}\)` are not repeated 30K unnecessarily: 
+
+* **OLS estimator**: `$$\hat{\boldsymbol\alpha} =(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$$`
+
+* **Fitted/predicted values**: `$$\hat{\mathbf{y}} = \mathbf{X} (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y} = \mathbf{H}\mathbf{y}$$` 
+
+---
+
+## OLS of first 2000 genes, using `lm` gene by gene
+
+.pull-left[
+.smaller3[
+
+
+```r
+allGenes %&gt;% head(10)
+```
+
+```
+## # A tibble: 10 × 6
+##    gene       sample_id expression dev_stage   age genotype
+##    &lt;chr&gt;      &lt;chr&gt;          &lt;dbl&gt; &lt;fct&gt;     &lt;dbl&gt; &lt;fct&gt;   
+##  1 1415670_at GSM92610        7.11 4W           28 NrlKO   
+##  2 1415670_at GSM92611        7.32 4W           28 NrlKO   
+##  3 1415670_at GSM92612        7.42 4W           28 NrlKO   
+##  4 1415670_at GSM92613        7.35 4W           28 NrlKO   
+##  5 1415670_at GSM92614        7.24 E16          -4 NrlKO   
+##  6 1415670_at GSM92615        7.34 E16          -4 NrlKO   
+##  7 1415670_at GSM92616        7.38 E16          -4 NrlKO   
+##  8 1415670_at GSM92617        7.22 P10          10 NrlKO   
+##  9 1415670_at GSM92618        7.22 P10          10 NrlKO   
+## 10 1415670_at GSM92619        7.12 P10          10 NrlKO
+```
+]]
+
+.pull-right[
+.smaller3[
+
+```r
+system.time(lmfits &lt;- allGenes %&gt;%
+    filter(gene %in% unique(allGenes$gene)[1:2000]) %&gt;%
+    group_by(gene) %&gt;% 
+    group_modify(~ tidy(lm(expression ~ age + genotype, 
+                           data = .x))) %&gt;%
+    select(gene, term, estimate) %&gt;%
+    pivot_wider(names_from = term, values_from = estimate)) 
+```
+
+```
+##    user  system elapsed 
+##   8.236   0.051   8.313
+```
+
+```r
+lmfits %&gt;% head() %&gt;% as.data.frame()
+```
+
+```
+##           gene (Intercept)           age genotypeNrlKO
+## 1   1415670_at    7.217851  0.0006225228 -0.0002861005
+## 2   1415671_at    9.320083 -0.0018405479  0.1446053811
+## 3   1415672_at    9.759959 -0.0039281143 -0.0421705559
+## 4   1415673_at    8.404053  0.0039777804 -0.0436443351
+## 5 1415674_a_at    8.517675 -0.0059840405  0.0192159017
+## 6   1415675_at    9.665691 -0.0064185855  0.1330272055
+```
+]]
+
+---
+
+## OLS of **all** genes at once, using `limma`:
+
+.smaller[
+
+```r
+system.time( limmafits &lt;- 
+  lmFit(eset, model.matrix(~ age + genotype, data = pData(eset))))
+```
+
+```
+##    user  system elapsed 
+##   0.104   0.026   0.131
+```
+
+```r
+limmafits$coefficients %&gt;% head()
+```
+
+```
+##              (Intercept)           age genotypeNrlKO
+## 1415670_at      7.217851  0.0006225228 -0.0002861005
+## 1415671_at      9.320083 -0.0018405479  0.1446053811
+## 1415672_at      9.759959 -0.0039281143 -0.0421705559
+## 1415673_at      8.404053  0.0039777804 -0.0436443351
+## 1415674_a_at    8.517675 -0.0059840405  0.0192159017
+## 1415675_at      9.665691 -0.0064185855  0.1330272055
+```
+]
+
+--
+
+So far, no shrinkage.
+
+---
+
+class: middle 
+
+# How can we better estimate the SE?
+
+&lt;big&gt; 
+`$$\large t_{gj} = \frac{\hat{\alpha}_{gj}}{\hat{se}(\hat{\alpha}_{gj})} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_d \text{ under } H_0$$`
+&lt;font colour="blue"&gt;
+&lt;center&gt; Under-estimated variance leads to overly large t statistic, which leads to artificially small p-value
+&lt;/font&gt;
+
+---
+
+# Modeling in `limma` 
+
+limma assumes that for each gene `\(g\)`
+
+`$$\hat{\alpha}_{gj} \,|\,\alpha_{gj}, \sigma_g^2 \sim N(\alpha_{gj}, \sigma_g^2 v_{jj})$$`
+`$$s^2_g \,|\, \sigma_g^2 \sim \frac{\sigma_g^2}{d}\chi^2_d$$` 
+which are the same as the usual assumptions about ordinary `\(t\)`-statistics:
+
+
+`$$\large t_{gj} = \frac{\hat{\alpha}_{gj}}{\hat{se}(\hat{\alpha}_{gj})} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_d \text{ under } H_0$$`
+
+So far, nothing new...
+
+---
+
+# Modeling in `limma` - shrinkage
+
+* limma imposes a hierarchical model, which describes how the gene-wise `\(\alpha_{gj}\)`'s and `\(\sigma^2_g\)`'s vary **across the genes**
+
+  * We are no longer considering genes in isolation
+
+* this is done by assuming a **prior distribution** for those quantities
+
+* Prior distribution for **gene-specific variances** `\(\sigma^2_g\)`: an inverse Chi-square with mean `\(s_0^2\)` and `\(d_0\)` degrees of freedom:
+
+`$$\frac{1}{\sigma^2_g} \sim \frac{1}{d_0s_0^2} \chi^2_{d_0}$$`
+--
+
+* this should feel a bit funny compared to previous lectures - `\(\sigma^2_g\)` is no longer a **fixed** quantity! (i.e. this is **Bayesian**)
+
+---
+
+## How does this help us better estimate the variance?
+
+* The **posterior distribution** is an updated version of the observed likelihood based on incorporating the prior information
+
+* The posterior mean for gene-specific variance:
+
+`$$\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$$`
+
+--
+
+* How to think about it: a weighted mean of the prior (indirect evidence) and the observed (direct evidence) gene-specific variances:
+
+`$$\tilde{s}^2_g = \frac{d_0}{d_0 + d}s_0^2 + \frac{d}{d_0 + d}s^2_g$$`
+--
+
+* More simply: "shrinking" the observed gene-specific variance towards the "typical" variance implied by the prior
+
+---
+
+# Moderated *t* statistic
+
+
+* plug in this posterior mean estimate to obtain a 'moderated' *t* statistic:
+
+
+`$$\large \tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$$`
+* Under limma's assumptions, we know the null distribution for the moderated *t*-statistic under `\(H_0\)`:
+`$$\tilde{t}_{gj} \sim t_{d_0+d}$$`
+
+* parameters from the prior `\(d_0\)` and `\(s_0^2\)` are estimated from the data
+
+--
+
+&lt;div style= "float:right;position: relative;"&gt;
+&lt;img src="img/hybrid.jpg" width="200" /&gt;
+&lt;/div&gt;
+
+* This is how limma is a **hybrid** of frequentist (*t*-statistic) and Bayesian (hierarchical model) approaches
+
+---
+
+## Side-by-side comparison of key quantities and results
+
+&lt;big&gt;
+&lt;center&gt;
+
+|  | OLS  | limma |
+| ---- | :----------------: | :-----: |
+| Estimated gene-wise &lt;br&gt;residual variance: | `\({s}_g^2 =  \frac{1}{n-p} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}\)` | `\(\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}\)` |
+| *t*-statistic for &lt;br&gt; `\(H_0: \alpha_{gj} = 0\)`:| `\({t}_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}}\)` | `\(\tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}\)` |
+| distribution of the &lt;br&gt;*t*-statistic under `\(H_0\)`: | `\({t}_{gj} \sim t_{d}\)` | `\(\tilde{t}_{gj} \sim t_{d_0+d}\)` |
+
+&lt;sup&gt;*&lt;/sup&gt;Not shown: estimation formulas for prior parameters `\(d_0\)` and `\(s_0^2\)`
+
+---
+
+# Moderated vs traditional tests
+
+&lt;big&gt;
+
+* **moderated variances** will be *"shrunk" toward the typical gene-wise variance*, relative to to raw sample residual variances
+
+--
+
+* **degrees of freedom** for null distribution *increase* relative to default `\((d \text{ vs } d_0 + d)\)`
+  * `\(\rightarrow\)` makes it closer to a standard normal 
+  * `\(\rightarrow\)` makes tail probabilities (p-values) smaller 
+  * `\(\rightarrow\)` easier to reject the null
+
+--
+
+* overall, when all is well, limma will deliver statistical results that are **more stable** and **more powerful**
+
+
+---
+
+# Preview: `limma` workflow
+
+&lt;img src="img/limma_flow.png" width="700" style="display: block; margin: auto;" /&gt;
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
