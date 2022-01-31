@@ -58,7 +58,6 @@ div.blue { background-color:#e8f2f6; border-radius: 5px; padding: 20px;}
 
 # Summary so far
 
-&lt;big&gt;
 
 * ***t*** **-tests** can be used to test the equality of 2 population means
 
@@ -69,6 +68,10 @@ div.blue { background-color:#e8f2f6; border-radius: 5px; padding: 20px;}
   * *t*-tests can be used to test the significance of *individual* coefficients
   
   * *F*-tests can be used to test the simultaneous significance of *multiple* coefficients (e.g. multiple levels of a single categorical factor, or multiple factors at once)
+  
+  - *F*-tests are used to compare nested models (**overall** effects or **goodness of fit**)
+  
+- Next up: continuous explanatory variables! Multiple genes!
   
 ---
 
@@ -143,7 +146,7 @@ For 1 continuous/quantitative covariate:
 
 # Simple Linear Regression (Matrix form)
 
-`$$\huge \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$`
+`$$\large \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$`
 
 Remember / convince yourself that the matrix algebra yields simple linear equations:
 `$$\begin{bmatrix}
@@ -215,7 +218,7 @@ tests the null hypothesis that the intercept is zero - usually, not of interest
 
 ---
 
-## SLR with continuous age covariate
+# SLR with continuous age covariate
 
 .pull-left[
 &lt;img src="lect08-continuous_files/figure-html/unnamed-chunk-9-1.png" width="504" /&gt;
@@ -843,7 +846,7 @@ system.time(lmfits &lt;- allGenes %&gt;%
 
 ```
 ##    user  system elapsed 
-##   8.236   0.051   8.313
+##   7.613   0.037   7.661
 ```
 
 ```r
@@ -874,7 +877,7 @@ system.time( limmafits &lt;-
 
 ```
 ##    user  system elapsed 
-##   0.104   0.026   0.131
+##   0.107   0.027   0.134
 ```
 
 ```r

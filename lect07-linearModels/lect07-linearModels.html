@@ -1080,13 +1080,13 @@ We haven't tested that!!
 
 **Interaction model with two factors: genotype and (5-level) developmental time**
 
-`lm` output tests the following null hypotheses:
+`lm` output tests the following null hypotheses (OR):
 
 &gt; `\(H_0: \tau_{KO}=0\)` (1 df) &lt;br&gt;
 &gt; `\(H_0: \tau_{P2}=\tau_{P6}=\tau_{P10}=\tau_{4W}=0\)` (**in WT!**, 4 df) &lt;br&gt;
 &gt; `\(H_0: \tau_{KO:P2}=\tau_{KO:P6}=\tau_{KO:P10}=\tau_{KO:4W}=0\)` (4 df)
 
-`anova` output: tests overall effects of a factor controlling for the previous ones 
+`anova` output: tests overall effects of a factor (AND) controlling for the previous ones 
 
 
 ```r
@@ -1110,12 +1110,12 @@ anova(itxFit) %&gt;% tidy()
 
 **Additive model with genotype and development time (5-level); no interaction**
 
-`lm` output tests the following null hypotheses
+`lm` output tests the following null hypotheses (OR)
 
 &gt; `\(H_0: \tau_{KO}=0\)` (1 df) &lt;br&gt;
 `\(H_0: \tau_{P2}=\tau_{P6}=\tau_{P10}=\tau_{4W}=0\)` (**on average!**, 4 df)
 
-`anova` tests overall effects of a factor controlling for the other one
+`anova` output tests overall effects of a factor (AND) controlling for the previous ones
 
 
 ```r
@@ -1155,7 +1155,7 @@ Mathematically:
  
  `$$H_0: \tau_{P2}=\tau_{P6}=\tau_{P10}=\tau_{4W}=0$$`
 
- The `\(x_{**,ijk}\)` are indicator variables (see [companion ntoes](https://github.com/STAT540-UBC/resources/blob/main/linearModels/lect07_companion_linear_models.pdf))
+ The `\(x_{**,ijk}\)` are indicator variables (see [companion notes](https://github.com/STAT540-UBC/resources/blob/main/linearModels/lect07_companion_linear_models.pdf))
  
 ---
 
@@ -1289,8 +1289,7 @@ summary(addFull)
 
   - *F*-tests are used to test the significance of **main effects** (*simultaneously* multiple coefficients) 
 
-- ** *F*-tests** are used to compare nested models
-  - e.g., **overall** effects or *goodness of fit* 
+  - *F*-tests are used to compare nested models (**overall** effects or **goodness of fit**)
 
 - Next up: continuous explanatory variables! Multiple genes!
     </textarea>

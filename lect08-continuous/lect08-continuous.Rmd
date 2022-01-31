@@ -112,7 +112,6 @@ div.blue { background-color:#e8f2f6; border-radius: 5px; padding: 20px;}
 
 # Summary so far
 
-<big>
 
 * ***t*** **-tests** can be used to test the equality of 2 population means
 
@@ -123,6 +122,10 @@ div.blue { background-color:#e8f2f6; border-radius: 5px; padding: 20px;}
   * *t*-tests can be used to test the significance of *individual* coefficients
   
   * *F*-tests can be used to test the simultaneous significance of *multiple* coefficients (e.g. multiple levels of a single categorical factor, or multiple factors at once)
+  
+  - *F*-tests are used to compare nested models (**overall** effects or **goodness of fit**)
+  
+- Next up: continuous explanatory variables! Multiple genes!
   
 ---
 
@@ -288,7 +291,7 @@ $$\mathbf{Y} = \begin{bmatrix}
 
 # Simple Linear Regression (Matrix form)
 
-$$\huge \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$
+$$\large \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$
 
 Remember / convince yourself that the matrix algebra yields simple linear equations:
 $$\begin{bmatrix}
@@ -355,7 +358,7 @@ tests the null hypothesis that the intercept is zero - usually, not of interest
 
 ---
 
-## SLR with continuous age covariate
+# SLR with continuous age covariate
 
 .pull-left[
 ```{r, echo=FALSE, fig.width=7, fig.height=5, warning=FALSE, message = FALSE}
