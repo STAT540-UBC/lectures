@@ -195,7 +195,6 @@ Remember / convince yourself that the matrix algebra yields simple linear equati
 ]
 
 
-&lt;br&gt;
 Interpretation of **intercept**:
 .smaller2[
 
@@ -304,13 +303,13 @@ Visual representation of the squared errors in OLS: [http://setosa.io/ev/ordinar
 
 Visit the link and take a few minutes to explore the first two plots:
 
-1. In the first plot, drag individual points around and observe how the line changes
+1. In the first plot, drag individual points around and observe what changes in second plot
 
-2. In the second plot, adjust the slope and intercept dials and observe how the second plot changes 
+2. In the second plot, adjust the slope and intercept dials from their defaults and observe what changes
   - note: you can reset to default values by refreshing the page
 
 &lt;div class="blue"&gt;
-In general, what happens to the total area of the squares when you modify the slope and intercept from the default values?
+In general, what happens to the total area of the squares in the second plot when you modify the slope and intercept from the default values?
 &lt;/div&gt;
   
 ---
@@ -445,7 +444,7 @@ Do our assumptions hold?
 
 * `\(f\)` is not linear in `\(\boldsymbol\alpha \Rightarrow\)` **nonlinear model**
 
-  * For example, consider nonlinear parametric regression: $$ y_i = \frac{1}{1 + e^{\alpha_0 + \alpha_1 x_i}} + \varepsilon$$
+  * For example, consider nonlinear parametric regression: $$ y_i = \frac{1}{1 + e^{\alpha_0 + \alpha_1 x_i}} + \varepsilon_i$$
     
 
 * `\(f\)` is linear in `\(\boldsymbol\alpha \Rightarrow\)` **linear model** 
@@ -673,8 +672,7 @@ eset
   * `\(\bf{V}\)` is the "unscaled covariance" matrix, and is the same for all genes! 
 
   * Estimated standard errors for estimated regression coefficients: 
-`\(\large\hat{se}(\hat{\alpha}_{jg})\)`
-    - obtained by taking the square root of the `\(j^{th}\)` diagonal element of `\(\hat{Var}(\hat{\boldsymbol\alpha}_g)\)`, which is `\(s_g\sqrt{v_{jj}}\)`
+`\(\large\hat{se}(\hat{\alpha}_{jg})\)` obtained by taking the square root of the `\(j^{th}\)` diagonal element of `\(\hat{Var}(\hat{\boldsymbol\alpha}_g)\)`, which is `\(s_g\sqrt{v_{jj}}\)`
 
 ---
 
@@ -786,7 +784,7 @@ Some genes with very &lt;b&gt;small p-values&lt;/b&gt; (i.e. large -log10 p-valu
 
   * `lmFit(myDat, desMat)`
   
-  * `myDat` contains expression values for all genes
+  * `myDat` matrix-like object with expression values for all genes
   
   * `desMat` is a specially formatted design matrix (more on this later)
   
@@ -796,7 +794,7 @@ Some genes with very &lt;b&gt;small p-values&lt;/b&gt; (i.e. large -log10 p-valu
 
 class: middle
 
-##'Industrial scale' model fitting is good, because computations involving just the design matrix `\(\mathbf{X}\)` are not repeated 30K unnecessarily: 
+##'Industrial scale' model fitting is good, because computations involving just the design matrix `\(\mathbf{X}\)` are not repeated tens of thousands of times unnecessarily: 
 
 * **OLS estimator**: `$$\hat{\boldsymbol\alpha} =(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$$`
 
@@ -846,7 +844,7 @@ system.time(lmfits &lt;- allGenes %&gt;%
 
 ```
 ##    user  system elapsed 
-##   7.613   0.037   7.661
+##   8.679   0.060   8.778
 ```
 
 ```r
@@ -877,7 +875,7 @@ system.time( limmafits &lt;-
 
 ```
 ##    user  system elapsed 
-##   0.107   0.027   0.134
+##   0.103   0.027   0.131
 ```
 
 ```r
@@ -974,7 +972,7 @@ So far, nothing new...
 * Under limma's assumptions, we know the null distribution for the moderated *t*-statistic under `\(H_0\)`:
 `$$\tilde{t}_{gj} \sim t_{d_0+d}$$`
 
-* parameters from the prior `\(d_0\)` and `\(s_0^2\)` are estimated from the data
+* parameters from the prior `\(d_0\)` and `\(s_0^2\)` are estimated from the data 
 
 --
 
@@ -982,7 +980,7 @@ So far, nothing new...
 &lt;img src="img/hybrid.jpg" width="200" /&gt;
 &lt;/div&gt;
 
-* This is how limma is a **hybrid** of frequentist (*t*-statistic) and Bayesian (hierarchical model) approaches
+* This is how limma is a **hybrid** of frequentist (*t*-statistic) and Bayesian (hierarchical model) approaches (i.e. empirical Bayes)
 
 ---
 

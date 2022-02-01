@@ -337,12 +337,12 @@ $$\Rightarrow y_i = \alpha_0 + x_i\alpha_1 + \varepsilon_i$$
 
 .pull-left[
 ```{r, echo=FALSE, fig.width=7, fig.height=5, warning=FALSE, message = FALSE}
-hitLimC
+hitLimC + 
+  geom_vline(aes(xintercept = 0), linetype = "dashed", colour = "red")
 ```
 ]
 
 
-<br>
 Interpretation of **intercept**:
 .smaller2[
 ```{r, highlight.output=2}
@@ -457,13 +457,13 @@ Visual representation of the squared errors in OLS: [http://setosa.io/ev/ordinar
 
 Visit the link and take a few minutes to explore the first two plots:
 
-1. In the first plot, drag individual points around and observe how the line changes
+1. In the first plot, drag individual points around and observe what changes in second plot
 
-2. In the second plot, adjust the slope and intercept dials and observe how the second plot changes 
+2. In the second plot, adjust the slope and intercept dials from their defaults and observe what changes
   - note: you can reset to default values by refreshing the page
 
 <div class="blue">
-In general, what happens to the total area of the squares when you modify the slope and intercept from the default values?
+In general, what happens to the total area of the squares in the second plot when you modify the slope and intercept from the default values?
 </div>
   
 ---
@@ -601,7 +601,7 @@ plot(lm(expression ~ age, data = filter(twoGenes, gene == "Tmem176a")),  ask=FAL
 
 * $f$ is not linear in $\boldsymbol\alpha \Rightarrow$ **nonlinear model**
 
-  * For example, consider nonlinear parametric regression: $$ y_i = \frac{1}{1 + e^{\alpha_0 + \alpha_1 x_i}} + \varepsilon$$
+  * For example, consider nonlinear parametric regression: $$ y_i = \frac{1}{1 + e^{\alpha_0 + \alpha_1 x_i}} + \varepsilon_i$$
     
 
 * $f$ is linear in $\boldsymbol\alpha \Rightarrow$ **linear model** 
@@ -799,8 +799,7 @@ $$d_g = d = n - \text{dimension of } \boldsymbol\alpha = n-p$$
   * $\bf{V}$ is the "unscaled covariance" matrix, and is the same for all genes! 
 
   * Estimated standard errors for estimated regression coefficients: 
-$\large\hat{se}(\hat{\alpha}_{jg})$
-    - obtained by taking the square root of the $j^{th}$ diagonal element of $\hat{Var}(\hat{\boldsymbol\alpha}_g)$, which is $s_g\sqrt{v_{jj}}$
+$\large\hat{se}(\hat{\alpha}_{jg})$ obtained by taking the square root of the $j^{th}$ diagonal element of $\hat{Var}(\hat{\boldsymbol\alpha}_g)$, which is $s_g\sqrt{v_{jj}}$
 
 ---
 
@@ -920,7 +919,7 @@ knitr::include_graphics("img/shrink.jpg")
 
   * `lmFit(myDat, desMat)`
   
-  * `myDat` contains expression values for all genes
+  * `myDat` matrix-like object with expression values for all genes
   
   * `desMat` is a specially formatted design matrix (more on this later)
   
@@ -930,7 +929,7 @@ knitr::include_graphics("img/shrink.jpg")
 
 class: middle
 
-##'Industrial scale' model fitting is good, because computations involving just the design matrix $\mathbf{X}$ are not repeated 30K unnecessarily: 
+##'Industrial scale' model fitting is good, because computations involving just the design matrix $\mathbf{X}$ are not repeated tens of thousands of times unnecessarily: 
 
 * **OLS estimator**: $$\hat{\boldsymbol\alpha} =(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$$
 
@@ -1055,7 +1054,7 @@ $$\large \tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$$
 * Under limma's assumptions, we know the null distribution for the moderated *t*-statistic under $H_0$:
 $$\tilde{t}_{gj} \sim t_{d_0+d}$$
 
-* parameters from the prior $d_0$ and $s_0^2$ are estimated from the data
+* parameters from the prior $d_0$ and $s_0^2$ are estimated from the data 
 
 --
 
@@ -1065,7 +1064,7 @@ knitr::include_graphics("img/hybrid.jpg")
 ```
 </div>
 
-* This is how limma is a **hybrid** of frequentist (*t*-statistic) and Bayesian (hierarchical model) approaches
+* This is how limma is a **hybrid** of frequentist (*t*-statistic) and Bayesian (hierarchical model) approaches (i.e. empirical Bayes)
 
 ---
 
