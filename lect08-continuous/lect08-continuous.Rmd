@@ -494,9 +494,9 @@ $$=(\mathbf{y}-\mathbf{X}\boldsymbol\alpha)^T(\mathbf{y}-\mathbf{X}\boldsymbol\a
 
 --
 
-* To do so, take partial derviatives with respect to each coefficient, set to zero, and solve the system of equations:
+* Take partial derviatives with respect to each coeff, set to zero, solve system of equations:
 
-$$\frac{\partial S}{\partial\alpha_0}=\begin{bmatrix}
+$$\small \frac{\partial S}{\partial\alpha_0}=\begin{bmatrix}
   \frac{\partial S}{\partial\alpha_0} \\
   \frac{\partial S}{\partial\alpha_1} \\
   \vdots\\
