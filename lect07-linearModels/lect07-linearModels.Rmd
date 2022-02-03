@@ -1120,9 +1120,9 @@ filter(twoGenes, gene == "1447753_at") %>%
 
 <big>
 
-- In an additive model for a balanced design, the parameters are **average effects**, over the levels of the other factor. Now, same as in `anova()`!
+- In an additive model, the parameters are **average effects**, over the levels of the other factor. Now, same as in `anova()`!
 
-  - Note the agreement; this is gone in unbalanced designs since weights are computed differently! 
+  - Note the agreement between `lm` and `anova`; this is gone in unbalanced designs since weights are computed differently! 
 
 - The intercept parameter is now $\bar{Y} - \bar{x}_{ij,KO}\hat{\tau}_{KO} - \bar{x}_{ij,4W}\hat{\tau}_{4W}$
 
@@ -1130,7 +1130,7 @@ filter(twoGenes, gene == "1447753_at") %>%
 
 ---
 
-## Parameters in balanced additive models represent main effects
+## Parameters in additive models represent main effects
 
 <small>
 .smaller[
@@ -1246,7 +1246,7 @@ Note that all the `dev_stage` parameters are still **simple** effects, but we no
 (addFit <- lm(expression ~ genotype + dev_stage, data = hitGene)) %>%
   summary() %>% .$coef
 ```
-Parameters are now **main** effects (on average over the levels of the other factor) in this balanced design, but we have more!
+Parameters are now **main** effects (on average over the levels of the other factor), but we have more!
 
 <div class="blue">Is developmental stage a significant effect? </div> 
 
