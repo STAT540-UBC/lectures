@@ -100,11 +100,13 @@ Options we discussed last time:
 
 * Specifically, adjustment to regular `lm` to take into account the M-V relationship
 
-* **Key idea 1**: heteroskedasticity leads to to higher variance observations getting more weight in minimization of error than they should
+* **Key idea 1**: heteroskedasticity leads to higher variance observations getting more weight in minimization of error than they should
+
+--
 
 * **Key idea 2**: modeling the mean-variance relationship is more important than getting the probability distribution exactly right (i.e. don't bother with other distributions like Poisson, Binomial, etc)
 
-* Proposed by [Law et al. (2014)](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29)
+* Proposed in ["voom: precision weights unlock linear model analysis tools for RNA-seq read counts" by Law et al. (2014)](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29)
 
 ---
 
@@ -179,28 +181,36 @@ GIF source (not rendered in PDF): ["Introduction to Data Science" by Irizarry](h
 
 # Why quarter-root variance?
 
-* The squared **coefficient of variation** `\((CV = \frac{\sigma}{\mu})\)` for RNA-seq counts is roughly `\(CV^2 =\frac{1}{\lambda} + \phi\)`
-  * `\(\lambda\)` is expected size of count
-  * `\(\phi\)` is a measure of biological variation (*overdispersion*)
+* The **coefficient of variation** `\((CV = \frac{\sigma}{\mu})\)` for RNA-seq counts is roughly `\(\sqrt{\frac{1}{\lambda} + \phi}\)`
   
-* First term arises from technical variability associated with sequencing, and gradually decreases with increasing expected count size 
+  * `\(\lambda:\)` expected size of count; arises from technical variability associated with sequencing and gradually decreases with increasing count size 
 
-* Second term remains roughly constant
-
----
-
-# Why quarter-root variance?
-
-#### CV of RNA-seq counts should be a decreasing function of count size for small to moderate counts, and asymptote to a value that depends on biological variability ([Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34))
+  * `\(\phi:\)` measure of biological variation (*overdispersion*); roughly constant
 
 --
 
 * Standard deviation of `\(log_2(CPM)\)` is approximately equal to CV of the counts (by Taylor's theorem) 
 
 `$$sd(log_2(CPM)) \approx \sqrt{\frac{1}{\lambda} + \phi}$$`
+---
+
+## Why quarter-root variance?
+
+&lt;div class="blue"&gt; CV of RNA-seq counts should be a decreasing function of count size for small to moderate counts, and asymptote to a value that depends on biological variability&lt;/div&gt;
+
+&lt;img src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/bin/gb-2014-15-2-r29-1.jpg" width="450" style="display: block; margin: auto;" /&gt;
+
+[Law et al. 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/): Panels (a)-(e) represent datasets with increasing expected biological variability
+
 --
 
-* Square root of standard deviation used as distribution is more symmetric
+Square root of standard deviation used as distribution is more symmetric (i.e. less skewed) 
+
+---
+
+class: middle
+
+### How can we incorporate these precision weights in the regression fit?
 
 ---
 
@@ -226,7 +236,7 @@ GIF source (not rendered in PDF): ["Introduction to Data Science" by Irizarry](h
 # limma-voom
 
 
-* limma-voom is the application of limma to log2(CPM + 0.5) values, with inverse variance observational weights estimated from the M-V trend
+* **limma-voom** is the application of `limma` to `\(log_2(CPM + 0.5)\)` values, with inverse variance observational weights estimated from the M-V trend
 
 * This alleviates the problem of heteroskedasticity and (hopefully) improves estimates of residual standard error
 
@@ -239,7 +249,7 @@ GIF source (not rendered in PDF): ["Introduction to Data Science" by Irizarry](h
 * Note that `\(s^2_g\)` estimates are affected by voom weights
   
   * recall that `\(s^2_g\)` is the sum of squared residuals `\(\frac{1}{n-p}\hat{\boldsymbol{\epsilon}_g}^T\hat{\boldsymbol{\epsilon}_g}\)`
-  * under WLS `\(\boldsymbol{\hat{\epsilon_g} = y - X\hat{\beta} = y- X(X^TWX)^{-1}X^TWy}\)`
+  * under WLS `\(\boldsymbol{\hat{\epsilon}_g = y - X\hat{\beta} = y- X(X^TWX)^{-1}X^TWy}\)`
   
 ---
 
@@ -253,7 +263,7 @@ GIF source (not rendered in PDF): ["Introduction to Data Science" by Irizarry](h
 
 * Degrees of freedom for moderated `\(t\)` statistic: `\(n-p+d_0\)` 
 
-* If prior degrees of freedom `\((d_0\)`, estimated from data) is large compared to `\(n-p\)`, moderated statistics have a bigger effect compared to using regular `\(t\)` statistics
+* If `\(d_0\)` is large compared to `\(n-p\)`, moderated statistics have a bigger effect compared to using regular `\(t\)` statistics
   * i.e. in general, shrinkage matters more for small sample sizes
 
 ---
@@ -286,6 +296,7 @@ where `\(D\# \in \{D14.5, D17.5, D21, D77\}\)`
 
 * We will focus on the null hypothesis of the **main effect** of Group `\(H_0: \tau_{Mut}=0\)` 
 
+
 ---
 
 # limma-voom in action
@@ -298,7 +309,7 @@ vw &lt;- voom(assays(sumexp)$counts,
            plot = TRUE, span = 0.5)  
 ```
 
-&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-4-1.png" width="576" style="display: block; margin: auto;" /&gt;
+&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-5-1.png" width="576" style="display: block; margin: auto;" /&gt;
 
 ```r
 lvfit &lt;- lmFit(vw, model.matrix(~ Sex + Group + DPC, data = colData(sumexp)))
@@ -310,7 +321,7 @@ lvfit &lt;- eBayes(lvfit)
 
 # limma-voom vs limma
 
-&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-5-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-6-1.png" width="720" style="display: block; margin: auto;" /&gt;
 
 ---
 
@@ -319,7 +330,7 @@ lvfit &lt;- eBayes(lvfit)
 #### Limma-trend uses the M-V relationship at the **gene** level, whereas voom uses **observational** level trends ([Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34))
 
 
-* Gene-wise variances are shrunken toward a global M-V trend, instead of toward a constant pooled variance:
+* Gene-wise variances are shrunken toward a **global M-V trend**, instead of toward a constant pooled variance:
 
 `$$\tilde{s}^2_g = \frac{d_0s_{0g}^2 + ds^2_g}{d_0 + d}$$` 
 --
@@ -330,26 +341,27 @@ lvfit &lt;- eBayes(lvfit)
 
 ---
 
+# limma-trend vs voom? 
+
+![](https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg)
+
+Figure 2, [Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34)
+
+---
+
 # limma-trend in action
 
 .pull-left[
 .smaller2[
 
 ```r
-ltfit &lt;- lmFit(cpm(assays(sumexp)$counts, log = TRUE), 
-               design =  model.matrix(~ Sex + Group + DPC, 
-                                      data = colData(sumexp)))
+mm &lt;- model.matrix(~ Sex + Group + DPC, 
+                   data = colData(sumexp))
+ltfit &lt;- lmFit(cpm(assays(sumexp)$counts, 
+                   log = TRUE), 
+               design =  mm)
 ltfit &lt;- eBayes(ltfit, trend = TRUE)
 
-# limma s^2_0
-str(lfit$s2.prior)
-```
-
-```
-##  num 0.0334
-```
-
-```r
 # limma-trend s^2_{0g}
 str(ltfit$s2.prior)
 ```
@@ -358,10 +370,19 @@ str(ltfit$s2.prior)
 ##  Named num [1:12021] 0.0287 0.051 0.0274 0.023 0.0268 ...
 ##  - attr(*, "names")= chr [1:12021] "0610007P14Rik" "0610009B22Rik" "0610009O20Rik" "0610010F05Rik" ...
 ```
+
+```r
+# regular limma s^2_0
+str(lfit$s2.prior)
+```
+
+```
+##  num 0.0334
+```
 ]]
 
 .pull-right[
-&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-7-1.png" width="576" style="display: block; margin: auto;" /&gt;
+&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-8-1.png" width="576" style="display: block; margin: auto;" /&gt;
 ]
 
 ---
@@ -384,7 +405,7 @@ str(ltfit$s2.prior)
 
 One of the top DE genes by Group according to voom (but not other methods):
 
-&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-8-1.png" width="1008" style="display: block; margin: auto;" /&gt;
+&lt;img src="lect11-RNAseq2_files/figure-html/unnamed-chunk-9-1.png" width="1008" style="display: block; margin: auto;" /&gt;
 
 --
 
@@ -434,7 +455,9 @@ One of the top DE genes by Group according to voom (but not other methods):
 
 # Negative Binomial GLM
 
-* Gene-specific variance under NB: `\(\sigma_g^2 = \mu_g + \mu_g^2\phi_g),\)` where `\(\phi_g\)` is the **dispersion** for gene `\(g\)`
+* Gene-specific variance under NB: `\(\sigma_g^2 = \mu_g + \mu_g^2\phi_g\)` 
+
+  * `\(\phi_g\)` is the **dispersion** for gene `\(g\)`
 
   * if `\(\phi_g=0\)`, get Poisson!
 
@@ -442,7 +465,7 @@ One of the top DE genes by Group according to voom (but not other methods):
 
 --
 
-* To do so, we need to treat `\(\phi_g\)` as known (so first need to estimate it)
+* To do so, we need to treat `\(\phi_g\)` as known (*so first need to estimate it*)
 
 --
 
@@ -450,9 +473,7 @@ One of the top DE genes by Group according to voom (but not other methods):
 
 ---
 
-# Disperson estimation
-
-&lt;small&gt;
+## Disperson estimation
 
 * One option is to assume `\(\phi_g\)` is a set parametric function of the mean `\(\mu_g\)` (e.g. quadratic)
 
@@ -461,7 +482,7 @@ One of the top DE genes by Group according to voom (but not other methods):
   * Dispersion is gene-specific but moderated toward the observed trend with the mean
 
 
-&lt;img src="img/dispersion.png" width="800" style="display: block; margin: auto;" /&gt;
+&lt;img src="img/dispersion.png" width="700" style="display: block; margin: auto;" /&gt;
 
 
 &lt;small&gt;
@@ -475,7 +496,7 @@ source: [Statistical Analysis of Next Generation Sequencing Data, Chapter 3 by C
 * These methods are very similar overall 
 
 * Major differences between the methods lie in how they filter low-count genes, estimate prior degrees of freedom, deal with outliers in dispersion estimation, and moderate dispersion of genes with high within-group variance or low counts
-  * Also slight differences in types of hypothesis tests (quasi-likelihood in edgeR and Wald test in DESeq2)
+  * Also slight differences in specific types of hypothesis tests (quasi-likelihood in edgeR and Wald test in DESeq2)
 
 * Many of these choices can be altered by changing default parameter settings in both methods (see user manuals)
 
