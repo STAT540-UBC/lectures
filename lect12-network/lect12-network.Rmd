@@ -1,23 +1,20 @@
 ---
-title: "Systems Biology: Network analysis and Gene set enrichment "
+title: "Gene set enrichment and Network analysis"
 author: "Yongjin Park"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 classoption: "aspectratio=169"
-fontsize: 10pt
 output:
     powerpoint_presentation:
         reference_doc: "_template.pptx"
     html_document:
         self_contained: true
     beamer_presentation:
+        theme: "CambridgeUS"
+        colortheme: "seahorse"
         keep_tex: true
         latex_engine: xelatex
 header-includes:
-  - \usetheme[numbering=none]{metropolis}
   - \AtBeginSection[]{\begin{frame}\frametitle{What you will learn}\tableofcontents[currentsection]\end{frame}}
-  - \setbeamercolor{background canvas}{bg=white}
-  - \definecolor{beaublue}{rgb}{0.74, 0.83, 0.9}
-  - \setbeamertemplate{frame footer}{\tiny{\textcolor{beaublue}{Systems Biology}}}
   - | 
     \makeatletter
     \def\ps@titlepage{%
@@ -39,71 +36,148 @@ setup.env(fig.dir)
 dir.create("Data", showWarnings=FALSE)
 ```
 
-# What's next after differential expression analysis?
+## What's next after differential expression analysis?
 
-##
+:::::: {.columns}
+::: {.column width=.7}
+
+:::
+::: {.column width=.3}
 
 * Differential expression analysis of ~20k genes identified tens or
   hundreds of significant genes
 
-* Systems biology will put them together using gene sets (pathways)
-  and networks (gene-gene interactions) and find converging stories.
+* Can we evaluate our findings from a systems biology perspective?
 
-## Let's zoom out: a biological system $\approx$ gene-gene interaction networks
+:::
+::::::
 
-```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
+
+# Gene Set Enrichment Analysis
+
+## What is Gene Set Analysis?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+
+### (Discrete) Gene Set Analysis
+
+Input:
+
+1. A dictionary of gene sets that map genes to sets (gene to gene set mapping)
+	
+2. A list of **top** XX number of genes identified in our own study (after FDR control)
+
+:::
+::: {.column width=.45}
+
+
+### (Rank-based) Gene Set Enrichment
+
+Input:
+
+1. A dictionary of gene sets that map genes to sets
+	
+2. A **full** list of gene-level **scores** (e.g., p-values, z-scores)
+
+:::
+::::::
+
+Output: A table of scores for all the gene sets in the dictionary.
+
+
+## What have we learned from our differential expression analysis?
+
+```{r results="asis", out.width=".6\\linewidth", echo = FALSE}
 knitr::include_graphics("./Vis/network/11_network_geneset_1.pdf")
 ```
 
 \hfill $\to$ **coloured:** some pathway of interest
 
-## Pathways define subsets (partitions) of genes
+## Let's drop the edges in biological networks
 
-```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
+Prior Knowledge of biological pathways define a set of genes (coloured)
+
+```{r results="asis", out.width=".6\\linewidth", echo = FALSE}
 knitr::include_graphics("./Vis/network/11_network_geneset_2.pdf")
 ```
 
-## After controlling FDR, we identified $k$ genes in our case-control analysis
+## Does this pathway overlap with our DEG list?
 
-```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".6\\linewidth", echo = FALSE}
 knitr::include_graphics("./Vis/network/11_network_geneset_3.pdf")
 ```
 
-## Interestingly, we found $x$ genes are overlapping with this pathway
+## Say that we found $q$ genes are overlapping with this pathway
 
-```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".6\\linewidth", echo = FALSE}
 knitr::include_graphics("./Vis/network/11_network_geneset_4.pdf")
 ```
 
-# Set-based, discrete enrichment analysis
-
-## Toy example
+## Gene Set Analysis testing over-representation of DEGs
 
 :::::: {.columns}
 ::: {.column width=.5}
 
-```{r results="asis", out.width=".9\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".95\\linewidth", echo = FALSE}
 knitr::include_graphics("./Vis/network/11_network_geneset_5.pdf")
 ```
 
+:::
+::: {.column width=.4}
+
+### What are the numbers to count?
+
 * $N$: \# genes in this universe
 
-* $m$: \# genes in this get set
+* $m$: \# genes in this set
 
 * $n$: \# genes *not* in this gene set
 
-* $k$: \# genes found differential expression analysis
+* $k$: \# DEGs in our analysis
+
+* $q$: \# DEGs (of $k$) overlapping with the set of $m$ genes
 
 :::
+::::::
+
+## Is this overlap of $q=6$ of $k=8$ genes significant?
+
+:::::: {.columns}
 ::: {.column width=.5}
 
-For each pathway:
+```{r results="asis", out.width=".95\\linewidth", echo = FALSE}
+knitr::include_graphics("./Vis/network/11_network_geneset_5.pdf")
+```
 
-* Let's consider this pathway consists of $m=$ 9 genes 
+:::
+::: {.column width=.4}
 
-* We found $k=$ 8 DEGs in our RNA-seq analysis 
+* $N = 24$ # a total of 24 genes
 
-* Of them, $x=$ 6 genes found overlapping with this pathway
+* $m = 9$ genes in this set
+
+* $n = N - m = 15$
+
+* $k = 8$ DEGs
+
+* $q=6$ out of $k=8$ overlap
+
+:::
+::::::
+
+## Is this overlap of $q=6$ of $k=8$ genes significant?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r results="asis", out.width=".95\\linewidth", echo = FALSE}
+knitr::include_graphics("./Vis/network/11_network_geneset_5.pdf")
+```
+
+:::
+::: {.column width=.4}
 
 Questions:
 
@@ -118,132 +192,124 @@ Questions:
 :::
 ::::::
 
-## Let's break down the generative process
+## How do we find $q$ out of $k$ DEGs overlapping with a gene set of $m$ genes?
 
 :::::: {.columns}
-::: {.column width=.5}
+::: {.column width=.45}
 
-```{r results="asis", out.width=".9\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".95\\linewidth", echo = FALSE}
 knitr::include_graphics("./Vis/network/11_network_geneset_5.pdf")
 ```
 
-* $N$: \# genes in this universe
-
-* $m$: \# genes in this get set
-
-* $n$: \# genes *not* in this gene set
-
-* $k$: \# genes found differential expression analysis
-
 :::
-::: {.column width=.49}
+::: {.column width=.5}
 
-**Step 1 (existing knowledge)**:
+### Under the null of hypergeometric distribution
 
-* $m$: the set size of a particular gene set
+1. Sample $k$ DEGs out of $N$ genes
 
-* $n$: $N$ - \# genes in the set
+2. Of these $k$ genes, $q$ overlap with a gene set consisting of $m$ genes
 
-**Step 2 (new discovery)**:
-
-* $k$: How many genes found in your analysis?
-
-* $x$: How many of the $k$ genes also belong to the gene set of interest?
-
-**Null distribution**:
-
-1. If we sampled some $k$ genes ($0 \le k \le N$) uniformly at random,
-   without replacement, from total $N$ genes,
-
-2. How many $x$ of the $k$ genes would overlap with the gene set of
-   interest, containing $m$ genes?
+3. The rest $k-q$ genes overlap with genes outside of the gene set $N-m$
 
 :::
 ::::::
 
 
-## Let's count the numbers to figure out hypergeometric distribution 
+## *Review of binomial coefficient*: Let's see if we can estimate the null distribution by counting
+
+* How many all possible ways to select $k=8$ out of $N=24$ genes, ignoring the order of $k$ selected genes and $N-k$ *not* selected genes?
+
+* We can think of this as three steps: (1) enumerating $N$ genes, (2) partition them into the first $k$ genes and the rest, (3) ignore the order within each partition.
+
+$${24 \choose 8} = \frac{
+	\textsf{\{all possible ways to enumerate }24 \textsf{ genes}\}
+	}{
+		\{ \textsf{enumerating }8 \textsf{ genes} \}
+		\{ \textsf{enumerating }16 \textsf{ genes} \}
+}
+= \frac{24!}{8! 16!}$$
+
+## Hypergeometric distribution
+
+1. What is the probability of selecting $k$ DEGs out of $N$ genes?
+
+2. How many possible ways of finding $q$ DEGs overlapping with $m$ genes in the gene set?
+
+3. How many possible ways of finding the rest $k-q$ DEGs overlapping with ($N-m=n$) genes in the gene set?
+
+## Hypergeometric distribution
+
+$$P_{0}(q|N,m,k) = \sum_{\begin{array}{l}
+\textsf{\# possible ways of selecting }q\textsf{ out of }m \\
+\textsf{\# possible ways of selecting }(k-q)\textsf{ out of }N-m
+\end{array}}
+\begin{array}{l}
+\textsf{the probability} \\
+\textsf{of the gene set}
+\end{array}$$
+
+$$=
+\overbrace{{m \choose q}}^{
+\begin{array}{l}
+\textsf{\# ways of choosing } \\
+q \textsf{overlap out of }m
+\end{array}}
+\overbrace{{N-m \choose k - q}}^{
+\begin{array}{l}
+\textsf{\# ways of choosing } \\
+(k-q) \textsf{ out of }N-m
+\end{array}}
+\underbrace{\frac{1}{{N \choose k}}}_{\textsf{equal probability of the gene set}}
+$$
+
+
+## What is the probability of $k$ overlapping DEGs?
 
 :::::: {.columns}
-::: {.column width=.5}
+::: {.column width=.45}
 
-How many ways to select $k$ from the $N$ genes?
 
-- Binomial coefficient, choosing $k$ from $N$
+### Hypergenometric PMF
 
-$${N \choose k} = \frac{N!}{k! (N-k)!}$$
-
-<!-- - The number of subsets of size $m$ contained in the total set
-$[N]$ (i.e., $\{1, \ldots, N\}$) -->
-
-```{r}
-N <- 24; k <- 8; choose(N, k)
-```
-
-* `r choose(N,k)`
-
-Therefore, the probability of sampling $k$ from $N$ genes uniformly is
-$p(N,k) = {N \choose k}^{-1}$
+$$p(x|N,m,k) = \frac{{m \choose x} {N - m \choose k-x}}{{N \choose k}}$$
 
 :::
-::: {.column width=.5}
+::: {.column width=.45}
 
-Ask how these $k$ genes were distributed with respect to the pathway genes $m$ (the coloured) and the rest of non-pathway genes $n$ (the uncoloured).
+### Hypergeometric CDF
 
-- $x$ (of the $k$) from the coloured ($m$), thus ${m \choose x}$
-
-- $k-x$ (of the $k$) from the uncoloured ($n$), thus ${n \choose k-x}$ ways to sample
-
-Summing over all the possibilities:
-
-$p(x,n,m,k) = \frac{{m \choose x } {n \choose k-x}}{{n+m \choose k}}$
-
-
-```{r include=FALSE}
-.m <- 9
-.n <- 15
-.k <- 8
-```
-
-```{r}
-dhyper(x=6, m=.m, n=.n, k=.k)
-```
-* `r dhyper(x=6, m=.m, n=.n, k=.k)`
+$$p(q|N,m,k) = \sum_{x = 0}^{q} \frac{{m \choose x} {N - m \choose k-x}}{{N \choose k}}$$
 
 :::
 ::::::
-
 
 
 ## Hypergeometric test for testing significant overlap
 
+$$H_{0}:\, x \le q \quad \textsf{vs.} H_{1}:\, x > q$$
 
-Under the null hypothesis:
-
-$$H_{0}:\, x \le x^{\star}$$
-
-We may observe overlap $x^{\star}$ genes by random sampling of $k$ genes **without** replacement.
+We may observe overlap $q$ genes by random sampling of $k$ genes **without** replacement.
 
 Therefore, we can calculate the p-value:
 
-$$P(x > x^{\star}|n, m, k) = 1 - \sum_{x = 0}^{x^{\star}} \frac{{m \choose x } {n \choose k-x}}{{n+m \choose k}}$$
+$$P(x > q|n, m, k) = 1 - \sum_{x = 0}^{q} \frac{{m \choose x } {n \choose k-x}}{{n+m \choose k}}$$
 
-In `R`:
-
-```{r eval=FALSE}
-phyper(x=6, m=.m, n=.n, k=.k, lower.tail=FALSE)
+```{r}
+phyper(q=6, m=9, n=15, k=8, lower.tail=FALSE)
 ```
 
-
-## How significant is $x$ overlap in our discovery?
+## How significant is $q$ overlap in our discovery?
 
 :::::: {.columns}
 ::: {.column width=.33}
 
-Fixing $m=$ `r .m`, $n=$ `r .n`, $k=$ `r .k`
+Fixing $m=9$, $n=15$, and $k=8$,
 
 ```{r fig.width=1.8, fig.height=2.7, echo = FALSE, onslide.plot="1-"}
-
+.m <- 9
+.n <- 15
+.k <- 8
 .dt <- data.table(pp = dhyper(0:8, m=.m, n=.n, k=.k),
                   cc = phyper(0:8, m=.m, n=.n, k=.k),
                   x = 0:8,
@@ -292,7 +358,7 @@ plot.hyper.cutoff(.dt)
 :::
 ::: {.column width=.33}
 
-If $x=3$:
+If $q=3$:
 
 ```{r fig.width=1.8, fig.height=2.7, echo = FALSE, onslide.plot="2-"}
 .dt %>% mutate(.null = if_else(x > 3, "1_alt", "0_null")) %>% 
@@ -302,7 +368,7 @@ plot.hyper.cutoff()
 :::
 ::: {.column width=.33}
 
-If $x=6$:
+If $q=6$:
 
 ```{r fig.width=1.8, fig.height=2.7, echo = FALSE, onslide.plot="3-"}
 .dt %>% mutate(.null = if_else(x > 6, "1_alt", "0_null")) %>% 
@@ -387,15 +453,19 @@ Which one is significant?
 :::
 ::::::
 
+## Complete `seminar-07` to better understand GSA
 
-## Gene Set Enrichment Analysis method (Subramanian _et al._ 2005)
+* We will take a look at real-world gene sets--MSigDB pathways and NHGRI-EBI GWAS catalogue.
 
-:::::: {.columns}
-::: {.column width=.5}
+* We will also discuss [`goseq`](https://bioconductor.org/packages/release/bioc/html/goseq.html) method.
 
-**Rough idea**
+* [Gene ontology analysis for RNA-seq: accounting for selection bias](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-2-r14). 
 
-Input:
+* We will also demonstrate one kind of gene-level bias induced by gene length.
+
+## Rank-based Gene Set Enrichment Analysis method (Subramanian _et al._ 2005)
+
+### GSEA input
 
 - A collection of gene-sets: $\mathcal{C}_{1}, \ldots, \mathcal{C}_{K}$
 
@@ -403,15 +473,14 @@ Input:
 
 - Each $z_{g}$ could come from differential expression analysis
 
-Algorithm:
+### GSEA algorithm
 
 - For each $k$, compute a set-level score $S_{k}(\mathbf{z},\mathcal{C}_{k})$
 
 - E.g., Kolmogorov-Smirnov statistic comparing the distribution $\{z_{g}:\,g \in \mathcal{C}_{k}\}$ vs.  $\{z_{g}:\,g \notin \mathcal{C}_{k}\}$
 
 
-:::
-::: {.column width=.5}
+## Gene Set Enrichment Analysis method (Subramanian _et al._ 2005)
 
 - Construct the null distribution of $S_{1}, \ldots, S_{K}$ by sample label (case-control) or gene-to-set membership permutation
 
@@ -419,86 +488,140 @@ Algorithm:
 
 - If we knew the null distribution, we would not need expensive permutations.
 
+:::::: {.columns}
+::: {.column width=.45}
+
 **Good**:
 
 - No cutoff/assumptions needed to estimate the null distribution
 
 - Aggregate scores across many genes! (boost the power)
 
+:::
+::: {.column width=.45}
+
 **Bad**:
 
 - What is an appropriate statistic?
 
-- What should be permuted?
+- What should be permuted? For how long?
 
 :::
 ::::::
+
+
+## Let's simulate some gene set data to understand GSEA
+
+### Simulation (Efron and Tibshirani 2007)
+
+1. Generate basal gene expression 
+
+$$X_{i,g} \sim \mathcal{N}\!\left(0,1\right)$$
+
+2. Sample case vs. control membership (the rows of $X$) uniformly at random
+
+3. Sample membership gene to gene set uniformly at random 
+
+4. For the first gene set, select a certain fraction of genes to perturb
+
+5. For the selected genes $g^{*}$, add some $\Delta$ value to $X_{i,g^*}$ if the sample $i$ belongs to the control group
+
 
 ## Let's simulate some gene set data (Efron and Tibshirani 2007)
 
 :::::: {.columns}
-::: {.column width=.5}
+::: {.column width=.55}
 
-```{r size="tiny"}
-#' Simulate gene sets and expression matrix
-#' @param G number of genes
-#' @param K number of gene-sets
-#' @param n.sample gene expression sample size
-#' @param delta gap between the null and alternative
-#' @param p.perturb fraction of perturbed genes in the first
-simulate.data <- function(G = 1000, K = 150,
-                          n.samp = 100, delta = .4,
-                          p.perturb = 1) {
-    
-    case.control <- sample(0:1, n.samp, TRUE) # case control
-    S <- sample(K, G, TRUE)                   # gene sets
-    X <- .rnorm(n.samp, G)                    # All the other genes
-
-    ## Perturbation of the first gene set
-    .genes.1 <- which(S == 1)
-    n.perturb <- max(floor(length(.genes.1) * p.perturb), 1)
-    .genes.1 <- sample(.genes.1, n.perturb)
-    .case <- case.control == 1
-    X[.case, .genes.1] <- X[.case, .genes.1] + delta
-    .membership <- Matrix::sparseMatrix(j=1:G, i=S, x=rep(1,G))
-    list(X = X, S = .membership, Y = case.control)
+```{r}
+simulate.data <-
+    function(G = 1000,        # genes
+             K = 150,         # gene sets
+             n.samp = 100,    # sample size
+             delta = .4,      # perturbation
+             p.perturb = 1) { # Pr of petrub
+  case.control <- sample(0:1, n.samp, TRUE)
+  S <- sample(K, G, TRUE)       # gene sets
+  X <- .rnorm(n.samp, G)        # All the other genes
+  ## Perturbation of the first gene set
+  .genes.1 <- which(S == 1)
+  n1 <- length(.genes.1)
+  n.perturb <- max(floor(n1 * p.perturb),1)
+  .genes.1 <- sample(.genes.1, n.perturb)
+  .case <- case.control == 1
+  X[.case, .genes.1] <- X[.case, .genes.1] + delta
+  require(Matrix)
+  .membership <- sparseMatrix(j=1:G, i=S, x=rep(1,G))
+  list(X=X, S=.membership, Y=case.control)
 }
 ```
 
 :::
-::: {.column width=.55}
+::: {.column width=.35}
 
-* Generate basal gene expression 
+```{r}
+set.seed(1)
+dat <- simulate.data()
+```
 
-$$X_{i,g} \sim \mathcal{N}\!\left(0,1\right)$$
-
-* Sample case vs. control membership (the rows of $X$) uniformly at random
-
-* Sample membership gene to gene set uniformly at random 
-
-* For the first gene set, select a certain fraction of genes to perturb
-
-* For the selected genes $g^{*}$, add some $\Delta$ value to $X_{i,g^*}$ if the sample $i$ belongs to the control group
+Let's run t-test for each gene:
+```{r}
+run.t.test <- function(X, Y){
+  .case <- Y == 1
+  .ctrl <- Y == 0
+  .fun <- function(x){
+    t.test(x[.case],
+           x[.ctrl])$statistic
+  }
+  apply(X, 2, .fun)
+}
+```
 
 :::
 ::::::
 
-## Will a simple analytical method work?
+
+## What will be a proper gene set score?
+
+Gene-level scores across gene sets:
+
+```{r echo=FALSE, fig.width=6, fig.height=2}
+
+zz <-
+    data.frame(z = run.t.test(dat$X, dat$Y)) %>%
+    mutate(Var2 = 1:n()) %>%
+    left_join(reshape2::melt(as.matrix(dat$S), value.name="s"))
+
+.show <- zz %>% filter(Var1 <= 10) %>%
+    mutate(s = if_else(s == 0, "outside", "inside"))
+
+.gg.plot(.show, aes(s, `z`, fill = s)) +
+    facet_grid(. ~ Var1) +
+    geom_violin(scale="width") +
+    geom_boxplot(width=.25, fill="white", outlier.stroke=0) +
+    xlab("first 10 gene sets") +
+    ylab("t-test statistics") +
+    theme(axis.text.x = element_blank()) +
+    scale_fill_brewer("genes", palette="Paired")
+```
+
+## What will be a proper gene set score?
+
+Can we simply aggregate gene-level z-scores (or t-statistics) within each set?
+
+::: {.block}
+
+### Irizarry _et al._ (2009), using Stouffer Z-score
+
+$$S_{k} = \sum_{g \in \mathcal{C}_{k}} z_{g} /  \sqrt{|\mathcal{C}_{k}|} \sim \mathcal{N}\!\left(0, 1\right)$$
+if $Z_{g} \sim \mathcal{N}\!\left(0,1\right),\,\forall g$ 
+:::
 
 :::::: {.columns}
-::: {.column width=.5}
+::: {.column width=.4}
 
 ```{r}
-set.seed(1)
-.dat <- simulate.data()
-
 geneset.score <- function(X, S, Y) {
-    .case <- Y == 1
-    .ctrl <- Y == 0
-    .fun <- function(x)
-        t.test(x[.case],
-               x[.ctrl])$statistic
-    z.genes <- apply(X, 2, .fun)
+    z.genes <- run.t.test(X, Y)
     n.sets <- apply(S, 1, sum)
     z.sets <- (S %*% z.genes /
                sqrt(n.sets))
@@ -506,20 +629,15 @@ geneset.score <- function(X, S, Y) {
 ```
 
 :::
-::: {.column width=.55}
+::: {.column width=.45}
 
-* Irizarry _et al._ (2009), using Stouffer Z-score
-
-$$S_{k} =\sum_{g \in \mathcal{C}_{k}} z_{g} /  \sqrt{|\mathcal{C}_{k}|}$$
 
 ```{r}
-z.sets <- geneset.score(.dat$X,
-                        .dat$S,
-                        .dat$Y)
+z.sets <- geneset.score(dat$X, dat$S, dat$Y)                        
 ```
 
 ```{r include=FALSE}
-.qq.norm <- function(zz){
+.qq.norm <- function(zz, ylab = "z-scores"){
     .qq <- qqnorm(as.numeric(zz), plot.it=FALSE)
     .dt <- setDT(.qq)
     .dt.sig <- .dt[abs(y) > 2 & abs(y) > 1.25*abs(x)]
@@ -528,13 +646,13 @@ z.sets <- geneset.score(.dat$X,
         geom_point(data=.dt.sig, size=2, pch=21, colour="red") +
         geom_abline(slope=1, colour=2) +
         xlab("z ~ N(0,1)") +
-        ylab("observed z-scores")
+        ylab(ylab)
 }
 ```
 
 
 ```{r fig.width=2, fig.height=1.25, echo=FALSE, only.plot="2"}
-.qq.norm(z.sets)
+.qq.norm(z.sets, "set-level\n z-scores")
 ```
 
 ```{r include=FALSE}
@@ -563,20 +681,20 @@ z.sets <- geneset.score(.dat$X,
 :::
 ::::::
 
-
 ## Constructing the null distribution by gene permutation
 
-:::::: {.columns}
-::: {.column width=.65}
+What if we don't know the distribution of set-wise scores?
 
+:::::: {.columns}
+::: {.column width=.6}
 
 ```{r}
-S.perm <- t(apply(.dat$S, 1, sample))
-z.perm <- geneset.score(.dat$X, S.perm, .dat$Y)
+S.perm <- t(apply(dat$S, 1, sample))
+z.perm <- geneset.score(dat$X, S.perm, dat$Y)
 ```
 
 ```{r fig.width=3.5, fig.height=1.25, echo=FALSE}
-.qq.norm(z.perm) | .pv.plot(z.perm)
+.qq.norm(z.perm, "permuted\nz-scores") | .pv.plot(z.perm)
 ```
 
 :::
@@ -600,12 +718,12 @@ z.perm <- geneset.score(.dat$X, S.perm, .dat$Y)
 
 
 ```{r}
-Y.perm <- sample(.dat$Y)
-z.perm <- geneset.score(.dat$X, S.perm, Y.perm)
+Y.perm <- sample(dat$Y)
+z.perm <- geneset.score(dat$X, S.perm, Y.perm)
 ```
 
 ```{r fig.width=3.5, fig.height=1.25, echo=FALSE}
-.qq.norm(z.perm) | .pv.plot(z.perm)
+.qq.norm(z.perm, "permuted\nz-scores") | .pv.plot(z.perm)
 ```
 
 :::
@@ -622,6 +740,13 @@ z.perm <- geneset.score(.dat$X, S.perm, Y.perm)
 :::
 ::::::
 
+## Again, complete `seminar-07` to better understand GSEA
+
+* When we have little confidence on the null distribution of gene-set scores, we usually rely on many, many steps of permutations 
+
+* A naive permutation scheme is highly inefficient, so we will use fast GSEA (`fgsea`) and approximate p-value calculation
+
+* Check out this preprint: [https://www.biorxiv.org/content/10.1101/060012v3](https://www.biorxiv.org/content/10.1101/060012v3)
 
 # Biological network analysis
 
@@ -643,7 +768,7 @@ z.perm <- geneset.score(.dat$X, S.perm, Y.perm)
 
 ## We can use `igraph` in `R`
 
-```{r size = "Huge"}
+```{r size = "large"}
 library(igraph)
 ```
 
@@ -769,7 +894,7 @@ plot.layout.dt <- function(.dt, .palette="Paired", .palette.e = "Set2", .esize =
 :::::: {.columns}
 ::: {.column width=.5}
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .vv <- V(polblog)[degree(polblog) >= 3]
 polblog.sub <- induced_subgraph(polblog, .vv)
 apply.layout.dt(polblog.sub, "polblog.sub") %>%
@@ -781,7 +906,7 @@ apply.layout.dt(polblog.sub, "polblog.sub") %>%
 :::
 ::: {.column width=.5}
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .comp <- components(netsci)
 .vv <- V(netsci)[.comp$membership == which.max(.comp$csize)]
 netsci.sub <- induced_subgraph(netsci, .vv)
@@ -804,7 +929,7 @@ apply.layout.dt(netsci.sub, "netsci.sub") %>%
 :::::: {.columns}
 ::: {.column width=.5}
 
-```{r echo = FALSE, fig.width=2, fig.height=1.8}
+```{r echo = FALSE, fig.width=2, fig.height=1.6}
 .vv <- V(football)[degree(football) >= 3]
 football.sub <- induced_subgraph(football, .vv)
 apply.layout.dt(football.sub, "football.sub") %>%
@@ -867,13 +992,9 @@ if(!file.exists(ppi.net.file)){
 
 ```{r}
 ppi.pairs <-
-  fread(ppi.net.file,
-        header=FALSE,
-        col.names=c("v1","v2")) %>%
+  fread(ppi.net.file, header=FALSE, col.names=c("v1","v2")) %>%
   filter(v1 != v2) %>% as.matrix
-
-G.ppi <-
-  graph_from_edgelist(ppi.pairs, directed = FALSE)
+G.ppi <- graph_from_edgelist(ppi.pairs, directed = FALSE)
 ```
 
 :::
@@ -933,10 +1054,13 @@ Sources of biological networks:
 
 ## Degree distribution (How many friends?)
 
-:::::: {.columns}
-::: {.column width=.65}
+::: {.block}
+
+### Vertex degree
 
 For each vertex $v \in V(G)$: $d_{v} = \sum_{u} A_{uv}$
+
+:::
 
 * It is simple to calculate in `igraph`:
 
@@ -955,8 +1079,7 @@ deg.dt <- degree(G.ppi) %>%
 
 * Poisson distribution if edges are drawn uniformly at random
 
-:::
-::: {.column width=.35}
+## Degree distribution (How many friends?)
 
 A handy one-liner:
 
@@ -966,15 +1089,12 @@ A handy one-liner:
 
 Log-log plot:
 
-```{r fig.width=2, fig.height=1.5}
+```{r fig.width=2, fig.height=1.5, echo=FALSE}
 .gg.plot(.dt, aes(x=`d`, y=`count`)) +
     geom_point(stroke=0) +
     scale_x_log10() +
     scale_y_log10()
 ```
-
-:::
-::::::
 
 ## Connected components and a giant component
 
@@ -1006,10 +1126,8 @@ knitr::kable(.dt[, .(count=.N), by=.(`n`)])
 
 ```{r}
 k <- which.max(.comp$csize)
-.sub <-
-    names(.comp$membership)[
-        .comp$membership==k
-    ]
+.sub <- names(.comp$membership)[
+    .comp$membership==k]
 G.ppi.sub <- induced_subgraph(G.ppi, .sub)
 ```
 
@@ -1034,7 +1152,7 @@ apply.layout.dt(G.ppi.sub, "ppi-giant") %>% plot.layout.dt(.add.lab=FALSE, .vsiz
 
 * Degree distribution:
 
-```{r echo=FALSE, fig.width=2, fig.height=2}
+```{r echo=FALSE, fig.width=2, fig.height=1.75}
 .dt <- data.table(d=degree(G.ppi.sub))
 .dt <- .dt[, .(count = .N), by = .(d)]
 .gg.plot(.dt, aes(x=d, y=count)) + geom_point(stroke=0) + scale_x_log10() + scale_y_log10()
@@ -1062,7 +1180,6 @@ degree.cutoff <- function(G, .cutoff = 3) {
     }
     return(G.sub)
 }
-
 G.dc <- degree.cutoff(G.ppi.sub, 3)
 ```
 
@@ -1092,7 +1209,7 @@ apply.layout.dt(G.dc, "ppi-dc") %>% plot.layout.dt(.add.lab=FALSE, .vsize=1, .es
 
 Degree distribution:
 
-```{r echo=FALSE, fig.width=2, fig.height=2}
+```{r echo=FALSE, fig.width=2, fig.height=1.75}
 .dt <- data.table(d=degree(G.dc))
 .dt <- .dt[, .(count = .N), by = .(d)]
 .gg.plot(.dt, aes(x=d, y=count)) + geom_point(stroke=0) + scale_x_log10() + scale_y_log10()
@@ -1122,17 +1239,13 @@ apply.layout.dt(G.dc, "ppi-dc") %>% plot.layout.dt(.add.lab=FALSE, .vsize=1, .es
 <!-- Network -->
 <!------------->
 
-# Random walk: What can networks teach us?
-
-
-## Gene prioritization: a toy example of multiple sclerosis GWAS
-
-:::::: {.columns}
-::: {.column width=.5}
+## Let's use this PPI network to understand disease mechanisms
 
 We can download public data mapping SNPs (genes) to diseases/phenotypes from [the NHGRI-EBI GWAS Catalog](https://www.ebi.ac.uk/gwas/)
 
 * GWAS: genome-wide association study (will cover later)
+
+* Again, `seminar-07` also covers GWAS catalogue.
 
 ```{r echo = FALSE}
 .url <- "https://www.ebi.ac.uk/gwas/api/search/downloads/alternative"
@@ -1144,26 +1257,19 @@ if(!file.exists(.gwas.catalog.file)){
 }
 ```
 
-Let's retrieve a list of MS-related genes
+Let's retrieve a list of Multiple Sclerosis (MS)-related genes
 
 ```{r size="tiny"}
-.gwas.dt <- fread(.gwas.catalog.file,
-                  sep="\t", quote="")
-
-is.ms.trait <- function(x)
-  str_detect(x, "[Mm]ultiple sclerosis")
-
+.gwas.dt <- fread(.gwas.catalog.file, sep="\t", quote="")
+is.ms.trait <- function(x) str_detect(x, "[Mm]ultiple sclerosis")
 ms.genes <-
  .gwas.dt[is.ms.trait(`DISEASE/TRAIT`),] %>%
  filter(str_length(`MAPPED_GENE`) > 2) %>% 
- select(`MAPPED_GENE`) %>%
- na.omit %>% 
- unlist %>%
- str_split(pattern="[ ,;]+" ) %>%
- unlist %>%
- unique
+ select(`MAPPED_GENE`) %>% na.omit %>% unlist %>%
+ str_split(pattern="[ ,;]+" ) %>% unlist %>% unique 
 ```
 
+## Gene prioritization: a toy example of multiple sclerosis GWAS
 
 ```{r echo = FALSE}
 read.ensembl.info <- function(ensg, .file = str_c(fig.dir, "/ensembl.RDS")) {
@@ -1190,9 +1296,6 @@ read.ensembl.info <- function(ensg, .file = str_c(fig.dir, "/ensembl.RDS")) {
 gene.info <- read.ensembl.info(names(V(G.ppi)))
 ```
 
-:::
-::: {.column width=.5}
-
 How many of them overlap with the vertices in the PPI network?
 
 ```{r}
@@ -1214,11 +1317,6 @@ overlap.dt <-
 * What if no mutations occurred in other relevant genes? No mutation
   $\to$ no association.
 
-:::
-::::::
-
-
-
 ## Mapping disease genes onto a gene-gene interaction network
 
 :::::: {.columns}
@@ -1228,7 +1326,7 @@ Revisiting the gene-gene (protein-protein) interaction network
 
 \vspace{12pt}
 
-```{r echo = FALSE, fig.width=2, fig.height=2, onslide.plot="1-"}
+```{r echo = FALSE, fig.width=2, fig.height=1.75, onslide.plot="1-"}
 .dt <- apply.layout.dt(G.ppi, "ppi")
 .dt[, k.from := "2_WT"]; .dt[, k.to := "2_WT"]
 .dt[`to` %in% overlap.dt$v, k.to := "1_MS"]
@@ -1252,7 +1350,7 @@ plot.layout.dt(.dt, .palette = "RdBu", .add.lab=FALSE, .vsize=1, .esize=.05)
     scale_y_continuous(limits = c(min(.dt$V2.from), max(.dt$V2.to)))
 ```
 
-```{r echo = FALSE, fig.width=2, fig.height=2, only.plot="2"}
+```{r echo = FALSE, fig.width=2, fig.height=1.75, only.plot="2"}
 vset <- overlap.dt$v
 
 .dt.sub <- .dt[`to` %in% vset & `from` %in% vset, ]
@@ -1274,7 +1372,7 @@ print(plt.ms.gwas)
 }
 ```
 
-```{r echo = FALSE, fig.width=2, fig.height=2.1, only.plot="3"}
+```{r echo = FALSE, fig.width=2, fig.height=1.75, only.plot="3"}
 v.neigh <- .neigh(overlap.dt$v)
 
 vset <- union(v.neigh, overlap.dt$v)
@@ -1292,7 +1390,7 @@ plt + .x.scale + .y.scale + ggtitle(.title) + theme(title=element_text(size=8))
 ```
 
 
-```{r echo = FALSE, fig.width=2, fig.height=2.1, only.plot="4"}
+```{r echo = FALSE, fig.width=2, fig.height=1.75, only.plot="4"}
 v.neigh <- .neigh(vset)
 
 vset <- union(v.neigh, vset)
@@ -1309,17 +1407,14 @@ plt <- plot.layout.dt(.dt.sub, .palette = "RdBu",
 plt + .x.scale + .y.scale + ggtitle(.title) + theme(title=element_text(size=8))
 ```
 
-* Genes immediately hit by GWAS are *not* probably comprehensive enough.
+* Genes immediately hit by GWAS are probably *not* comprehensive enough.
 
-* Are they all relevant if we extend the set of candidate genes? How far?
+* It seems like that we can extend the set by propagating across the edges
 
 :::
 ::::::
 
 ## Can we prioritize disease-relevant genes using PPI network?
-
-:::::: {.columns}
-::: {.column width=.5}
 
 * GWAS might cover too few candidate genes...
 
@@ -1332,12 +1427,6 @@ plt + .x.scale + .y.scale + ggtitle(.title) + theme(title=element_text(size=8))
 * **Network $\approx$ Information flow diagram**
 
 * Spreading "labels" in the information network
-
-:::
-::: {.column width=.5}
-
-:::
-::::::
 
 ## Random walk probability: What are the probabilities of visiting neighbours?
 
@@ -1380,7 +1469,7 @@ n.3 <- nn
 Some vertices are more frequently visited when we randomly traverse in the network.
 
 
-```{r echo=FALSE, fig.width=2, fig.height=2, only.plot=1}
+```{r echo=FALSE, fig.width=2, fig.height=1.75, only.plot=1}
 .build.dt.sub <- function(.dt, vv, nn) {
     .vset <- c(vv, nn)
     .dt.sub <- .dt[`to` %in% .vset & `from` %in% .vset]
@@ -1399,7 +1488,7 @@ plot.layout.dt(.dt.sub, .palette="RdBu",
     .x.scale + .y.scale
 ```
 
-```{r echo=FALSE, fig.width=2, fig.height=2, only.plot=2}
+```{r echo=FALSE, fig.width=2, fig.height=1.75, only.plot=2}
 .dt.sub <- .build.dt.sub(.dt, v.2, n.2)
 plot.layout.dt(.dt.sub, .palette="RdBu", 
                .add.lab = FALSE, .vsize=1, .esize=.5) +
@@ -1408,7 +1497,7 @@ plot.layout.dt(.dt.sub, .palette="RdBu",
     .x.scale + .y.scale
 ```
 
-```{r echo=FALSE, fig.width=2, fig.height=2, only.plot=3}
+```{r echo=FALSE, fig.width=2, fig.height=1.75, only.plot=3}
 .dt.sub <- .build.dt.sub(.dt, v.3, n.3)
 plot.layout.dt(.dt.sub, .palette="RdBu", 
                .add.lab = FALSE, .vsize=1, .esize=.5) +
@@ -1422,9 +1511,6 @@ plot.layout.dt(.dt.sub, .palette="RdBu",
 
 ## What are the probabilities of visits from the disease genes?
 
-:::::: {.columns}
-::: {.column width=.5}
-
 * We can represent the network as an adjacency matrix $A$, where $A_{ij}=1$ if vertices $i$ and $j$ are connected.
 
 * Define a weight matrix $W_{ij} = Pr(j \to i)$ with equal probabilities, i.e., $W_{ij} \gets A_{ij} / \sum_{i} A_{ij}$.
@@ -1433,27 +1519,30 @@ $$\mathbf{p}^{(t)} \gets \gamma W \mathbf{p}^{(t-1)} + (1- \gamma) \mathbf{p}^{(
 
 * We initialize $\mathbf{p}^{(0)}$ by the disease genes, setting $p_{i} = 1/\#$ disease genes if a gene $i$ is in the MS GWAS.
 
-```{r echo = FALSE, fig.width=2.8, fig.height=.7}
-.v <- as.integer(overlap.dt$v)
-n <- length(V(G.ppi))
-pr <- matrix(0, n, 1)
-pr[.v, 1] <- 1
-pr.0 <- pr / sum(pr)
 
-.dt <- data.table(v=as.integer(V(G.ppi)), pr=as.numeric(pr.0))
-.gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(0)") + xlab("vertices")
-```
-
-:::
-::: {.column width=.5}
+## What are the probabilities of visits from the disease genes?
 
 The code is actually simpler than explanation:
+
+:::::: {.columns}
+::: {.column width=.45}
+
+Initialization:
 
 ```{r}
 A <- as_adjacency_matrix(G.ppi)
 d <- degree(G.ppi)
 W <- sweep(A, 2, d, `/`)
+
+.v <- as.integer(overlap.dt$v)
+n <- length(V(G.ppi))
+pr <- matrix(0, n, 1)
+pr[.v, 1] <- 1
+pr.0 <- pr / sum(pr)
 ```
+
+:::
+::: {.column width=.45}
 
 Take `100` random walks:
 
@@ -1468,13 +1557,21 @@ for(tt in 1:99) {
 }
 ```
 
-```{r echo = FALSE, fig.width=2.8, fig.height=1}
+:::
+::::::
+
+## What are the probabilities of visits from the disease genes?
+
+
+```{r echo = FALSE, fig.width=6, fig.height=1, onslide.plot="1-"}
+.dt <- data.table(v=as.integer(V(G.ppi)), pr=as.numeric(pr.0))
+.gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(0)") + xlab("vertices")
+```
+
+```{r echo = FALSE, fig.width=6, fig.height=1.5, onslide.plot="2"}
 .dt <- data.table(v=as.integer(V(G.ppi)), pr=as.numeric(P[, 100]))
 .gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(100)") + xlab("vertices")
 ```
-
-:::
-::::::
 
 ## Top 50 genes identified by random walk from MS GWAS
 
@@ -1515,7 +1612,7 @@ Red dots: top 100 genes.
 <!-- stochastic block model -->
 <!---------------------------->
 
-# Learning structures in networks
+# Learning structures in biological networks
 
 ## Some useful packages in `R`
 
@@ -1557,7 +1654,7 @@ karate <- .read.online("http://www-personal.umich.edu/~mejn/netdata/karate.zip")
 :::
 ::: {.column width=.45}
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .karate.dt <- apply.layout.dt(karate, "karate")
 plot.layout.dt(.karate.dt)
 ```
@@ -1581,7 +1678,7 @@ plot.layout.dt(.karate.dt)
 
 A trivial solution (min cut = 1)
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .dt <- apply.layout.dt(karate, "karate")
 .dt[, k.to := 1]
 .dt[, k.from := 1]
@@ -1615,7 +1712,7 @@ plot.layout.dt(.dt)
 
 A trivial solution (min cut = 1)
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .dt <- apply.layout.dt(karate, "karate")
 .dt[, k.to := 1]
 .dt[, k.from := 1]
@@ -1656,7 +1753,7 @@ str_c(sort(.cuts$partition1s[[1]]), collapse=", ")
 :::
 ::: {.column width=.45}
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .dt <- apply.layout.dt(karate, "karate") %>%
     mutate(k.from = 0, k.to = 0)
 
@@ -1685,7 +1782,7 @@ str_c(sort(.cuts$partition1s[[2]]), collapse=", ")
 :::
 ::: {.column width=.45}
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .v2 <- setdiff(.sets[[2]], .sets[[1]])
 .dt[`from` %in% .v2, k.from := 3]
 .dt[`to` %in% .v2, k.to := 3]
@@ -1714,7 +1811,7 @@ str_c(sort(.cuts$partition1s[[3]]), collapse=", ")
 :::
 ::: {.column width=.45}
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 .v3 <- setdiff(setdiff(.sets[[3]], .sets[[2]]), .sets[[1]])
 .dt[`from` %in% .v3, k.from := 4]
 .dt[`to` %in% .v3, k.to := 4]
@@ -1731,7 +1828,7 @@ plot.layout.dt(.dt)
 
 (vertex x vertex)
 
-```{r fig.width=2, fig.height=2}
+```{r fig.width=2, fig.height=1.75}
 A <- as_adjacency_matrix(karate)
 .matshow(A, .scale=FALSE, .lab = 0)
 ```
@@ -1754,8 +1851,6 @@ A <- as_adjacency_matrix(karate)
 
 ## Stochastic block model: membership $Z$ and parameter $\Theta$ 
 
-:::::: {.columns}
-::: {.column width=.7}
 
 ```{r}
 .out <- fit.hsblock(A, "bernoulli", vbiter=100, inner.iter=10, verbose=FALSE)
@@ -1767,18 +1862,12 @@ diag(.ones) <- 0                # without cycles
 Tot <- Z %*% .ones %*% t(Z)/2   # 
 Pr <- Edges / Tot               # Probability of edges within/between clusters
 ```
-:::
-::: {.column width=.3}
 
 * Latent var.: $Z_{ki} = 1$ iff a vertex $i$ $\to$ a cluster $k$
 
 * Model parameters: $\theta_{kk'} \in (0,1)$: pr of edges between $k$ and $k'$
 
-:::
-::::::
-
-<!-- :::::: {.columns} -->
-<!-- ::: {.column width=.65} -->
+## Stochastic block model: membership $Z$ and parameter $\Theta$ 
 
 ```{r echo=FALSE, fig.width=3.8, fig.height=1.8, only.plot="1"}
 .p.eq <- ggplot() + theme_void() + geom_text(aes(x=1,y=1,label="~"), size=10)
@@ -1814,14 +1903,6 @@ wrap_plots(.p.data, .p0, .p.eq, .p0, .p.zt, .p0,
            widths=c(4, .01,.5,.05, .5, .05, .5, .05, 4))
 ```
 
-<!-- ::: -->
-<!-- ::: {.column width=.35} -->
-<!-- EM algorithm (will be discussed in the later lectures) -->
-<!-- $\prod_{k\ge k'}\prod_{i<j} \left( \theta_{kk'}^{A_{ij}} \left(1 - \theta_{kk'}\right)^{(1-A_{ij})} \right)^{Z_{ki}Z_{kj}}$ -->
-<!-- ::: -->
-<!-- :::::: -->
-
-
 ## A shared neighbourhood matrix (A friend of a friend $\approx$ a friend)
 
 :::::: {.columns}
@@ -1838,9 +1919,11 @@ wrap_plots(.p.data, .p0, .p.eq, .p0, .p.zt, .p0,
 :::
 ::: {.column width=.45}
 
-```{r fig.width=2, fig.height=2}
+```{r fig.width=2, fig.height=1.75}
 .matshow(A %*% A, .scale=TRUE, .lab = 0)
 ```
+
+Brighter red = more frequently sharing neighbours
 
 :::
 ::::::
@@ -1848,11 +1931,13 @@ wrap_plots(.p.data, .p0, .p.eq, .p0, .p.zt, .p0,
 
 ## Network is an (edge) incidence matrix (vertex x edge)
 
+::: {.block}
 
-:::::: {.columns}
-::: {.column width=.35}
+### Incidence matrix
 
-* $M_{k,(i,j)} = 1$ if $A_{ik}=1$ and $A_{jk}=1$
+$M_{k,(i,j)} = 1$ if $A_{ik}=1$ and $A_{jk}=1$
+
+:::
 
 ```{r}
 library(Matrix)
@@ -1865,12 +1950,9 @@ xx <- rep(1,2*m)
 M <- sparseMatrix(ii, jj, x=xx)
 ```
 
-* How many samples? Dimensionality?
+## Network is an (edge) incidence matrix (vertex x edge)
 
-* Can you see group structures?
-
-:::
-::: {.column width=.64}
+$M_{k,(i,j)} = 1$ if $A_{ik}=1$ and $A_{jk}=1$
 
 ```{r echo=FALSE, fig.width=3.2, fig.height=1.5}
 .matshow(M, .scale=FALSE, .lab = 0)
@@ -1878,79 +1960,71 @@ M <- sparseMatrix(ii, jj, x=xx)
 
 * How many non-zero elements for each column?
 
-:::
-::::::
-
+* How many samples? Dimensionality? Can you see group structures?
 
 ## Enumerating shared neighbours for each edge
 
-:::::: {.columns}
-::: {.column width=.3}
+::: {.block}
 
-* $M_{k,(i,j)} = A_{ki} A_{kj}$
+### Shared neighbour incidence matrix
 
-```{r size="large"}
+$M_{k,(i,j)} = A_{ki} A_{kj}$
+
+:::
+
+```{r}
 ee <- ends(G, E(G));
 ii <- ee[,1]
 jj <- ee[,2]
 M2 <- A[,ii] * A[,jj]
 ```
 
-* How many samples? Dimensionality?
+## Enumerating shared neighbours for each edge
 
-* Can you see group structures?
-
-:::
-::: {.column width=.7}
+$M_{k,(i,j)} = A_{ki} A_{kj}$
 
 ```{r echo=FALSE, fig.width=3.2, fig.height=1.5}
 .matshow(M2, .scale=FALSE, .lab = 0)
 ```
 
-:::
-::::::
-
+* How many samples? Dimensionality? Can you see group structures?
 
 ## Another way to define the edge incidence matrix
 
-:::::: {.columns}
-::: {.column width=.35}
+::: {.block}
 
-* $M_{k,(i,j)} = A_{ki} + A_{kj}$
+### Feature loading matrix
 
-```{r size="large"}
+$M_{k,(i,j)} = A_{ki} + A_{kj}$
+
+:::
+
+```{r}
 ee <- ends(G, E(G));
 ii <- ee[,1]
 jj <- ee[,2]
 M3 <- A[,ii] + A[,jj]
 ```
 
-* How many samples? Dimensionality?
+We can simply apply an out-of-the-shelf clustering method to this matrix
 
-* Can we try out clustering?
-
-```{r size="large"}
+```{r}
 .feat <- t(as.matrix(M3))
-.out <-
-  kmeans(.feat,
-         centers=5,
-         nstart=100)
+.out <- kmeans(.feat, centers=5, nstart=100)               
 ```
 
-:::
-::: {.column width=.65}
+## Another way to define the edge incidence matrix
 
-An incidence feature matrix:
+$M_{k,(i,j)} = A_{ki} + A_{kj}$
 
-```{r echo=FALSE, fig.width=3.2, fig.height=1.5}
+```{r echo=FALSE, fig.width=5, fig.height=2, onslide.plot="1-"}
 .matshow(M3, .scale=FALSE, .lab = 0) +
     ggtitle(str_c(nrow(M3), " x ", ncol(M3))) +
     theme(title = element_text(size=8))
 ```
-
 _k_-means clustering can recover groups of edges
 
-```{r echo=FALSE, fig.width=3.2, fig.height=.5}
+```{r echo=FALSE, fig.width=5, fig.height=1, onslide.plot="2"}
 ## .pr <- .matshow(t(.out$centers), .lab=0, .scale=TRUE)
 .pz <- .matshow(Matrix::sparseMatrix(i=.out$cluster,j=1:ncol(M3),x=rep(1,ncol(M3))), .scale=FALSE, .lab=0) + ggtitle(str_c(length(unique(.out$cluster)), " clusters x ", length(.out$cluster)," edges")) + theme(title = element_text(size=8))
 print(.pz)
@@ -1958,23 +2032,19 @@ print(.pz)
 ##widths=c(.5,9.5)) 
 ```
 
-:::
-::::::
-
-
 ## We may find overlapping membership by clustering the edges 
 
 :::::: {.columns}
 ::: {.column width=.35}
 
-* $M_{k,(i,j)} = A_{ki} + A_{kj}$
+$M_{k,(i,j)} = A_{ki} + A_{kj}$
 
 ```{r echo = FALSE}
 .dt <- apply.layout.dt(karate, "karate")
 .dt[, k.edge := as.factor(.out$cluster)]
 ```
 
-```{r echo = FALSE, fig.width=2, fig.height=2}
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
 plot.layout.dt(.dt, .vsize=2, .esize=1, .add.lab=FALSE)
 ```
 
@@ -1999,12 +2069,110 @@ print(.pz)
 :::
 ::::::
 
+## Reactome functional interaction network
+
+```{r echo = FALSE}
+.file <- "Data/ractome_edges.txt.gz"
+if(!file.exists(.file)){
+    .url <- "https://reactome.org/download/tools/ReatomeFIs/FIsInGene_122220_with_annotations.txt"
+    .txt.file <- str_remove(.file, ".gz$")
+    download.file(.url, destfile = .txt.file)
+    R.utils::gzip(.txt.file)
+}
+
+.pairs <-
+    fread(.file) %>% 
+    filter(str_detect(Annotation, "reaction")) %>% 
+    filter(Score > .9) %>% 
+    select(Gene1, Gene2) %>%
+    as.matrix
+
+G <- graph_from_edgelist(.pairs, directed = FALSE)
+G.dc <- degree.cutoff(G, 3)
+```
+
+```{r echo = FALSE, fig.width=4, fig.height=2.5}
+.dt <- apply.layout.dt(G.dc, "reaction")
+plot.layout.dt(.dt, .vsize=2, .esize=.5, .add.lab=FALSE)
+```
+
+We only took edges with "reaction" for simplicity.
+
+## We can do the same edge clustering
+
+```{r echo = FALSE}
+ee <- ends(G.dc, E(G.dc));
+ii <- ee[,1]
+jj <- ee[,2]
+A <- as_adjacency_matrix(G.dc)
+M <- A[,ii] + A[,jj]
+colnames(M) <- str_c(ii, "-", jj)
+rownames(M) <- names(V(G.dc))
+
+.file <- str_c(fig.dir, "/reaction_cluster.RDS")
+if(!file.exists(.file)){
+    .feat <- t(as.matrix(M))
+    .out <- kmeans(.feat, centers=12, nstart=100)
+    saveRDS(.out, file=.file)
+}
+.out <- readRDS(.file)
+```
+
+```{r fig.width=6, fig.height=2.5, echo = FALSE}
+## Randomly select 15 edges per cluster
+.kk <- data.table(e = names(.out$cluster), k = .out$cluster)
+.show <- .kk[, head(.SD, 15), by = .(k)]
+
+.vertices <- 
+    reshape2::melt(.out$centers) %>%
+    filter(value > 0) %>% 
+    group_by(Var1) %>%
+    top_n(5, `value`) %>% 
+    top_n(5, `Var2`) %>% 
+    ungroup() %>%
+    mutate(r = match(as.character(Var2), names(V(G.dc)))) %>% 
+    select(r) %>% 
+    unique() %>%
+    unlist
+
+m.sorted <- .sort.matrix(as.matrix(M[.vertices, .show$e]))
+.matshow(m.sorted, .scale=FALSE, .size=0, .lab = 0) +
+    ggtitle("top genes x edges (15 per cluster)")
+```
+
+## A new type of gene sets that visualization could not find
+
+```{r echo = FALSE, fig.width=4, fig.height=2.5}
+.dt <- apply.layout.dt(G.dc, "reaction")
+.dt[, k.edge := as.factor(.out$cluster)]
+plot.layout.dt(.dt, .vsize=2, .esize=.5, 
+               .palette = "Set3",
+               .add.lab=FALSE)
+```
+
+## A new type of gene sets that visualization could not find
+
+```{r echo = FALSE, fig.width=6, fig.height=2.5}
+.df <- reshape2::melt(.out$centers[, .vertices]) %>%
+    mutate(row = Var1, col = Var2, weight = value) %>%
+    order.pair(ret.tab=TRUE)
+
+.gg.plot(.df, aes(col, row, fill=weight)) +
+    geom_tile(colour="white") +
+    ylab("clusters") +
+    xlab("top genes") +
+    theme(axis.text.x=element_text(angle=90, vjust=0, hjust=0)) +
+    scale_x_discrete(position = "top") +
+    scale_fill_distiller(palette="RdPu",direction=1)
+```
+
 
 ## Summary 
 
 * Gene set analysis (ignoring edges, only vertices)
 
+    - `Similar-07` is your friend
+
 * Diffusion-based network analysis (propagating info via edges)
 
 * Stochastic block model to find sets in a network
-
