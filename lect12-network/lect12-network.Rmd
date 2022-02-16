@@ -2015,22 +2015,41 @@ We can simply apply an out-of-the-shelf clustering method to this matrix
 
 ## Another way to define the edge incidence matrix
 
+:::::: {.columns}
+::: {.column width=.2}
+
 $M_{k,(i,j)} = A_{ki} + A_{kj}$
 
-```{r echo=FALSE, fig.width=5, fig.height=2, onslide.plot="1-"}
+:::
+::: {.column width=.75}
+
+```{r echo=FALSE, fig.width=4, fig.height=1.75, onslide.plot="1-"}
 .matshow(M3, .scale=FALSE, .lab = 0) +
     ggtitle(str_c(nrow(M3), " x ", ncol(M3))) +
     theme(title = element_text(size=8))
 ```
+
+:::
+::::::
+
+:::::: {.columns}
+::: {.column width=.2}
+
 _k_-means clustering can recover groups of edges
 
-```{r echo=FALSE, fig.width=5, fig.height=1, onslide.plot="2"}
+:::
+::: {.column width=.75}
+
+```{r echo=FALSE, fig.width=4, fig.height=.55, onslide.plot="2"}
 ## .pr <- .matshow(t(.out$centers), .lab=0, .scale=TRUE)
 .pz <- .matshow(Matrix::sparseMatrix(i=.out$cluster,j=1:ncol(M3),x=rep(1,ncol(M3))), .scale=FALSE, .lab=0) + ggtitle(str_c(length(unique(.out$cluster)), " clusters x ", length(.out$cluster)," edges")) + theme(title = element_text(size=8))
 print(.pz)
 ##wrap_plots(.pr, wrap_plots(.pz, ggplot() + theme_void(), heights=c(1,9)),
 ##widths=c(.5,9.5)) 
 ```
+
+:::
+::::::
 
 ## We may find overlapping membership by clustering the edges 
 
@@ -2069,7 +2088,7 @@ print(.pz)
 :::
 ::::::
 
-## Reactome functional interaction network
+## A real-world example: Reactome functional interaction network
 
 ```{r echo = FALSE}
 .file <- "Data/ractome_edges.txt.gz"
