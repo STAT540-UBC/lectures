@@ -379,12 +379,12 @@ First 100 probes in the data matrix:
 :::::: {.columns}
 ::: {.column width=.25}
 
-```{r fig.width=1, fig.height=2.5, echo=FALSE, only.plot="1"}
+```{r fig.width=1, fig.height=2.5, only.plot="1"}
 x.sub <- X[1:100, , drop = FALSE]
 .matshow(x.sub, .scale=TRUE, .lab=0, .size=0)
 ```
 
-```{r fig.width=1, fig.height=2.5, echo=FALSE, only.plot="2"}
+```{r fig.width=1, fig.height=2.5, only.plot="2"}
 x.sub <- t(scale(t(log(1 + X[1:100, , drop = FALSE]))))
 .matshow(x.sub, .scale=TRUE, .lab=0, .size=0)
 ```
@@ -415,7 +415,7 @@ x.sub <- t(scale(t(log(1 + X[1:100, , drop = FALSE]))))
 
 First 100 probes:
 
-```{r fig.width=1, fig.height=2.5, echo=FALSE}
+```{r fig.width=1, fig.height=2.5}
 x.sub <- X[1:100, , drop = FALSE]
 .matshow(x.sub, .scale=TRUE, .lab=0, .size=0)
 ```
@@ -451,7 +451,7 @@ x.sub <- X[1:100, , drop = FALSE]
 :::::: {.columns}
 ::: {.column width=.45}
 
-```{r fig.width=2, fig.height=2.5, echo=FALSE, onslide.plot="1-"}
+```{r fig.width=2, fig.height=2.5, onslide.plot="1-"}
 x.sub <- t(scale(t(log(1 + X[1:100, , drop = FALSE]))))
 .matshow(x.sub, .scale=TRUE, .lab=0, .size=0) +
     ggtitle("first 100 probes")
@@ -460,7 +460,7 @@ x.sub <- t(scale(t(log(1 + X[1:100, , drop = FALSE]))))
 :::
 ::: {.column width=.45}
 
-```{r fig.width=2, fig.height=2.5, echo=FALSE, onslide.plot="2"}
+```{r fig.width=2, fig.height=2.5, onslide.plot="2"}
 x.sorted <- .sort.matrix(x.sub)
 .matshow(x.sorted, .scale=TRUE, .lab=0, .size=0) +
     ggtitle("Rearrange them...")
@@ -1214,7 +1214,7 @@ vtot <- sum(.dt$eigen.values)
 
 # Clustering to uncover common features and hidden groups
 
-```{r include = FALSE}
+```{r}
 library(torch)
 torch_set_num_threads(8)
 ```
@@ -1229,7 +1229,7 @@ torch_set_num_threads(8)
 
 * Hands-on experience with clustering algorithm
 
-```{r incldue=FALSE}
+```{r}
 #' @param nn sample size
 #' @param D dimensionality
 #' @param K number of clusters
@@ -1352,7 +1352,7 @@ ln.sig <- torch_zeros(K, D, requires_grad=TRUE)
 :::::: {.columns}
 ::: {.column width=.5}
 
-```{r fig.width=2.5, fig.height=2, echo=FALSE}
+```{r fig.width=2.5, fig.height=2}
 print(plt.data)
 ```
 
@@ -1379,7 +1379,7 @@ What could have been done to generate observe data?
 :::::: {.columns}
 ::: {.column width=.4}
 
-```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".7\\linewidth"}
 knitr::include_graphics("./Vis/unsupervised/GMM_graphical_model.pdf")
 ```
 
@@ -1428,7 +1428,7 @@ How do we infer $Z$ and $\mu,\sigma$?
   &=& \sum_{i=1}^{n} {\color{blue} \log} \sum_{Z_{i}} {\color{red} \frac{q(Z_{i})}{q(Z_{i})} } p(\mathbf{x}_{i}|Z_{i},\mu,\sigma)p(Z_{i}) \\
   }
 \onslide<2->{
-  &\underset{\textsf{\color{blue} Jansen}}{\ge}&
+  &\underset{\textsf{\color{blue} Jensen}}{\ge}&
    \sum_{i=1}^{n} \sum_{Z_{i}} q(Z_{i}) {\color{blue}\log} \frac{p(\mathbf{x}_{i}|Z_{i},\mu,\sigma)p(Z_{i})}{q(Z_{i})} \\ }
 \end{eqnarray*}
 
@@ -1690,57 +1690,57 @@ show.z.trace <- function(.trace, t.max) {
 }
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 1, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 1}
 tt <- 1
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 2, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 2}
 tt <- 2
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 3, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 3}
 tt <- 3
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 4, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 4}
 tt <- 4
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 5, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 5}
 tt <- 5
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 6, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 6}
 tt <- 10
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 7, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 7}
 tt <- 20
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 8, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 8}
 tt <- 25
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 9, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 9}
 tt <- 30
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 10, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 10}
 tt <- 40
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
-```{r fig.width = 5, fig.height = 2, only.plot = 11, echo = FALSE}
+```{r fig.width = 5, fig.height = 2, only.plot = 11}
 tt <- 100
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
@@ -1815,7 +1815,7 @@ sim.out <- simulate.regression.data(1500, 3)
 :::::: {.columns}
 ::: {.column width=.4}
 
-```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".7\\linewidth"}
 knitr::include_graphics("./Vis/unsupervised/MoR_graphical_model.pdf")
 ```
 
@@ -2069,7 +2069,7 @@ show.reg.trace(50)
 
 VAE
 
-```{r results="asis", out.width=".5\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".5\\linewidth"}
 knitr::include_graphics("./Vis/unsupervised/VAE_graphical_model.pdf")
 ```
 
@@ -2078,7 +2078,7 @@ knitr::include_graphics("./Vis/unsupervised/VAE_graphical_model.pdf")
 
 GMM
 
-```{r results="asis", out.width=".45\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".45\\linewidth"}
 knitr::include_graphics("./Vis/unsupervised/GMM_graphical_model.pdf")
 ```
 
@@ -2238,7 +2238,7 @@ Given latent state: $Z$=
 :::
 ::: {.column width=.25}
 
-```{r fig.width=.5, fig.height=.5, echo = FALSE}
+```{r fig.width=.5, fig.height=.5}
 .matshow(head(z, 5))
 ```
 
@@ -2246,11 +2246,11 @@ Given latent state: $Z$=
 ::::::
 
 Estimate mean $\lambda_{ij} \equiv \mathbb{E}\!\left[X_{ij}|Z_{i}\right]$
-```{r fig.width=6, fig.height=.3, echo = FALSE}
+```{r fig.width=6, fig.height=.3}
 .matshow(head(x.hat, 5), .lab = .7)
 ```
 Observed data $X$
-```{r fig.width=6, fig.height=.3, echo = FALSE}
+```{r fig.width=6, fig.height=.3}
 .matshow(head(xx, 5), .lab = 1)
 ```
 
@@ -2262,7 +2262,7 @@ Observed data $X$
 
 VAE
 
-```{r results="asis", out.width=".5\\linewidth", echo = FALSE}
+```{r results="asis", out.width=".5\\linewidth"}
 knitr::include_graphics("./Vis/unsupervised/VAE_graphical_model.pdf")
 ```
 
@@ -2448,15 +2448,6 @@ W <- t(as.matrix(vae.results$vae$dec[["0"]]$weight))
 # Summary
 
 ## Discussions
-
-```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
-knitr::include_graphics("./Vis/unsupervised/model_based_inference.pdf")
-```
-
-\vfill
-
-\tiny
-Wassermann, _All of Statistics_ (2004)
 
 ## 
 

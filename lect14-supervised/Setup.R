@@ -3,7 +3,7 @@ setup.env <- function(fig.dir) {
     ## save figures here
     dir.create(fig.dir, showWarnings = FALSE, recursive = TRUE)
     knitr::opts_chunk$set(warning = FALSE, message = FALSE, fig.path = fig.dir)
-    knitr::opts_chunk$set(results = FALSE, fig.align="center")
+    knitr::opts_chunk$set(results = FALSE, echo=FALSE, fig.align="center")
 
     ## allow the code to chunk set size="tiny" ##
     hook.chunk  <- knitr::knit_hooks$get("chunk")

@@ -157,3 +157,8 @@ as.dt <- function(x, col.names=NULL) {
     as.data.table(.mat)
 }
 
+################################################################
+if.needed <- function(.file, .code) {
+    if(!all(file.exists(unlist(.file)))) { .code }
+    stopifnot(all(file.exists(unlist(.file))))
+}
