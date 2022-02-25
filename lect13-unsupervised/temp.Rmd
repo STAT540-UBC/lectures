@@ -1,0 +1,62 @@
+---
+title: "Unsupervised Learning (in biological data analysis)"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+classoption: "aspectratio=169"
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        colortheme: "orchid"
+        keep_tex: true
+        latex_engine: xelatex
+header-includes:
+  - \AtBeginSection[]{\begin{frame}\frametitle{What you will learn}\tableofcontents[currentsection]\end{frame}}
+  - | 
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(patchwork)
+source("Util.R")
+source("Setup.R")
+fig.dir <- "Fig/unsupervised/"
+setup.env(fig.dir)
+dir.create("Data", showWarnings=FALSE)
+```
+
+
+# Principal Component Analysis (+ relatives)
+
+
+```{r}
+dir.create("Data/mnist", recursive = TRUE, showWarnings = FALSE)
+mnist <- dslabs::read_mnist(download = TRUE, destdir = "Data/mnist")
+
+
+
+
+
+
+```
+
+## What is the unique statistical perspective?
+
+## Why do we study this for high-dimensional biology?
+
+
+
+
+## Orthogonal factors $\approx$ independent components
+
+
