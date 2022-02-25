@@ -1,7 +1,5 @@
-RMD := $(wildcard *.rmd) $(wildcard *.Rmd)
-PDF := $(RMD:.rmd=-slides.pdf) $(RMD:.Rmd=-slides.pdf)
-HTML := $(RMD:.rmd=.html) $(RMD:.Rmd=.html)
-TEX := $(RMD:.rmd=.tex) $(RMD:.Rmd=.tex)
+RMD := $(wildcard *.Rmd)
+PDF := $(RMD:.Rmd=-slides.pdf)
 
 all: $(PDF)
 
