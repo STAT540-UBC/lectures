@@ -1,0 +1,45 @@
+---
+title: "Supervised Learning I"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+classoption: "aspectratio=169"
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        colortheme: "orchid"
+        keep_tex: true
+        latex_engine: xelatex
+header-includes:
+  - \AtBeginSection[]{\begin{frame}\frametitle{What you will learn}\tableofcontents[currentsection]\end{frame}}
+  - | 
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(patchwork)
+source("Util.R")
+source("Setup.R")
+fig.dir <- "Fig/supervised/"
+setup.env(fig.dir)
+dir.create("Data", showWarnings=FALSE)
+```
+
+# Parametric methods
+
+## Multiple Regression
+
+## Multi-layered Neural Network
+
+# Non-parametric methods
+
