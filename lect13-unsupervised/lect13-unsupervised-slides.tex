@@ -153,8 +153,8 @@
 \title{Unsupervised Learning (in biological data analysis)}
 \author{Yongjin Park\\
 University of British Columbia\\
-(with Keegan Korthauer, Sara Mostafavi)}
-\date{24 February, 2022}
+(with contributions from Drs. Korthauer, Mostafavi)}
+\date{25 February, 2022}
 
 \begin{document}
 \frame{\titlepage}
@@ -172,6 +172,14 @@ University of British Columbia\\
 \begin{verbatim}
 https://github.com/STAT540-UBC/lectures
 \end{verbatim}
+
+\begin{itemize}
+\item
+  You can check out \texttt{R} and \texttt{torch} codes to run them
+  yourself.
+\item
+  ``I do not understand what I cannot create'' - Richard Feynman
+\end{itemize}
 \end{frame}
 
 \hypertarget{general-discussions-on-unsupervised-learning}{%
@@ -238,6 +246,11 @@ What is a \textbf{good representation} of high-dimensional biology data
 \end{enumerate}
 \end{frame}
 
+\begin{frame}{Why unsupervised learning?}
+\protect\hypertarget{why-unsupervised-learning}{}
+\includegraphics{Vis/unsupervised/why_unsupervised_learning.pdf}
+\end{frame}
+
 \begin{frame}{Human brain is very good at learning meaningful
 representations}
 \protect\hypertarget{human-brain-is-very-good-at-learning-meaningful-representations}{}
@@ -255,7 +268,7 @@ representations}
 \begin{column}{.65\textwidth}
 \scriptsize
 
-\begin{center}\includegraphics[width=.8\linewidth]{./Vis/unsupervised/neuron_firing_celebrity} \end{center}
+\begin{center}\includegraphics[width=\linewidth]{./Vis/unsupervised/neuron_firing_celebrity} \end{center}
 
 \normalsize
 \end{column}
@@ -2621,9 +2634,9 @@ matrix and latent group structure}
 \end{columns}
 \end{frame}
 
-\begin{frame}{Other types of latent variable methods}
-\protect\hypertarget{other-types-of-latent-variable-methods}{}
-(We will cover them in the genetics and single-cell lectures)
+\begin{frame}{Other latent variable models that we did not cover}
+\protect\hypertarget{other-latent-variable-models-that-we-did-not-cover}{}
+(We will cover some of them in the genetics and single-cell lectures)
 
 \begin{columns}[T]
 \begin{column}{.45\textwidth}
@@ -2631,13 +2644,13 @@ matrix and latent group structure}
 \protect\hypertarget{specialized-latent-variable-models}{}
 \begin{itemize}
 \item
-  Hidden Markov Model
+  Hidden Markov Model / linear dynamic system
 \item
-  Spatially-constrained linear models
+  Spatially-constrained linear models / fused lasso
 \item
-  Admixture models (genetics)
+  Admixture models (genetics) / document model
 \item
-  Embedded Topic Models
+  Embedded Topic Models (single cell)
 \end{itemize}
 \end{block}
 \end{column}
@@ -2647,9 +2660,9 @@ matrix and latent group structure}
 \protect\hypertarget{distance-based-learningembedding}{}
 \begin{itemize}
 \item
-  t-Stochastic Neighbourhood Embedding (tSNE)
+  t-Stochastic Neighbourhood Embedding (aka tSNE)
 \item
-  Uniform Manifold Approximation \& Projection (UMAP)
+  Uniform Manifold Approximation \& Projection (aka UMAP)
 \item
   Hierarchical agglomerative clustering
 \end{itemize}
@@ -2674,6 +2687,11 @@ matrix and latent group structure}
 \tiny
 
 Wassermann, \emph{All of Statistics} (2004)
+\end{frame}
+
+\begin{frame}{}
+\protect\hypertarget{section-2}{}
+\includegraphics{Vis/unsupervised/why_unsupervised_learning.pdf}
 \end{frame}
 
 \end{document}

@@ -1,6 +1,9 @@
 ---
 title: "Supervised Learning I"
-author: "Yongjin Park"
+author: |
+    | Yongjin Park
+    | University of British Columbia
+    | (with Keegan Korthauer)
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 classoption: "aspectratio=169"
 output:
@@ -12,8 +15,9 @@ output:
         colortheme: "orchid"
         keep_tex: true
         latex_engine: xelatex
+        slide_level: 2
 header-includes:
-  - \AtBeginSection[]{\begin{frame}\frametitle{What you will learn}\tableofcontents[currentsection]\end{frame}}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}\tableofcontents[currentsection]\end{frame}}
   - | 
     \makeatletter
     \def\ps@titlepage{%
@@ -35,14 +39,120 @@ setup.env(fig.dir)
 dir.create("Data", showWarnings=FALSE)
 ```
 
-<<<<<<< HEAD
-# Parametric methods
+# General discussions on supervised learning
 
-## Multiple Regression
+## What is Supervised Learning?
+
+:::::: {.columns}
+::: {.column width=.45}
+::: {.block}
+
+### Supervised learning (today)
+
+* Input: data $\mathcal{X} = \{\mathbf{x}_{i},\ldots\}$
+
+* Input 2: label $\mathcal{Y} = \{y_{i},\ldots\}$
+
+* Goal: learn $f: \mathcal{X} \to \mathcal{Y}$
+
+:::
+
+X: gene expression samples; Y: disease labels
+
+:::
+::: {.column width=.45}
+
+::: {.block}
+### Unsupervised learning (previous)
+
+* Input: data $\mathcal{X} = \{\mathbf{x}_{i},\ldots\}$
+
+* Goal 1: learn $f: \mathcal{Z} \to \mathcal{X}$
+
+* Goal 2: hidden/latent states, $\mathcal{Z} = \{\mathbf{z}_{i},\ldots\}$
+
+:::
+
+X: gene expression matrices
+
+:::
+::::::
+
+## Machine learning vs. Classical statistics
+
+:::::: {.columns}
+::: {.column width=.45}
+
+::: {.block}
+
+### Machine Learning
+
+* *"Statistical learning with the help of algorithm"*
+
+* Large number of variables (no idea which are useful)
+
+* Higher model complexity, non-linearity
+
+* Focusing on **classification/prediction**
+
+* Scalability, computation
+:::
+
+:::
+::: {.column width=.45}
+
+::: {.block}
+
+### Classical Statistics
+
+* A handful of variables with clear 
+
+* Linear models, or generalized linear models
+
+* Data generating process
+
+* Theory-oriented research
+:::
+
+:::
+::::::
+
+
+
+# Parametric Regression
+
+## Multivariate linear model
+
+
+## Model-degeneracy when $p > n$
+
+
+## Multivariate generalized linear model
+
+
+## 
+
+
+# Non-parametric Regression
+
+## Running average estimator
+
+## Kernelized running average estimator
+
+
+
+
+# Parametric Classification
+
+## Generalized linear model
+
+
+
+
+# Non-parametric Classification
+
 
 ## Multi-layered Neural Network
 
 # Non-parametric methods
 
-=======
->>>>>>> aea9e5fd29b98b6cdac74275d481ba79b747796c

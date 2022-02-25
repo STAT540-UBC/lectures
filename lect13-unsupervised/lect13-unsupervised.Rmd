@@ -3,7 +3,7 @@ title: "Unsupervised Learning (in biological data analysis)"
 author: |
     | Yongjin Park
     | University of British Columbia
-    | (with Keegan Korthauer, Sara Mostafavi)
+    | (with contributions from Drs. Korthauer, Mostafavi)
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 classoption: "aspectratio=169"
 output:
@@ -57,6 +57,10 @@ set.seed(1447)
 https://github.com/STAT540-UBC/lectures
 ```
 
+* You can check out `R` and `torch` codes to run them yourself.
+
+* "I do not understand what I cannot create" - Richard Feynman
+
 # General discussions on unsupervised learning
 
 ## What is Unsupervised Learning?
@@ -108,6 +112,10 @@ What is a **good representation** of high-dimensional biology data **to our purp
 
 3. What is our purpose of unsupervised learning?
 
+## Why unsupervised learning?
+
+![](Vis/unsupervised/why_unsupervised_learning.pdf)
+
 ## Human brain is very good at learning meaningful representations
 
 ```{r results="asis", out.width=".7\\linewidth", echo = FALSE}
@@ -119,7 +127,7 @@ knitr::include_graphics("./Vis/unsupervised/descartes.png")
 :::::: {.columns}
 ::: {.column width=.65}
 
-```{r results="asis", out.width=".8\\linewidth", echo = FALSE}
+```{r results="asis", out.width="\\linewidth", echo = FALSE}
 knitr::include_graphics("./Vis/unsupervised/neuron_firing_celebrity.png")
 ```
 
@@ -2400,9 +2408,9 @@ W <- t(as.matrix(vae.results$vae$dec[["0"]]$weight))
 :::
 ::::::
 
-## Other types of latent variable methods
+## Other latent variable models that we did not cover
 
-(We will cover them in the genetics and single-cell lectures)
+(We will cover some of them in the genetics and single-cell lectures)
 
 :::::: {.columns}
 ::: {.column width=.45}
@@ -2410,13 +2418,13 @@ W <- t(as.matrix(vae.results$vae$dec[["0"]]$weight))
 ::: {.block}
 ### Specialized latent variable models
 
-* Hidden Markov Model
+* Hidden Markov Model / linear dynamic system
 
-* Spatially-constrained linear models
+* Spatially-constrained linear models / fused lasso
 
-* Admixture models (genetics)
+* Admixture models (genetics) / document model
 
-* Embedded Topic Models
+* Embedded Topic Models (single cell)
 
 :::
 
@@ -2426,9 +2434,9 @@ W <- t(as.matrix(vae.results$vae$dec[["0"]]$weight))
 ::: {.block}
 ### Distance-based learning/embedding
 
-* t-Stochastic Neighbourhood Embedding (tSNE)
+* t-Stochastic Neighbourhood Embedding (aka tSNE)
 
-* Uniform Manifold Approximation \& Projection (UMAP)
+* Uniform Manifold Approximation \& Projection (aka UMAP)
 
 * Hierarchical agglomerative clustering
 
@@ -2450,4 +2458,6 @@ knitr::include_graphics("./Vis/unsupervised/model_based_inference.pdf")
 \tiny
 Wassermann, _All of Statistics_ (2004)
 
+## 
 
+![](Vis/unsupervised/why_unsupervised_learning.pdf)
