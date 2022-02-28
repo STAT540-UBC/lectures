@@ -154,7 +154,7 @@
 \author{Yongjin Park\\
 University of British Columbia\\
 (with contributions from Drs. Korthauer, Mostafavi)}
-\date{25 February, 2022}
+\date{28 February, 2022}
 
 \begin{document}
 \frame{\titlepage}
@@ -1765,12 +1765,12 @@ probability}
 \onslide<1->{
   &=&
       \sum_{i}^{n}\sum_{Z_{i}} p(Z_{i}|\mathbf{x}_{i},\mu,\sigma)
-  \frac{p(\mathbf{x}_{i}|Z_{i},\mu,\sigma)p(Z_{i})}{p(Z_{i}|\mathbf{x}_{i}\mu,\sigma)}\\
+    \log \frac{p(\mathbf{x}_{i}|Z_{i},\mu,\sigma)p(Z_{i})}{p(Z_{i}|\mathbf{x}_{i}\mu,\sigma)}\\
 }
 \onslide<2->{
   &=&
 \sum_{i}^{n}\sum_{Z_{i}} p(Z_{i}|\mathbf{x}_{i},\mu,\sigma)
-\frac{p(\mathbf{x}_{i},Z_{i}|\mu,\sigma) p(\mathbf{x}_{i}|\mu,\sigma)}{p(\mathbf{x}_{i}, Z_{i}|\mu,\sigma)} \\
+\log \frac{p(\mathbf{x}_{i},Z_{i}|\mu,\sigma) p(\mathbf{x}_{i}|\mu,\sigma)}{p(\mathbf{x}_{i}, Z_{i}|\mu,\sigma)} \\
 }
 \onslide<3>{
 &=&

@@ -159,6 +159,6 @@ as.dt <- function(x, col.names=NULL) {
 
 ################################################################
 if.needed <- function(.file, .code) {
-    if(!all(file.exists(unlist(.file)))) { .code }
+    if(!all(file.exists(unlist(.file)))){ .code }
     stopifnot(all(file.exists(unlist(.file))))
 }
