@@ -16,6 +16,7 @@ output:
         latex_engine: xelatex
         slide_level: 2
 header-includes:
+  - \usepackage{cancel}
   - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}\tableofcontents[currentsection]\end{frame}}
   - |
     \makeatletter
@@ -126,12 +127,11 @@ knitr::include_graphics("Vis/TWAS2.pdf")
 
 ## Today's problem: gene expression prediction
 
-\Large
+\large
 
 * We will focus on supervised learning (regression) of gene expression
 
-* We will revisit the problem in depth in the GWAS and advnaced GWAS lectures
-
+* We will revisit the problem to discuss biological aspects in the GWAS lectures
 
 ## Why regression?
 
@@ -240,56 +240,7 @@ p(\mathbf{y}^{\textrm{new}}|X^{\textrm{new}},X,\mathbf{y}) = \int p(\mathbf{y}^{
 $$
 }
 
-## Reconciling two related concepts -- MLE and MSE
-
-Equivalence of maximum-likelihood estimation and mean square error
-minimization (isotropic Gaussian error distribution).
-
-\vfill
-
-__[MLE]__ Find ${\boldsymbol{\theta}}$ maximizing
-$$
-\ln p(\mathbf{y}|X,\boldsymbol{\theta})
-= - \frac{1}{2\sigma^{2}} \sum_{i=1}^{n} (y_{i} - \mathbf{x}_{i} \boldsymbol{\theta})^{2} + \textrm{const.}
-$$
-_without prior contribution of parameter, and $\sigma$ is known._
-
-\vfill
-
-__[MSE]__ Find $\boldsymbol{\theta}$ minimizing
-$$
-\sum_{i=1}^{n} (y_{i} - \mathbf{x}_{i} \boldsymbol{\theta})^{2}.
-$$
-
-\vfill
-
-## MLE, MSE, an optimization problem
-
-Minimization of the convex loss function:
-$$
-L(\boldsymbol{\theta}) = (\mathbf{y} - X\boldsymbol{\theta})^{\top}(\mathbf{y} - X\boldsymbol{\theta})
-$$
-
-\onslide<2->{We can optimize setting the derivative with respect to $\boldsymbol{\theta}$ to zero:
-$$
-\nabla_{\boldsymbol{\theta}} L = X^{\top} (\mathbf{y} - X\boldsymbol{\theta}) = 0
-$$
-Rearranging the equation
-$$
-\mathbf{y}^{\top} X = X^{\top} X \boldsymbol{\theta} \implies
-\hat{\boldsymbol{\theta}}_{MLE} = (X^{\top} X)^{-1} X^{\top} \boldsymbol{y}.
-$$
-}
-
-\vfill
-
-* \onslide<3->{Approximately, $p(\boldsymbol{\theta} | \mathbf{y}, X) \approx \mathcal{N}\!\left(\boldsymbol{\theta} \middle| \hat{\boldsymbol{\theta}}_{MLE}, \sigma^{2} (X^{\top} X)^{-1} \right)$.}
-
-* \onslide<4->{How hard is $(X^{\top} X)^{-1}$ (i.e., inverse of ${p\times p}$ matrix)?}
-
-* \onslide<5->{What if $n \ll p$?  What if we want to include $p(\boldsymbol{\theta})$?}
-
-## Of many questions, here is today's one!
+## Of many important questions, we will try to tackle this one...
 
 \Huge
 
@@ -303,7 +254,124 @@ $$p \gg n$$
 
 * $p$: number of parameters
 
+# Bias-variance tradeoff
 
+## A class of models $\hat{f} \in \mathcal{F}$
+
+$$
+\left(\begin{array}{l}
+y_{1}\\
+y_{2}\\
+\vdots\\
+y_{n}
+\end{array}\right)
+=
+\theta_{1} \left(\begin{array}{l}
+X_{11}\\
+X_{21}\\
+\vdots\\
+X_{n1}
+\end{array}\right) +
+\cdots
+\theta_{p} \left(\begin{array}{l}
+X_{1p}\\
+X_{2p}\\
+\vdots\\
+X_{np}
+\end{array}\right).
+$$
+
+- Different number of variables will define a class of potential models
+
+- E.g., $\mathcal{F}_{1}$: a class of models with one variable
+
+- $\mathcal{F}_{2}$: a class of models with two variables
+
+- (...)
+
+- $\mathcal{F}_{q}$: a class of models with $q$ variables
+
+## How do we know if one model is better than the other?
+
+\large
+
+* Training vs. (unseen) testing data
+
+* Our hope: training $\approx$ testing
+
+## What is a good classifier?
+
+```{r out.height=".6\\textheight", results="asis", only.plot="1"}
+knitr::include_graphics("Vis/supervised_learning_curves.pdf")
+```
+
+```{r out.height=".6\\textheight", results="asis", only.plot="2"}
+knitr::include_graphics("Vis/supervised_learning_curves_2.pdf")
+```
+
+```{r out.height=".7\\textheight", results="asis", only.plot="3"}
+knitr::include_graphics("Vis/supervised_learning_curves_3.pdf")
+```
+
+
+## The ultimate goal: generalization error minimization
+
+\Large
+
+k-fold CV error $\to$ leave-one-out CV error $\to$ generalization error
+
+\vfill
+
+\normalsize
+
+* No matter what may come, we will still predict as good as this...
+
+* We will use k-fold cross validation error to estimate generalization error
+
+## Bias-variance tradeoff in generalization error
+
+\begin{eqnarray*}
+\mathbb{E}\!\left[\overset{\textsf{\color{red} true unknown model}}{f(X)} - \overset{\textsf{\color{blue} our attempt}}{\hat{f}(X)}\right]^2
+&=&
+\mathbb{E}\!\left[f(X) \overbrace{- \mathbb{E}\!\left[\hat{f}\right] + \mathbb{E}\!\left[\hat{f}\right]}^{\textsf{\color{pink} average model within the class}} - \hat{f}(X)\right]^2 \\
+\onslide<2->{
+\textsf{\color{gray} (expand the square)}
+&=&
+\mathbb{E}\!\left[ (f(X) - \mathbb{E}\!\left[\hat{f}\right])^2 + (\mathbb{E}\!\left[\hat{f}\right] - \hat{f}(X))^2 \right. \\
+& & \left. + 2 (f(X) - \mathbb{E}\!\left[\hat{f}\right]) (\mathbb{E}\!\left[\hat{f}\right] - \hat{f}(X))\right] \\
+}
+\onslide<3->{
+\textsf{\color{gray} (rearrange the terms)}
+&=& \mathbb{E}\!\left[ f(X) - \mathbb{E}\!\left[\hat{f}\right] \right]^2 + 
+\mathbb{E}\!\left[ \mathbb{E}\!\left[\hat{f}\right] - \hat{f}(X)) \right]^2 \\
+& &
++ 2 \mathbb{E}\!\left[ f(X) - \mathbb{E}\!\left[\hat{f}\right] \right]
+\cancelto{0}{\mathbb{E}\!\left[\mathbb{E}\!\left[\hat{f}\right] - \hat{f}(X)\right]}\\
+}
+\onslide<4>{
+&=& \underbrace{\mathbb{E}\!\left[ f(X) - \mathbb{E}\!\left[\hat{f}\right] \right]^2}_{\textsf{\color{magenta} bias}^2} + 
+\underbrace{\mathbb{E}\!\left[ \mathbb{E}\!\left[\hat{f}\right] - \hat{f}(X)) \right]^2}_{\textsf{\color{magenta} variance}}
+}
+\end{eqnarray*}
+
+\onslide<5>{
+\tiny
+Remark: We didn't factor out irreducible errors.
+}
+
+## Bias-variance tradeoff in generalization error
+
+$$\mathbb{E}\!\left[\overset{\textsf{\color{red} true unknown model}}{f(X)} - \overset{\textsf{\color{blue} our attempt}}{\hat{f}(X)}\right]^2 =
+\underbrace{\mathbb{E}\!\left[ f(X) - \mathbb{E}\!\left[\hat{f}\right] \right]^2}_{\textsf{\color{magenta} bias}^2} + 
+\underbrace{\mathbb{E}\!\left[ \mathbb{E}\!\left[\hat{f}\right] - \hat{f}(X)) \right]^2}_{\textsf{\color{magenta} variance}}$$
+
+
+
+## k-fold cross validation in regression modelling (M. Stone 1974)
+
+```{r out.height=".8\\textheight", results="asis"}
+knitr::include_graphics("Vis/Stone_CV.pdf")
+```
 
 # High-dimensional multivariate regression
 
@@ -547,7 +615,7 @@ coefficients(summary(lm.out)) %>%
     knitr::kable()
 ```
 
-Anything strange?
+Anything strange? Hint: $\hat{\theta} = (X^{\top}X)^{-1} X^{\top}\mathbf{y}$.
 
 ## OLS overfits to the data
 
@@ -617,6 +685,55 @@ Variable selection = column selection.
 \item <3-> What prior does: penalize $|\theta_{j}| > 0$ so that only the strong
   enough variables take non-zero values.
 \end{itemize}
+
+## Reconciling two related concepts -- MLE and MSE
+
+Equivalence of maximum-likelihood estimation and mean square error
+minimization (isotropic Gaussian error distribution).
+
+\vfill
+
+__[MLE]__ Find ${\boldsymbol{\theta}}$ maximizing
+$$
+\ln p(\mathbf{y}|X,\boldsymbol{\theta})
+= - \frac{1}{2\sigma^{2}} \sum_{i=1}^{n} (y_{i} - \mathbf{x}_{i} \boldsymbol{\theta})^{2} + \textrm{const.}
+$$
+_without prior contribution of parameter, and $\sigma$ is known._
+
+\vfill
+
+__[MSE]__ Find $\boldsymbol{\theta}$ minimizing
+$$
+\sum_{i=1}^{n} (y_{i} - \mathbf{x}_{i} \boldsymbol{\theta})^{2}.
+$$
+
+\vfill
+
+## MLE, MSE, an optimization problem
+
+Minimization of the convex loss function:
+$$
+L(\boldsymbol{\theta}) = (\mathbf{y} - X\boldsymbol{\theta})^{\top}(\mathbf{y} - X\boldsymbol{\theta})
+$$
+
+\onslide<2->{We can optimize setting the derivative with respect to $\boldsymbol{\theta}$ to zero:
+$$
+\nabla_{\boldsymbol{\theta}} L = X^{\top} (\mathbf{y} - X\boldsymbol{\theta}) = 0
+$$
+Rearranging the equation
+$$
+\mathbf{y}^{\top} X = X^{\top} X \boldsymbol{\theta} \implies
+\hat{\boldsymbol{\theta}}_{MLE} = (X^{\top} X)^{-1} X^{\top} \boldsymbol{y}.
+$$
+}
+
+\vfill
+
+* \onslide<3->{Approximately, $p(\boldsymbol{\theta} | \mathbf{y}, X) \approx \mathcal{N}\!\left(\boldsymbol{\theta} \middle| \hat{\boldsymbol{\theta}}_{MLE}, \sigma^{2} (X^{\top} X)^{-1} \right)$.}
+
+* \onslide<4->{How hard is $(X^{\top} X)^{-1}$ (i.e., inverse of ${p\times p}$ matrix)?}
+
+* \onslide<5->{What if $n \ll p$?  What if we want to include $p(\boldsymbol{\theta})$?}
 
 ## Bayesian/regularization idea to add the missing probability component
 
@@ -927,6 +1044,18 @@ lasso.dt <-
     scale_fill_manual("causal", values=c("gray", "red"))
 ```
 
+## Bias-variance tradeoff explains why a regularized regression works in practice
+
+\large
+
+$$
+\min_{\boldsymbol{\theta}} \quad
+\overbrace{(\mathbf{y} - X\boldsymbol{\theta})^{\top}(\mathbf{y} - X\boldsymbol{\theta})}^{\approx \textsf{\color{blue} bias}} + \underbrace{\lambda \alpha \|\boldsymbol{\theta}\|_{1}}_{\textsf{\color{red} variable selection}} + \underbrace{\lambda (1 - \alpha) \|\boldsymbol{\theta}\|_{2}}_{\textsf{\color{magenta} shrinkage}}
+$$
+
+* The second and the third terms control the model variance
+
+
 ## Can we try out different prior (regularization)?
 
 \centerline{\includegraphics[width=.75\textwidth]{Vis/L1L2.pdf}}
@@ -1010,6 +1139,16 @@ ss.dt <- setDT(lapply(ss.out$mean, as.numeric)) %>%
     scale_fill_manual("causal", values=c("gray", "red"))
 ```
 
+## A Bayesian approach successfully handles high-dimensional regression problems
+
+```{r out.width="\\textwidth", results="asis"}
+knitr::include_graphics("Vis/gwas_cm.pdf")
+```
+
+\vfill
+
+\tiny
+Carbonetto & Stephens (2012)
 
 # Knock-off filter to control False Discovery Rate
 
@@ -1038,6 +1177,7 @@ where
 * $\hat\theta_{j}$: estimation using data
 
 * $\theta_{j}$: true random variable
+
 
 ## Can we simply attempt to control FDR as in DEG analysis?
 
@@ -1167,7 +1307,6 @@ set.seed(17)
 X.perm <- apply(X, 2, sample)
 ```
 
-
 ```{r}
 spike.slab.result <- fig.dir %&% "/spike_slab_perm.RDS"
 if.needed(spike.slab.result,
@@ -1257,8 +1396,137 @@ In this example, we have `r round(efdr*100)` %
 
 3. Naive permutation steps break the covariance structure in $X$
 
+## KO Idea 1: Preserve dependency structure between variables
 
-## Construct valid "null" matrix preserving correlation structures
+:::::: {.columns}
+::: {.column width=.45}
+
+\onslide<1->{Dependency structure in observed data}
+
+```{r out.height=".6\\textheight", results="asis", onslide.plot="1-"}
+knitr::include_graphics("Vis/Knockoff1.pdf")
+```
+
+:::
+::: {.column width=.45}
+
+\only<2>{\large What permutation did...}
+
+```{r out.height=".58\\textheight", results="asis", only.plot="2"}
+knitr::include_graphics("Vis/Knockoff2.pdf")
+```
+
+\only<3>{\large What we want}
+
+```{r out.height=".58\\textheight", results="asis", only.plot="3"}
+knitr::include_graphics("Vis/Knockoff3.pdf")
+```
+
+:::
+::::::
+
+
+## Second attempt: Construct "null" regression data by permutation preserving inter-variable dependency
+
+```{r echo = TRUE, size = "large"}
+set.seed(17)
+X.perm <- X[sample(nrow(X)), ]
+```
+
+```{r}
+spike.slab.result <- fig.dir %&% "/spike_slab_perm_2.RDS"
+if.needed(spike.slab.result,
+{
+    ss.out <- fit.fqtl(y, cbind(X, X.perm),
+                       tol = 1e-8, vbiter = 3000,
+                       options = list(out.residual=FALSE))
+    saveRDS(ss.out, spike.slab.result)
+})
+ss.out <- readRDS(spike.slab.result)
+```
+
+\Large
+
+- What are we missing?
+
+- It is not clear whether we can control Type-I error.
+
+$$\mathbf{y} \sim [X, \underbrace{\tilde{X}}_{\textsf{\color{red} permuted}}]$$
+
+## Can we learn FDR cutoff from the permuted coefficients?
+
+```{r}
+.dt <- setDT(lapply(ss.out$mean, as.numeric)) %>%
+    mutate(i = 1:n()) %>%
+    mutate(l = as.integer(i %in% sim$causal)) %>%
+    mutate(permuted = if_else(i > ncol(X), "permuted", "observed")) %>%
+    mutate(i = i %% ncol(X) + 1) %>%
+    arrange(l)
+
+.fdr <- .05
+.cutoff <- quantile(.dt[permuted == "permuted"]$lodds, 1 - .fdr)
+```
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+ggplot(.dt, aes(i, lodds)) +
+    facet_grid(. ~ permuted) +
+    geom_point(aes(fill=as.factor(l)), pch=21, stroke = .1) +
+    xlab("variables") +
+    scale_fill_manual("causal", values = c("gray", "red")) +
+    scale_y_continuous("Posterior Inclusion Probability",
+                       labels = function(x) round(sigmoid(x), 2))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+ggplot(.dt, aes(i, lodds)) +
+    facet_grid(. ~ permuted) +
+    geom_point(aes(fill=as.factor(l)), pch=21, stroke = .1) +
+    geom_hline(yintercept = .cutoff, lty = 2, color="magenta") +
+    geom_label(data = data.table(i=2000, lodds=.cutoff),
+               aes(label="FDR <= " %&% round(100*.fdr) %&% "%?"),
+               size=4, alpha=.7, colour="magenta", vjust = 0, hjust = 1) +
+    xlab("variables") +
+    scale_fill_manual("causal", values = c("gray", "red")) +
+    scale_y_continuous("Posterior Inclusion Probability",
+                       labels = function(x) round(sigmoid(x), 2))
+```
+
+## Can we calibrate FDR using the permuted data?
+
+\large
+
+Not really...
+
+* Let $\rho_{j}$ be estimated posterior probability $p(\theta_{j} \neq 0|\textsf{data})$
+
+* empirical False Discovery Rate =
+
+$$\frac{\sum_{j} I\{\rho_{j} > \tau \wedge \theta_{j} = 0 \}}{\sum_{j} I\{ \rho_{j} > \tau \}}$$
+
+```{r}
+efdr <- .dt[permuted == "observed",
+            sum(lodds > .cutoff & l == 0) / pmax(sum(lodds > .cutoff), 1)]
+```
+
+In this example, we have `r round(efdr*100)` %
+
+* What are we still missing?
+
+
+## Is our comparison scheme fair? We comparing one variable against all the null variables
+
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/Knockoff4.pdf")
+```
+
+## KO Idea 2: Matched comparison: $X_{j}$ vs. $\tilde{X}_{j}$
+
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/Knockoff5.pdf")
+```
+
+
+## Construct a knockoff matrix preserving both correlation structures
 
 ::: {.block}
 ### Knock-off filter
@@ -1291,8 +1559,17 @@ E.g.,
 \tiny
 Candes, Fan, Janson, and Lv, *Panning for Gold: Model-X Knockoffs for High-dimensional Controlled Variable Selection*, (2018)
 
-##
+## Knockoff filter (null design matrix) preserves swap exchangeability
 
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/Knockoff6.pdf")
+```
+
+## 
+
+\Large
+
+What would happen if we replace some variable $X_{k}$ with its knock-off copy $\tilde{X}_{k}$ whilst dependence with all the other variables remain unchanged?
 
 
 ## A reasonable approximation for knockoff construction
@@ -1302,7 +1579,7 @@ Candes, Fan, Janson, and Lv, *Panning for Gold: Model-X Knockoffs for High-dimen
 \item<1-> Fit $X \sim W Z$ matrix factorization
 \item<2-> Predict $\hat{X} \gets \hat{U} \hat{Z}$
 \item<3-> Take residuals $\epsilon = X - \hat{X}$
-\item<4-> Add permute residuals $\tilde{\epsilon}$, i.e., $\tilde{X} = \hat{X} + \tilde{\epsilon}$
+\item<4-> Add permuted residuals $\tilde{\epsilon}$, i.e., $\tilde{X} = \hat{X} + \tilde{\epsilon}$
 \end{enumerate}
 
 \vfill
@@ -1376,57 +1653,6 @@ ggplot(spike.slab.ko.dt, aes(i, W)) +
     geom_hline(yintercept = ko.cutoff, colour = "red", lty = 2) +
     geom_hline(yintercept = -ko.cutoff, colour = "red", lty = 2)
 ```
-
-# Bias-variance tradeoff
-
-## What is a good classifier?
-
-```{r out.height=".6\\textheight", results="asis", only.plot="1"}
-knitr::include_graphics("Vis/supervised_learning_curves.pdf")
-```
-
-```{r out.height=".6\\textheight", results="asis", only.plot="2"}
-knitr::include_graphics("Vis/supervised_learning_curves_2.pdf")
-```
-
-```{r out.height=".7\\textheight", results="asis", only.plot="3"}
-knitr::include_graphics("Vis/supervised_learning_curves_3.pdf")
-```
-
-
-## How do we know if one classier is better than the other?
-
-\large
-
-* Training vs. (unseen) testing data
-
-* Our hope: training $\approx$ testing
-
-
-## The ultimate goal: generalization error minimization
-
-\Large
-
-k-fold CV error $\to$ leave-one-out CV error $\to$ generalization error
-
-\vfill
-
-\normalsize
-
-* No matter what may come, we will still predict as good as this...
-
-* We will use k-fold cross validation error to estimate generalization error
-
-## Bias-variance tradeoff explains why a regularized regression works in practice
-
-\large
-
-$$
-\min_{\boldsymbol{\theta}} \quad
-\overbrace{(\mathbf{y} - X\boldsymbol{\theta})^{\top}(\mathbf{y} - X\boldsymbol{\theta})}^{\textsf{\color{blue} bias}} + \underbrace{\lambda \alpha \|\boldsymbol{\theta}\|_{1}}_{\textsf{\color{red} variable selection}} + \underbrace{\lambda (1 - \alpha) \|\boldsymbol{\theta}\|_{2}}_{\textsf{\color{magenta} shrinkage}}
-$$
-
-* The second and the third terms control the model variance
 
 # Discussion
 
