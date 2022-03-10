@@ -1,0 +1,53 @@
+---
+title: "Causal inference and confounding effects"
+author: |
+    | Yongjin Park
+    | University of British Columbia
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+classoption: "aspectratio=169"
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        colortheme: "orchid"
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}\tableofcontents[currentsection]\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(patchwork)
+library(bigsnpr)
+source("Util.R")
+source("Setup.R")
+fig.dir <- "Fig/causality/"
+setup.env(fig.dir)
+dir.create("Data", showWarnings=FALSE)
+theme_set(theme_classic())
+```
+
+## Learning objectives
+
+* Causal effect inference
+
+* Confounding factor adjustment
+
+* Causal structural learning
+
+# What
+
