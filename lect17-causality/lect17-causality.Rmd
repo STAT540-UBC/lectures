@@ -928,28 +928,29 @@ If a genetic variable $G$ is a valid instrumental variable...
 
 ## Mendelian Randomization in modern epidemiology studies
 
-$$G \to X \to Y$$
-
 :::::: {.columns}
-::: {.column width=.28}
+::: {.column width=.5}
 
 \Large
 \begin{itemize}
 \item G: genotype
-\item X: APOE
+\item X: APOE protein
 \item Y: cancer
 \end{itemize}
 
+$$G \to X \to Y$$
+
+```{r out.height=".2\\textheight", results="asis", onslide.plot="2"}
+knitr::include_graphics("Vis/MR_GDS.pdf")
+```
+
 :::
-::: {.column width=.68}
+::: {.column width=.5}
 
 ```{r out.height=".6\\textheight", results="asis", onslide.plot="1-"}
 knitr::include_graphics("Vis/MR_APOE.pdf")
 ```
 
-```{r out.height=".2\\textheight", results="asis", onslide.plot="2"}
-knitr::include_graphics("Vis/MR_GDS.pdf")
-```
 
 :::
 ::::::
@@ -973,6 +974,15 @@ knitr::include_graphics("Vis/MR_FTO_BMI_T2D_2.jpeg")
 :::
 ::: {.column width=.45}
 
+$${}$$
+
+\large
+
+Using genotype as an instrumental variable, we test causality between
+other exposure variables and downstream phenotypes.
+
+$${}$$
+
 \large
 
 \begin{itemize}[<+-| alert@+>]
@@ -992,11 +1002,24 @@ Frayling .. McCarthy, *Science* (2007)
 
 ## Why doing Mendelian Randomization?
 
+:::::: {.columns}
+::: {.column width=.6}
+
+```{r out.width="\\linewidth", results="asis"}
+knitr::include_graphics("Vis/MR_DAG.pdf")
+```
+
+:::
+::: {.column width=.4}
+
 \Large
 
 1. We do not have enough knowledge of $U$
 
 2. We do not have a way to make interventions on $do(X=x)$
+
+:::
+::::::
 
 \vfill
 
@@ -1592,6 +1615,13 @@ cc0 <- cc[x == 0, ]
 ```
 
 ```{r fig.width=6, fig.height=3, only.plot="2"}
+ggplot(.dt.matched, aes(obs.V1, obs.V2)) +
+    geom_point(aes(fill=factor(x, c(0,1))), pch=21) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("C1") + ylab("C2")
+```
+
+```{r fig.width=6, fig.height=3, only.plot="3"}
 ggplot(.dt.matched, aes(obs.V1, obs.V2, xend=matched.V1, yend=matched.V2)) +
     geom_segment(size=.5, lty=2, colour="gray") +
     geom_point(aes(fill=factor(x, c(0,1))), pch=21) +
@@ -1599,7 +1629,7 @@ ggplot(.dt.matched, aes(obs.V1, obs.V2, xend=matched.V1, yend=matched.V2)) +
     xlab("C1") + ylab("C2")
 ```
 
-```{r fig.width=6, fig.height=2.8, only.plot="3"}
+```{r fig.width=6, fig.height=2.8, only.plot="4"}
 p1 <-
     ggplot(.dt, aes(as.factor(x), y, fill=as.factor(x))) +
     geom_violin() +
@@ -1755,66 +1785,6 @@ p2 <-
 
 p1|p2
 ```
-
-## Estimating potential outcome by matching - 1
-
-```{r fig.width=2, fig.height=3, results="asis", only.plot="1"}
-knitr::include_graphics("Vis/example/example_dag1.pdf")
-```
-
-```{r}
-.dt <- sim.example1()
-cc <- cbind(.dt$c1, .dt$c2)
-x <- .dt$x
-yy1 <- .dt$y[x == 1]
-yy0 <- .dt$y[x == 0]
-cc1 <- cc[x == 1, ]
-cc0 <- cc[x == 0, ]
-
-## match x=1 -> x=0
-.out.1 <- FNN::get.knnx(cc0, cc1, k=1)
-## match x=0 -> x=1
-.out.0 <- FNN::get.knnx(cc1, cc0, k=1)
-```
-
-```{r}
-.dt.matched <- 
-    rbind(data.table(obs=cc1, matched=cc0[.out.1$nn.index,], x = 1),
-          data.table(obs=cc0, matched=cc1[.out.0$nn.index,], x = 0)) %>% 
-    cbind(data.table(y0=c(yy0[.out.1$nn.index], yy0),
-                     y1=c(yy1, yy1[.out.0$nn.index])))
-```
-
-```{r fig.width=6, fig.height=3, only.plot="2"}
-ggplot(.dt.matched, aes(obs.V1, obs.V2, xend=matched.V1, yend=matched.V2)) +
-    geom_segment(size=.5, lty=2, colour="gray") +
-    geom_point(aes(fill=factor(x, c(0,1))), pch=21) +
-    scale_fill_manual("x", values=c("#009900","magenta"))+
-    xlab("C1") + ylab("C2")
-```
-
-```{r fig.width=6, fig.height=2.8, only.plot="3"}
-p1 <-
-    ggplot(.dt, aes(as.factor(x), y, fill=as.factor(x))) +
-    geom_violin() +
-    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
-    scale_fill_brewer(palette="Set3", guide="none") +
-    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
-    xlab("exposure/treatment") +
-    ylab("observed outcome\nY|X=1 vs. Y|X=0")
-
-p2 <-
-    ggplot(.dt.matched, aes(as.factor(x), y1-y0, fill=as.factor(x))) +
-    geom_violin() +
-    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
-    scale_fill_brewer(palette="Set3", guide="none") +
-    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
-    xlab("exposure/treatment") +
-    ylab("matched & adjusted outcome\nY(do(X=1)) - Y(do(X=0))")
-
-p1|p2
-```
-
 
 # When we don't know an underlying causal graph
 
