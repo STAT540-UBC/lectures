@@ -64,6 +64,8 @@ theme_set(theme_classic())
 
 * Confounding factor adjustment
 
+* Instrumental Variable
+
 * Potential outcome model
 
 ## A century-old question, finding the cause of a disease
@@ -144,6 +146,21 @@ Evans, Causation and Disease (1976)
 
 \tiny
 Evans, Causation and Disease (1976)
+
+## The Nobel Prize 2021 in Economical Sciences
+
+```{r out.width=".5\\linewidth", results="asis"}
+knitr::include_graphics("Vis/nobelprize_card_angrist_imbens-3_2-992x656.jpg")
+```
+
+$$
+\textsf{David Card}, \underbrace{\textsf{\color{blue} Joshua Angrist}}_{\textsf{instrumental variable}}, \underbrace{\textsf{\color{blue} Guido Imbens}}_{\textsf{matching, propensity}}
+$$
+
+> "For the methodological contributions to the analysis of causal relationships"
+
+\tiny
+`https://www.nobelprize.org/prizes/economic-sciences/2021`
 
 # What is causal inference (fundamentals)
 
