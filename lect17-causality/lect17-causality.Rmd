@@ -17,6 +17,21 @@ output:
         slide_level: 2
 header-includes:
   - \usepackage{cancel}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage[normalem]{ulem}
+  - \usepackage{makecell}
+  - \usepackage{xcolor}
+  - \setbeamercolor{alerted text}{fg=magenta}
   - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}\tableofcontents[currentsection]\end{frame}}
   - |
     \makeatletter
@@ -43,11 +58,1928 @@ theme_set(theme_classic())
 
 ## Learning objectives
 
-* Causal effect inference
+* Introduction to causal inference
+
+* Causal structural model (DAG)
 
 * Confounding factor adjustment
 
-* Causal structural learning
+* Potential outcome model
 
-# What
+## A century-old question, finding the cause of a disease
+
+:::::: {.columns}
+::: {.column width=.65}
+
+::: {.block}
+### Henle-Koch Postulates
+
+\large
+
+1. The parasite occurs in every case of the disease in question and
+   under circumstances which can account for the pathological changes
+   and clinical course of the disease.
+
+2. It occurs in no other disease as a fortuitous and nonpathogenic
+   parasite.
+
+3. After being fully isolated from the body and repeatedly grown in
+   pure culture, it can induce the disease anew.
+
+:::
+
+:::
+::: {.column width=.35}
+
+```{r out.height=".8\\textheight", results="asis", only.plot="1"}
+knitr::include_graphics("Vis/causal_people_henle_koch.pdf")
+```
+
+:::
+::::::
+
+\tiny
+Evans, Causation and Disease (1976)
+
+## Scientists have been doing causal inference research
+
+:::::: {.columns}
+::: {.column width=.65}
+
+::: {.block}
+
+\Large
+
+**Henle-Koch Postulates**
+
+\large
+
+1. The parasite occurs in \only<2->{\textbf{\color{magenta} every case of the disease}}\only<1>{every case of the disease} in question and
+   under circumstances which can account for the pathological changes
+   and clinical course of the disease.
+
+2. \only<1-2>{It occurs in \textbf{no other disease}}\only<3->{\textbf{\color{teal} It occurs in no other disease}} as a fortuitous and nonpathogenic
+   parasite.
+
+3. After being *fully isolated* from the body and *repeatedly grown* in
+   pure culture, \only<1-3>{it can induce the disease anew.}\only<4>{\textbf{\color{cyan} it can induce the disease anew.}}
+
+:::
+
+:::
+::: {.column width=.35}
+
+\large
+
+- \onslide<2->{\textbf{\color{magenta} Invariance},} \onslide<3->{\textbf{\color{teal} stability} arguments in the 1st and 2nd points}
+
+- \onslide<4->{The notion of \textbf{\color{cyan} intervention} in the 3rd point.}
+
+- \onslide<5>{Just oberving a pathogen in the diseased animals isn't credible evidence of the cause of disease}
+
+:::
+::::::
+
+\vfill
+
+\tiny
+Evans, Causation and Disease (1976)
+
+# What is causal inference (fundamentals)
+
+## 
+
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causal_inference_two.pdf")
+```
+
+## Causal "effect" inference in two ways: $X \to Y$
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\onslide<1->{
+
+\begin{block}{Experiments/interventions}
+What would be the effect of \textit{\color{magenta} doing} $X=x$?
+\centerline{\large $P(Y|do(X = x))$}
+\end{block}
+
+}
+
+
+\vfill
+
+\only<2->{
+\small
+Although we are only "seeing" $X=x$, can we still estimate the "doing" effect?
+$$P(Y|do(X = x)) \overset{\textsf{\color{red} ???}}{=} P(Y|X = x)$$
+}
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="3-"}
+## Pearl, Wright, Fisher
+knitr::include_graphics("Vis/causal_people_pearl_wright_fisher.pdf")
+```
+
+:::
+::: {.column width=.48}
+
+\onslide<4->{
+\begin{block}{Counterfactual reasoning}
+What if we had $X=0$, not $X=1$, or vice versa?
+\centerline{\large $Y_{i}^{(X=1)} - Y_{i}^{(X=0)}$}
+\end{block}
+}
+
+\vfill
+
+\onslide<5->{
+\small
+\textit{Although we only observed "factual" Y, can we estimate "counterfactual" Y?}
+\begin{eqnarray*}
+\overset{\textsf{\color{red} observed}}{Y_{i}} = \left\{
+\begin{array}{ll}
+Y_{i}^{(1)}, & X = 1 \\
+Y_{i}^{(0)}, & X = 0 \\
+\end{array}
+\right.
+\end{eqnarray*}
+}
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="6"}
+## Rubin, Neyman, Lewis
+knitr::include_graphics("Vis/causal_people_rubin_neyman_lewis.pdf")
+```
+
+:::
+::::::
+
+
+# Graphical language for causal inference
+
+## Causal effect inference from an experimentalist's perspective
+
+\Large
+
+Goal:
+
+$$P(Y|\textsf{do}(X = x)) \gets P(Y|X = x)$$
+
+\vfill
+
+\large
+
+- What you are seeing is **not** what you are doing!
+
+- What if we have a nearly complete picture of dependency?
+
+## Common misconception
+
+\Large
+
+\only<1>{
+Isn't causal inference learning a DAG from data?
+}
+
+\onslide<2>{
+
+\textsf{\color{gray} [On Seawall Wright's graphical model]}, Henry Niles\footnote{A student of Karl Pearson, who also argued the same.} disparaged, ``The basic fallacy of the method appears to be \textbf{\color{magenta} the assumption that it is possible to set up a priori} \textbf{\color{teal} a comparatively simple graphical system.}'' 
+
+\vfill
+
+\small
+Pearl, \emph{The Book of Why}, p.78
+}
+
+## Common misconception - correlation implies causation
+
+:::::: {.columns}
+::: {.column width=.8}
+
+\Large
+
+Henry Niles also wrote, *"To contrast 'causation' and 'correlation' is unwarranted \textbf{\color{magenta} because causation is simply perfect correlation}"* 
+
+:::
+::: {.column width=.2}
+
+```{r out.width="\\linewidth", results="asis", only.plot="2"}
+knitr::include_graphics("Vis/munch_the_scream.jpg")
+```
+
+:::
+::::::
+
+\vfill
+
+\small
+Pearl, *The Book of Why*, p.78
+
+
+
+## Causal Directed Acyclic Graph induces joint probability
+
+```{r out.width=".4\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causalDAG/DAG_x_to_z_to_y.pdf")
+```
+
+$$p(X,Y,Z) = 
+\underset{\textsf{\color{blue}first edge}}{p(Y|X)}\quad
+\underset{\textsf{\color{magenta}second edge}}{p(Z|Y)}\quad
+\underset{\textsf{\color{teal}first node}}{p(X)}$$
+
+## Causal DAG: Causal path/trail and reachability
+
+```{r out.width=".4\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causalDAG/DAG_x_to_z_to_y.pdf")
+```
+
+* There is a path between $X$ and $Y$
+
+* Also between $Y$ and $Z$
+
+* Also from $X$ to $Z$
+
+## Causal DAG: Conditioning (and/or adjustment)
+
+```{r out.width=".4\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causalDAG/DAG_x_to_z_to_y_cond.pdf")
+```
+
+* A shaded node = conditioning like $P(Z|Y=y^\star)$ and $P(Y=y^\star|X)$
+
+* There is a path between $X$ and $Y$
+
+* Also between $Y$ and $Z$
+
+* **But** no path from $X$ to $Z$
+
+## d-separation: testing conditional independence (flow vs. no flow)
+
+\normalsize
+
+:::::: {.columns}
+::: {.column width=.3}
+
+```{r}
+.add.fig <- function(x) {
+    knitr::include_graphics("Vis/backdoor_exercise/" %&% x %&% ".pdf")
+}
+```
+
+```{r out.width=".99\\linewidth", results="asis", onslide.plot="1-"}
+.add.fig("dag_x_y_z_1")
+```
+
+```{r out.width=".99\\linewidth", results="asis", onslide.plot="4-"}
+.add.fig("dag_x_y_z_1_block")
+```
+
+\vfill
+
+\only<1-3>{
+\textbf{\color{teal} Flow}: The outcome of $Z$ depends on the effect of X
+}
+\only<4->{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ solely depends on $Y=y^*$, not $X$
+}
+
+:::
+::: {.column width=.3}
+
+```{r out.width=".99\\linewidth", results="asis", onslide.plot="2-"}
+## X <- Y -> Z
+.add.fig("dag_x_y_z_2")
+```
+
+```{r out.width=".99\\linewidth", results="asis", onslide.plot="5-"}
+## X <- Y -> Z
+.add.fig("dag_x_y_z_2_block")
+```
+
+\vfill
+
+\only<2-3>{
+\textbf{\color{teal} Flow}: The outcome of $Z$ depends on the effect of $Y$; so does the outcome of $X$ on that of $Y$
+}
+\only<5->{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ solely depends on $Y=y^*$, not $X$
+}
+
+:::
+::: {.column width=.3}
+
+```{r out.width=".99\\linewidth", results="asis", onslide.plot="3-"}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3")
+```
+
+```{r out.width=".99\\linewidth", results="asis", onslide.plot="6"}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3_block")
+```
+
+\only<7>{
+\textbf{\color{teal} Flow}: a deeper v-structure
+}
+
+```{r out.width=".99\\linewidth", results="asis", only.plot="7"}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3_deep")
+```
+
+\vfill
+
+\only<3>{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ only affects $Y$; do does $X$
+}
+\only<6>{
+\textbf{\color{teal} Flow}: The observed outcome $Y=y^*$ could stem from $X$ or/and $Z$
+}
+
+:::
+::::::
+
+
+## "Backdoor" exercise
+
+\large
+
+**Question:** Which nodes should be "conditioned" and/or "adjusted" to block a reverse path from $Y$ to $X$?
+
+```{r out.height=".6\\textheight", results="asis", only.plot="1"}
+knitr::include_graphics("Vis/backdoor_exercise/bd_concept_1.pdf")
+```
+
+```{r out.height=".6\\textheight", results="asis", only.plot="2"}
+knitr::include_graphics("Vis/backdoor_exercise/bd_concept_2.pdf")
+```
+
+## Can you identify and close "backdoor" paths?
+
+\centerline{\large\textbf{Goal}: $X \to Y$ (so close other paths $Y \to X$)}
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r out.width=".9\\linewidth", results="asis", onslide.plot="1-"}
+knitr::include_graphics("Vis/backdoor_exercise/bd_exercise_1.pdf")
+```
+
+:::
+::: {.column width=.5}
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="2"}
+knitr::include_graphics("Vis/backdoor_exercise/bd_exercise_2.pdf")
+```
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="3"}
+knitr::include_graphics("Vis/backdoor_exercise/bd_exercise_2_ans.pdf")
+```
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="4"}
+knitr::include_graphics("Vis/backdoor_exercise/bd_exercise_3.pdf")
+```
+
+:::
+::::::
+
+\only<3>{
+\flushright{$p(Y|do(X)) \neq \int_{C_{4}} p(Y|X, C_{4}) p(C_{4}) d C_{4}$
+}}
+
+\only<4>{
+\flushright{$p(Y|do(X)) = \int_{C_{2}, C_{4}} p(Y|X, C_{2}, C_{4}) p(C_{2}, C_{4}) dC_{2} C_{4}$
+}}
+
+## Three steps of causal inference using a causal graph
+
+\Large
+
+\begin{enumerate}
+\item<1-> Build a causal structural model
+\item<2-> Identify "back-door" variables
+\item<3> Adjust "back-door" variables
+\end{enumerate}
+\onslide<3>{Estimate causal effects and sensitivity analysis}
+
+## A working example: confounder adjustment in case-control study
+
+```{r example_1}
+sim.example1 <- function(){
+    set.seed(1)
+    n <- 300; .tau <- 1; .eps <- .5
+    sgm <- function(x) 1/(1+ exp(-x))
+    cc <- matrix(rnorm(n*2), nrow=n, ncol=2)
+
+    .delta <- matrix(c(1, 3), nrow=2, ncol=1)
+    .beta <- matrix(c(-3, -1), nrow=2, ncol=1)
+    .zeta <- matrix(c(-3, 2), nrow=2, ncol=1)
+
+    xx <- sgm(cc %*% .delta + rnorm(n)) %>% rbinom(n=n, size=1)
+    yy.true <- scale(xx * .tau) + rnorm(n) * sqrt(.eps)
+    yy <- yy.true + cc %*% .beta
+    mm <- cc %*% .zeta
+    rr <- cc %*% .delta + yy + rnorm(n) * sqrt(.eps)
+
+    .dt <- data.table(y = as.numeric(yy),
+                      y.true = as.numeric(yy.true),
+                      x = as.numeric(xx),
+                      c1 = cc[,1], c2 = cc[,2],
+                      M = as.numeric(mm),
+                      R = as.numeric(rr))
+}
+```
+
+```{r}
+.dt <- sim.example1()
+```
+
+:::::: {.columns}
+::: {.column width=.25}
+
+```{r fig.width=1.8, fig.height=2.9}
+ggplot(.dt, aes(as.factor(x), y, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("exposure/treatment") +
+    ylab("outcome")
+```
+
+:::
+::: {.column width=.25}
+
+```{r fig.width=1.8, fig.height=3, only.plot="2"}
+p1 <-
+    ggplot(.dt, aes(c1, y, fill=as.factor(x))) +
+    geom_point(pch=21, alpha=.5) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ylab("outcome")
+
+p2 <-
+    ggplot(.dt, aes(c2, y, fill=as.factor(x))) +
+    geom_point(pch=21, alpha=.5) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ylab("outcome")
+
+p1/p2
+```
+
+```{r fig.width=1.8, fig.height=3, only.plot="3"}
+p1 <-
+    ggplot(.dt, aes(M, y, fill=as.factor(x))) +
+    geom_point(pch=21, alpha=.5) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ylab("outcome")
+
+p2 <-
+    ggplot(.dt, aes(R, y, fill=as.factor(x))) +
+    geom_point(pch=21, alpha=.5) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ylab("outcome")
+
+p1/p2
+```
+
+:::
+::: {.column width=.4}
+
+\Large
+
+**Key question:** $X \overset{?}{\to} Y$
+
+$\mathbf{\color{red} X}$: exposure variable 
+
+$\mathbf{\color{blue} Y}$: outcome variable
+
+\only<2->{
+
+$\mathbf{\color{teal} C_{1}}$ and $\mathbf{\color{teal} C_{2}}$: covariates 
+
+}
+
+\only<3>{
+
+$\mathbf{\color{pink} M}$: other covariate
+
+$\mathbf{\color{magenta} R}$: other covariate
+
+}
+
+:::
+::::::
+
+
+## Causal inference with a graphical model
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\begin{enumerate}
+\item<1-> Build a causal structural model
+\item<2-> Identify "back-door" paths/variables (\textit{\color{magenta} closing $Y \to X$}, \textit{\color{teal} while opening $X \to Y$})
+\item<5-> Adjust "back-door" variables
+\item<5> Estimate causal effects
+\end{enumerate}
+
+
+```{r fig.width=2, fig.height = 1.5, only.plot="5"}
+.dt[, y.resid := residuals(lm(`y` ~ `c1` + `c2`))]
+ggplot(.dt, aes(as.factor(x), y, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("exposure/treatment") +
+    ylab("outcome")
+```
+
+:::
+::: {.column width=.6}
+
+```{r fig.width=1.5, fig.height=3, results="asis", only.plot="1"}
+knitr::include_graphics("Vis/example/example_dag1_open.pdf")
+```
+
+\only<1>{
+\large
+\centerline{What are potential backdoors?}
+}
+
+```{r fig.width=1.5, fig.height=3, results="asis", only.plot="2"}
+knitr::include_graphics("Vis/example/example_dag1_open_bd.pdf")
+```
+
+\only<2>{
+\large
+\centerline{How do we close them?}
+}
+
+```{r fig.width=1.5, fig.height=3, results="asis", only.plot="3"}
+knitr::include_graphics("Vis/example/example_dag1_open_bd_wrong.pdf")
+```
+
+\only<3>{
+\large
+\centerline{What about this?}
+}
+
+```{r fig.width=1.5, fig.height=3, results="asis", only.plot="4"}
+knitr::include_graphics("Vis/example/example_dag1.pdf")
+```
+
+\only<4>{
+\large
+\centerline{Is this enough?}
+}
+
+\only<5>{
+\begin{eqnarray*}
+Y \gets Y - \sum_{k=1}^{2} C_{k} \hat\beta_{k}
+\end{eqnarray*}
+which approximates
+\begin{eqnarray*}
+p(Y|X) = \int_{C} p(Y|X,C) p(C) dC
+\end{eqnarray*}
+}
+
+```{r fig.width=2, fig.height = 1.5, only.plot="5"}
+ggplot(.dt, aes(as.factor(x), y.resid, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("exposure/treatment") +
+    ylab("adjusted\noutcome")
+```
+
+:::
+::::::
+
+
+## What would happen if we close a wrong "backdoor" variable?
+
+```{r}
+.dt[, y.resid.m := residuals(lm(`y` ~ `M`))]
+.dt[, y.resid.r := residuals(lm(`y` ~ `R`))]
+```
+
+:::::: {.columns}
+::: {.column width=.45}
+
+Adjusting $Y$ by the backdoor $C$
+
+```{r fig.width=2.5, fig.height=2}
+ggplot(.dt, aes(as.factor(x), y.resid, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("exposure/treatment") +
+    ylab("outcome\nadjusted\nby confounder")
+```
+
+:::
+::: {.column width=.45}
+
+\only<1>{
+Adjusting $Y$ by the invalid $M$
+}
+```{r fig.width=2.5, fig.height=2, only.plot="1"}
+ggplot(.dt, aes(as.factor(x), y.resid.m, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("exposure/treatment") +
+    ylab("outcome\nadjusted\nby M")
+```
+
+\only<2>{
+Adjusting $Y$ by the collider $R$
+}
+```{r fig.width=2.5, fig.height=2, only.plot="2"}
+ggplot(.dt, aes(as.factor(x), y.resid.r, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("exposure/treatment") +
+    ylab("outcome\nadjusted\nby R")
+```
+
+:::
+::::::
+
+
+## What would happen if we close a wrong "backdoor" variable?
+
+```{r example_2}
+sim.example2 <- function(){
+    set.seed(1)
+    n <- 300; .eps <- .5
+    sgm <- function(x) 1/(1+ exp(-x))
+    cc <- matrix(rnorm(n*2), nrow=n, ncol=2)
+
+    .delta <- matrix(c(1, 3), nrow=2, ncol=1)
+    .beta <- matrix(c(-3, -1), nrow=2, ncol=1)
+    .zeta <- matrix(c(-3, 2), nrow=2, ncol=1)
+
+    xx <- sgm(cc %*% .delta + rnorm(n)) %>% rbinom(n=n, size=1)
+    yy.true <- rnorm(n) * sqrt(.eps)
+    yy <- yy.true + cc %*% .beta
+    mm <- cc %*% .zeta
+    rr <- cc %*% .delta + yy + rnorm(n) * sqrt(.eps)
+    .dt <- data.table(y = as.numeric(yy),
+                      x = as.numeric(xx),
+                      c1 = cc[,1], c2 = cc[,2],
+                      M = as.numeric(mm),
+                      R = as.numeric(rr))
+}
+```
+
+Take another example:
+
+:::::: {.columns}
+::: {.column width=.35}
+
+```{r fig.width=1.5, fig.height=3, results="asis", onslide.plot="1-"}
+knitr::include_graphics("Vis/example/example_dag2.pdf")
+```
+
+\only<2>{
+We can see the strong correlation between $X$ and $Y$
+}
+
+\only<3>{
+In fact, there is no causal relationship between $X$ and $Y$
+}
+
+\only<4>{
+Adjusting $M$ will not seal the backdoor...
+reinforce the spurious correlation
+}
+
+\only<5>{
+Adjusting $R$ will open another backdoor...
+reinforce the spurious correlation
+}
+
+:::
+::: {.column width=.55}
+
+```{r fig.width=2.5, fig.height=2, only.plot="2"}
+.dt <- sim.example2()
+.dt[, y.resid := residuals(lm(`y` ~ `c1` + `c2`))]
+.dt[, y.resid.m := residuals(lm(`y` ~ `M`))]
+.dt[, y.resid.r := residuals(lm(`y` ~ `R`))]
+
+ggplot(.dt, aes(as.factor(x), y, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("observed outcome")
+```
+
+```{r fig.width=2.5, fig.height=2, only.plot="3"}
+ggplot(.dt, aes(as.factor(x), y.resid, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("outcome\nadjusted by C")
+```
+
+```{r fig.width=2.5, fig.height=2, only.plot="4"}
+ggplot(.dt, aes(as.factor(x), y.resid.m, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("outcome\nadjusted by M")
+```
+
+```{r fig.width=2.5, fig.height=2, only.plot="5"}
+ggplot(.dt, aes(as.factor(x), y.resid.r, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("outcome\nadjusted by R")
+```
+
+:::
+::::::
+
+<!--------------->
+<!-- section 2 -->
+<!--------------->
+
+# Mendelian Randomization
+
+## 
+
+\huge
+
+\textbf{\color{teal} Mendelian} + \textbf{\color{magenta} Randomization}
+
+
+## Randomized experiments - RA Fisher's work at Rothamsted
+
+```{r out.height=".7\\textheight", results="asis", only.plot="1"}
+knitr::include_graphics("Vis/RCT_Fisher_1.pdf")
+```
+
+\only<1>{
+\tiny
+Image source: `www.adelaide.edu.au`
+}
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\only<2-4>{
+
+\centerline{\textbf{Crops grown in the plots}}}
+
+```{r out.width="\\textwidth", results="asis", only.plot="2-4"}
+knitr::include_graphics("Vis/RCT_Fisher_1.pdf")
+```
+
+\only<5>{
+\centerline{\textbf{RCT} $\implies$ \textbf{\color{magenta} "doing"}}
+}
+
+$${}$$
+
+```{r out.height=".5\\textheight", results="asis", onslide.plot="5"}
+knitr::include_graphics("Vis/RCT_DAG.pdf")
+```
+
+:::
+::: {.column width=.48}
+
+\only<2>{
+
+\centerline{\textbf{Experimental design}}}
+
+```{r out.width="\\textwidth", results="asis", only.plot="2"}
+knitr::include_graphics("Vis/RCT_Fisher_2.pdf")
+```
+
+\only<3>{
+
+\centerline{\textbf{Random assignment of fertilizer}}}
+
+```{r out.width="\\textwidth", results="asis", only.plot="3"}
+knitr::include_graphics("Vis/RCT_Fisher_3.pdf")
+```
+
+\only<4-5>{
+
+\centerline{\textbf{Compare the yields between the treated vs non-treated}}}
+
+```{r out.width="\\textwidth", results="asis", only.plot="4-5"}
+knitr::include_graphics("Vis/RCT_Fisher_4.pdf")
+```
+
+:::
+::::::
+
+## Randomization
+
+```{r out.height=".5\\textheight", results="asis"}
+knitr::include_graphics("Vis/RCT_DAG.pdf")
+```
+
+## Mendelian Randomization
+
+```{r out.height=".5\\textheight", results="asis", onslide.plot="1-"}
+knitr::include_graphics("Vis/MR_DAG.pdf")
+```
+
+\vfill
+
+\only<1>{
+We will use a genetic variable $G$ to mimic RCT
+}
+
+\only<2>{
+If a genetic variable $G$ is a valid instrumental variable...
+}
+
+## Mendelian Randomization in modern epidemiology studies
+
+$$G \to X \to Y$$
+
+:::::: {.columns}
+::: {.column width=.28}
+
+\Large
+\begin{itemize}
+\item G: genotype
+\item X: APOE
+\item Y: cancer
+\end{itemize}
+
+:::
+::: {.column width=.68}
+
+```{r out.height=".6\\textheight", results="asis", onslide.plot="1-"}
+knitr::include_graphics("Vis/MR_APOE.pdf")
+```
+
+```{r out.height=".2\\textheight", results="asis", onslide.plot="2"}
+knitr::include_graphics("Vis/MR_GDS.pdf")
+```
+
+:::
+::::::
+
+## MR in action: *FTO* $\to$ fat mass $\to$ obesity, diabetes
+
+:::::: {.columns}
+::: {.column width=.25}
+
+```{r out.width="\\linewidth", results="asis", onslide.plot="1-"}
+knitr::include_graphics("Vis/MR_FTO_BMI_T2D.jpeg")
+```
+
+:::
+::: {.column width=.25}
+
+```{r out.width="\\linewidth", results="asis", onslide.plot="2-"}
+knitr::include_graphics("Vis/MR_FTO_BMI_T2D_2.jpeg")
+```
+
+:::
+::: {.column width=.45}
+
+\large
+
+\begin{itemize}[<+-| alert@+>]
+\item Genotype in \textit{FTO} locus $\to$ T2D
+\item \textit{FTO} locus $\to$ fat mass
+\item Using \textit{FTO} as "instrumental variable", we can ask other MR questions
+\end{itemize}
+
+:::
+::::::
+
+
+
+\tiny
+
+Frayling .. McCarthy, *Science* (2007)
+
+## Why doing Mendelian Randomization?
+
+\Large
+
+1. We do not have enough knowledge of $U$
+
+2. We do not have a way to make interventions on $do(X=x)$
+
+\vfill
+
+> "Genotypes are beautifully randomized" - Fisher (1951)
+
+## Definition of instrumental variable in MR study
+
+:::::: {.columns}
+::: {.column width=.55}
+
+```{r out.width=".9\\linewidth", results="asis", onslide.plot="1-"}
+knitr::include_graphics("Vis/MR_DAG_IV.pdf")
+```
+
+:::
+::: {.column width=.45}
+
+\large
+
+\begin{itemize}
+\item<1-> IV1: The genetic variant $G$ is independent of the potential confounder variable $U$
+\item<2-> IV2: The genetic variant is associated with the exposure $X$
+\item<3-> IV3: The genetic variant is independent of the outcome $Y$ conditioning on $X$
+\end{itemize}
+
+:::
+::::::
+
+\vfill
+
+Bowden _et al._ (2015)
+
+
+## MR measures mediation effects of $X$ to $Y$
+
+\textsf{\color{teal} Given that $G$ is a valid instrumental variable...}
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\small
+
+*Example*: 
+
+- $X$: gene expression
+
+- $Y$: disease phenotype
+
+Suppose we have estimated
+\large
+
+\onslide<1->{
+\begin{eqnarray*}
+G &\overset{\alpha}{\to}& X \\
+X &=& G \hat{\color{teal}\boldsymbol{\alpha}} + \epsilon_{X}
+\end{eqnarray*}
+}
+\onslide<2->{
+and
+\begin{eqnarray*}
+G &\overset{\gamma}{\to}& Y \\
+Y &=& G \hat{\color{magenta}\boldsymbol{\gamma}} + \epsilon_{Y}
+\end{eqnarray*}
+}
+
+:::
+::: {.column width=.48}
+
+\large
+\onslide<3->{
+\textbf{Goal}: What is the causal effect $\beta$ in $X \overset{\beta}{\to} Y$?
+}
+
+\begin{eqnarray*}
+\onslide<3->{
+Y &=& X \beta + \epsilon' \\
+}
+\onslide<4->{
+G \hat{\color{magenta}\boldsymbol{\gamma}} + \epsilon_{Y} 
+&=& 
+(G \hat{\color{teal}\boldsymbol{\alpha}} + \epsilon_{X}) \beta + \epsilon' \\
+}
+\onslide<5->{
+G \hat{\color{magenta}\boldsymbol{\gamma}}
+&=& 
+G \hat{\color{teal}\boldsymbol{\alpha}} {\color{red} \boldsymbol{\beta}} + \cdots
+}
+\end{eqnarray*}
+
+\onslide<6>{
+The answer is as simple as
+\begin{eqnarray*}
+\mathbb{E}\!\left[{\color{red} \beta}\right] &=& 
+\frac{{\color{magenta}\boldsymbol{\gamma}}}
+{{\color{teal}\boldsymbol{\alpha}}}
+\end{eqnarray*}
+
+We will revisit this problem in the GWAS lectures
+}
+:::
+::::::
+
+<!--------------->
+<!-- section 3 -->
+<!--------------->
+
+# Potential outcome framework (what if?)
+
+## The ultimate goal of causal inference
+
+\large
+
+- Causality is tied to an action (doing), rather than an observation (seeing).
+
+- Even the same object/subject/individual at a different time is a different object.
+
+- **What if** we could have multiverse? **What if** we could turn back in time?
+
+\only<2>{
+\Large
+\centerline{\textit{\color{teal} Factual} (observed) vs. \textit{\color{magenta} counterfactual} (what could have happened)}
+}
+
+## Rubin's causal model ($X \to Y$ with confounder $S$)
+
+\large
+
+Causal assumptions (Rosenbaum & Rubin, 1983)
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\onslide<1->{
+\begin{block}{Unconfoundedness (ignorability)}
+$$
+(Y(0), Y(1)) \perp\!\!\!\perp X | S
+$$
+\end{block}
+{\small
+Blocking out sufficient confounder variables, potential outcome $Y(X)$
+is independent of observed exposure $X=x$.
+
+{\color{brown}{E.g., The chance of unvaccinated myself getting COVID in the other universe has nothing to do with the fact that I had been vaccinated in this universe.}}
+}
+}
+
+:::
+::: {.column width=.45}
+
+\onslide<2>{
+\large
+\begin{block}{Overlap (smoothness)}
+$$
+0 < P(X = 1|S) < 1
+$$
+\end{block}
+{\small
+There is a positive chance of being exposed and not exposed in all values of $S$, e.g., strata.
+
+{\color{brown}{E.g., There is always some group who get vaccinated and the other group who decide not to get vaccinated across all conditions, e.g., gender, socioeconomic indexes, age, etc.}}
+}
+}
+
+:::
+::::::
+
+## SUTVA (Stable Unit Treatment Variable Assumption)
+
+\large
+
+1. The potential outcome of any unit do not vary with the treatment assigned to other units (**No Interference** of causal effects).
+
+2. For each unit, there is no different forms of each treatment level, which lead to different potential outcomes (**No Hidden variation of Treatments**).
+
+
+## Why is it called a "potential" outcome model?
+
+\large
+
+- If my causal statement is: "My headache disappeared because I took a pill of aspirin."
+
+- Then, we need to investigate counterfactual outcome: "Had I not taken an aspirin, would my headache disappear?"
+
+- Definition of causal effects: Comparison between two (or multiple) different potential outcomes **on the same unit**.
+
+## Holland (1986)
+
+> The fundamental problem of causal inference is the problem that at most one of the potential outcomes can be realized and thus observed.
+
+## Causal inference is fundamentally a missing data problem
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\large
+
+For $X_{i} = 1$,
+$$
+Y^{\textsf{obs}}_{i} = Y_{i}(1), 
+Y^{\textsf{mis}}_{i} = Y_{i}(0)
+$$
+
+For $X_{i} = 0$,
+$$
+Y^{\textsf{mis}}_{i} = Y_{i}(1), 
+Y^{\textsf{obs}}_{i} = Y_{i}(0)
+$$
+
+:::
+::: {.column width=.32}
+
+\large
+
+```{r results="asis"}
+tibble(i = c(1:5, "..."),
+       X = c("0", "1", "1", "0", "1", "..."),
+       `Y(0)` = c("Y", "?", "?", "Y", "?", "..."),
+       `Y(1)` = c("?", "Y", "Y", "?", "Y", "...")) %>%
+    knitr::kable(format="latex", booktabs=TRUE) %>%
+    kableExtra::kable_styling(font_size=14, latex_options = "striped")
+```
+
+:::
+::::::
+
+\vfill
+
+Average causal effect: 
+$$\frac{1}{N} \sum_{i=1}^{N} Y_{i}(1) - Y_{i}(0)$$
+
+
+## Statistical aspect of causal inference (N > 1)
+
+\large
+
+- Learning about causal effects typically involves multiple units.
+
+- A fundamental "mistake" of statistical inference: Considering a unit at different time as the same unit.
+
+- The problem of causal inference is a missing data problem.
+
+- What was the missing data assignment mechanism?
+
+- Prediction of assignment mechanisms by pre-treatment variables.
+
+## Causal estimand
+
+- $Y_{i}(X_{i})$: Potential outcome of a unit $i$ with exposure $X_{i}$
+
+- $S_{ik}$: Covariate $k$ for a unit $i$
+
+- Atomic causal estimand:
+
+$$Y_{i}(1) - Y_{i}(0)$$
+
+- Average causal effect:
+
+$$\frac{1}{N}\sum_{i=1}^{N} Y_{i}(1) - Y_{i}(0)$$
+
+## History of causal inference
+
+\Large
+
+- Potential outcome: Neyman (1923)
+
+- Randomized assignment: Fisher (1925)
+
+- Regressing out covariates: Yule (1897)
+
+## A classification of assignment mechanisms
+
+- Experimental: The assignment mechanism is known and controlled by the researcher.
+
+- Observational: The assignment mechanisms is **not** known to, or **not** under the control of the researcher.
+
+## Revisit the same example
+
+```{r fig.width=1.5, fig.height=3, results="asis"}
+knitr::include_graphics("Vis/example/example_dag1_open.pdf")
+```
+
+```{r example_1_nonlinear}
+.dt <- sim.example1()
+```
+
+\Large
+
+- What are the backdoor variables?
+
+- How did we generate $X$?
+
+## Inverse Propensity Weighting
+
+What is the model for $X$ given confoudners (the backdoor variables)?
+
+```{r}
+.dt[, x := factor(x, c(0, 1), c("0", "1"))]
+.dt[, e.hat := predict(glm(`x` ~ `c1` + `c2`, family="binomial"))]
+.dt[, e.hat := 1/(1+exp(-e.hat))]
+```
+
+Propensity = probability of assignment $X=1$:
+
+$$p(X|C_{1}, C_{2}) \approx \frac{1}{1 + \exp(- \beta_{0} - \beta_{1} C_{1} - \beta_{2} C_{2} )}$$
+
+\vfill
+
+```{r fig.width=5, fig.height=1.8, only.plot="1"}
+p1 <- ggplot(.dt, aes(c1, e.hat)) + geom_point() + ylab("p(X|C)")
+p2 <- ggplot(.dt, aes(c2, e.hat)) + geom_point() + ylab("p(X|C)")
+p1 | p2
+```
+
+```{r fig.width=5, fig.height=1.8, only.plot="2"}
+p1 <- ggplot(.dt, aes(c1, e.hat, fill=x)) + geom_point(pch=21, alpha=.5) + ylab("p(X|C)") + scale_fill_manual(values=c("gray80", "orange")) + theme(legend.position="none")
+p2 <- ggplot(.dt, aes(c2, e.hat, fill=x)) + geom_point(pch=21, alpha=.5) + ylab("p(X|C)") + scale_fill_manual(values=c("gray80", "orange")) + theme(legend.position=c(.9,.1), legend.justification=c(1,0))
+p1 | p2
+```
+
+\vfill
+
+Horvitz and Thomson, *JASA*, 1952
+
+## Intuition behind IPW 
+
+\Large
+
+What if we have assigned $X=1$ unconfounded by $C$?
+
+\onslide<2->{
+In other words, what if samples could be drawn more from the underrepresented group?
+}
+
+\onslide<3>{
+Likewise, what if samples could be dropped in the overrepresented group?
+}
+
+## Inverse Propensity Weighting "inverse" confounded assignment
+
+```{r}
+y <- .dt$y
+x <- as.numeric(as.character(.dt$x))
+cc <- cbind(.dt$c1, .dt$c2)
+```
+
+:::::: {.columns}
+::: {.column width=.38}
+
+$$\hat{Y}_{i}^{(1)} = \frac{X_{i} Y_{i}}{\hat{p}(X_{i}=1|C_{i})}$$
+
+$$\hat{Y}_{i}^{(0)} = \frac{(1-X_{i}) Y_{i}}{1 - \hat{p}(X_{i}=1|C_{i})}$$
+
+\only<2>{
+equivalently give weights for $\forall$ i
+$$
+W_{i} \propto \left\{ \begin{array}{l l}
+1/p(X_{i}=1|C_{i}) & X_{i} = 1\\
+1/p(X_{i}=0|C_{i}) & X_{i} = 0\\
+\end{array}
+\right.
+$$
+}
+
+:::
+::: {.column width=.58}
+
+```{r}
+sigmoid <- function(x) 1/(1+exp(-x))
+clamp <- function(x, lb = .1, ub = .9)
+    pmin(pmax(x, lb), ub)
+```
+
+```{r echo=TRUE, size="large"}
+p.xc <-
+    glm(x~cc, family="binomial") %>%
+    predict() %>%
+    sigmoid() %>%
+    clamp() # avoid 0 or 1
+
+ww <- x / p.xc + (1-x) / (1-p.xc)
+```
+
+:::
+::::::
+
+## Take samples inversely proportional to propensity
+
+```{r fig.width=4, fig.height=2.5, only.plot="1"}
+.df <- tibble(y, x, ww) %>% 
+    mutate(x = factor(x, c(0,1), c("0", "1")))
+ggplot(.df, aes(x,y)) +
+    geom_jitter(height=0, width=.1, color="gray40")
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="2"}
+ggplot(.df, aes(x,y,size=ww)) +
+    geom_jitter(height=0, width=.1, alpha=.5) +
+    scale_size_continuous("W", range=c(0,5))
+```
+
+```{r fig.width=6, fig.height=2.5, only.plot="3"}
+.idx <- sample(1:nrow(.df), 300, replace=TRUE, prob = .df$ww)
+.df.bootstrap <- .df[.idx, ]
+p1 <-
+    ggplot(.df, aes(x,y,fill=x,group=x)) +
+    geom_violin(alpha=.5) +
+    ylab("observed outcome") +
+    scale_fill_manual(values=c("gray80", "orange"), guide="none") +
+    ggpubr::stat_compare_means(vjust=1, hjust=0, size=2, color="red") +
+    geom_jitter(height=0, width=.1, color="gray40", size=1, stroke=0)
+p2 <-
+    ggplot(.df.bootstrap, aes(x,y,fill=x,group=x)) +
+    geom_violin(alpha=.5) +
+    ylab("resampled by IPW") +
+    scale_fill_manual(values=c("gray80", "orange"), guide="none") +
+    ggpubr::stat_compare_means(vjust=1, hjust=0, size=2, color="red") +
+    geom_jitter(height=0, width=.1, color="gray40", size=1, stroke=0)
+p1 | p2
+```
+
+\onslide<2->{
+$$
+W_{i} \propto \left\{ \begin{array}{l l}
+1/p(X_{i}=1|C_{i}) & X_{i} = 1\\
+1/p(X_{i}=0|C_{i}) & X_{i} = 0\\
+\end{array}
+\right.
+$$
+}
+
+## Why IPW works? Unbiased estimate potential outcome
+
+Letting $e(z) = \hat{p}(X=1|C=z)$, 
+
+\Large 
+
+we can prove $\mathbb{E}\!\left[XY/e(X)\right] \to \mathbb{E}\!\left[Y^{(1)}\right]$
+
+using
+
+* Strong ignorability
+
+* Smoothness
+
+* Stable Unit Treatment (exposure) Variable
+
+## Why IPW works? Unbiased estimate potential outcome
+
+Letting $e(z) = \hat{p}(X=1|C=z)$, 
+\begin{eqnarray*}
+\mathbb{E}\!\left[\frac{X_{i}Y_{i}}{e(C_{i})}\right]
+&=& 
+\onslide<2->{
+\mathbb{E}\!\left[
+\mathbb{E}\!\left[ \frac{X_{i}Y_{i}}{e(C_{i})} \middle| C_{i} \right]
+\right] \quad \textsf{\color{gray} (law of total expectation)}\\
+}
+\onslide<3->{
+\textsf{\color{pink} (C is sufficient backdoor)}
+&=&
+\mathbb{E}\!\left[
+\mathbb{E}\!\left[ \frac{X_{i}Y_{i}^{(1)}}{e(C_{i})} \middle| C_{i} \right]
+\right] \\
+}
+\onslide<4->{
+\textsf{\color{magenta} (strong ignorability)}
+&=&
+\mathbb{E}\!\left[Y_{i}^{(1)}
+\mathbb{E}\!\left[ \frac{X_{i}}{e(C_{i})} \middle| C_{i} \right]
+ \right] \quad {\color{magenta} Y^{(1)} \perp\!\!\perp X | C} \\
+}
+\onslide<5->{
+\textsf{\color{teal} (smoothness)}
+&=&
+\mathbb{E}\!\left[Y_{i}^{(1)}
+\frac{1}{\cancel{e(C_{i})}}
+\cancel{\mathbb{E}\!\left[ X_{i} \middle| C_{i} \right]}
+ \right] \quad {\color{teal} 0 < e(C) < 1} \\
+}
+\onslide<6>{
+&=& \mathbb{E}\!\left[Y^{(1)}\right]
+}
+\end{eqnarray*}
+
+## When do we use IPW to estimate potential outcomes?
+
+\Large
+
+\begin{itemize}[<+-| alert@+>]
+\item Backdoor variables are sufficiently characterized
+\item We have an unbiased way to estimate the propensity model
+\item Smooth overlap $1 > e(X) > 0$
+\end{itemize}
+
+# Model-based causal inference
+
+## G-formula bridges two different worlds (DAG meets PO)
+
+\Large
+
+- Can we *directly* estimate $p(Y^{(1)})$ and $p(Y^{(0)})$?
+
+- In other words, $p(Y|\mathsf{do}(X=1))$ and $p(Y|\mathsf{do}(X=0))$.
+
+- Why is it interesting? Knowing $p(Y^{(x)})$, we know $\mathbb{E}\!\left[Y^{(x)}\right]$ (aka potential outcome).
+
+## The "G"-formula?
+
+> "G" for "generalized" method (James Robins, 1986) 
+
+Suppose we have characterize potential backdoor variables $S$ for
+closing off unwanted paths $Y \to X$ to identify a causal path $X \to Y$.
+
+For each condition for exposure variable, $X=0$ or $X=1$, 
+
+\Large
+
+* $p(Y^{(1)}) = \int_{S} p(Y| X= 1, S) p(S)  dS$
+
+* $p(Y^{(0)}) = \int_{S} p(Y| X= 0, S) p(S)  dS$
+
+## How do we derive G-formula?
+
+Bayesian integration results in causal estimand?
+
+\begin{eqnarray*}
+p(Y^{(1)}) &=& 
+\int \int  p(Y^{(1)}|X,S) p(X|S) p(S) dX dS \\
+\onslide<2->{
+&=& \int_{S} \int_{X} \, \underbrace{{\color{magenta} p(Y^{(1)}| S) p(X|S) }}_{\textsf{ignorability}} p(S) dX dS \quad \Longleftarrow (Y^{(1)},Y^{(0)} \perp\!\!\!\perp X | S) \\
+}
+\onslide<3->{
+&=& \int_{S} p(Y^{(1)}| S) \underbrace{{\color{teal}\left[ \int_{X} p(X|S) dX \right]}}_{\textsf{sum to 1}} p(S) dS \quad \Longleftarrow P(X|S) > 0\\
+}
+\onslide<4>{
+&=& \int_{S} p(Y| X=1, S) p(S) dS
+}
+\end{eqnarray*}
+
+## G-formula justifies outcome regression models
+
+\large
+
+How do we estimate "causal" expectation 
+
+\begin{eqnarray*}
+\mathbb{E}\!\left[Y^{(1)}\right] 
+	&=& \int_{y} y\, p(Y^{(1)} = y) dy \\
+	&=& \int_{y} y \, {\color{purple} \int_{S} p(Y = y| X=1, S) p(S) dS } \, dy \\
+	&=& \int_{S} {\color{blue} \mathbb{E}\!\left[Y \middle| X=1, S\right]} dS
+\end{eqnarray*}
+
+Likewise, 
+
+$$\mathbb{E}\!\left[Y^{(0)}\right] = \int_S {\color{blue} \mathbb{E}\!\left[Y \middle| X=0, S\right] }dS$$
+
+## Estimating potential outcome by matching
+
+```{r fig.width=2, fig.height=3, results="asis", only.plot="1"}
+knitr::include_graphics("Vis/example/example_dag1.pdf")
+```
+
+\only<1>{
+\large
+\begin{itemize}
+\item Estimtae $\mathbb{E}\!\left[Y_{i}^{(0)}|C_{i1},C_{i2}\right]$ for $X_{i}=1$ to compare with $\mathbb{E}\!\left[Y_{i}|X_{i}=1\right]$
+\item Estimtae $\mathbb{E}\!\left[Y_{i}^{(1)}|C_{i1},C_{i2}\right]$ for $X_{i}=0$ to compare with $\mathbb{E}\!\left[Y_{i}|X_{i}=0\right]$
+\end{itemize}
+}
+
+
+```{r}
+.dt <- sim.example1()
+cc <- cbind(.dt$c1, .dt$c2)
+x <- .dt$x
+yy1 <- .dt$y[x == 1]
+yy0 <- .dt$y[x == 0]
+cc1 <- cc[x == 1, ]
+cc0 <- cc[x == 0, ]
+
+## match x=1 -> x=0
+.out.1 <- FNN::get.knnx(cc0, cc1, k=1)
+## match x=0 -> x=1
+.out.0 <- FNN::get.knnx(cc1, cc0, k=1)
+```
+
+```{r}
+.dt.matched <- 
+    rbind(data.table(obs=cc1, matched=cc0[.out.1$nn.index,], x = 1),
+          data.table(obs=cc0, matched=cc1[.out.0$nn.index,], x = 0)) %>% 
+    cbind(data.table(y0=c(yy0[.out.1$nn.index], yy0),
+                     y1=c(yy1, yy1[.out.0$nn.index])))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+ggplot(.dt.matched, aes(obs.V1, obs.V2, xend=matched.V1, yend=matched.V2)) +
+    geom_segment(size=.5, lty=2, colour="gray") +
+    geom_point(aes(fill=factor(x, c(0,1))), pch=21) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    xlab("C1") + ylab("C2")
+```
+
+```{r fig.width=6, fig.height=2.8, only.plot="3"}
+p1 <-
+    ggplot(.dt, aes(as.factor(x), y, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("observed outcome\nY|X=1 vs. Y|X=0")
+
+p2 <-
+    ggplot(.dt.matched, aes(as.factor(x), y1-y0, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("matched & adjusted outcome\nY(do(X=1)) - Y(do(X=0))")
+
+p1|p2
+```
+
+## Bayesian Additive Regression Tree (BART) approach
+
+\large
+
+- G-formula $\to$ outcome regression models
+
+- Regression model for $Y \sim S$ for each $X=1$ and $X=0$ using BART
+
+\begin{eqnarray*}
+\mathbb{E}\!\left[Y^{(1)}\right] 
+	&=& \int_{S} {\color{magenta} \mathbb{E}\!\left[Y \middle| X=1, S\right]} dS \\
+\mathbb{E}\!\left[Y^{(0)}\right] &=& \int_S {\color{magenta} \mathbb{E}\!\left[Y \middle| X=0, S\right] }dS
+\end{eqnarray*}
+
+- Estimate causal effect: $\mathbb{E}\!\left[Y^{(1)}\right] - \mathbb{E}\!\left[Y^{(0)}\right]$
+
+\tiny
+
+Hill, *Bayesian Nonparametric Modeling for Causal Inference* (2011)
+
+```{r}
+run.bart <- function(yy, xx, covar){
+    y1 <- yy[xx == 1]
+    covar1 <- covar[xx == 1, , drop = FALSE]
+    y0 <- yy[xx == 0]
+    covar0 <- covar[xx == 0, , drop = FALSE]
+    bart.out <- BART::wbart(covar, yy)
+    
+    y.imp.0 <- predict(bart.out, covar[xx == 0, , drop = FALSE])
+    y.imp.1 <- predict(bart.out, covar[xx == 1, , drop = FALSE])
+
+    .dt <- rbind(data.table(y.obs = yy[xx == 0],
+                            y.imp = apply(y.imp.0, 2, mean),
+                            y.imp.sd = apply(y.imp.0, 2, sd),
+                            x = 0),
+                 data.table(y.obs = yy[xx == 1],
+                            y.imp = apply(y.imp.1, 2, mean),
+                            y.imp.sd = apply(y.imp.1, 2, sd),
+                            x = 1)) %>%
+        arrange(y.imp) %>%
+        mutate(x = factor(x, c(0, 1), c("control", "case"))) %>% 
+        mutate(i = 1:n())
+}
+```
+
+```{r}
+plot.bart <- function(.dt) {
+    ggplot(.dt, aes(x=i, y=y.obs, group=x)) +
+        xlab("data points") + ylab("outcome") +
+        facet_grid(.~x) +
+        geom_segment(aes(xend=i, y=y.imp, yend=y.obs, color=x),
+                       arrow=arrow(type="closed", length=unit(.2,"lines")), size=.2, alpha=.5) +
+        geom_point(aes(y=y.imp), size = .2, color="gray40") +
+        geom_point(aes(fill=`x`), pch=21, alpha=.5, size=.5) +
+        geom_smooth(aes(y = y.imp + y.imp.sd, color=x), size=.4,
+                    lty = 2, se = FALSE) +
+        geom_smooth(aes(y = y.imp - y.imp.sd, color=x), size=.4,
+                    lty = 2, se = FALSE) +
+        scale_fill_manual(values=c("#009900","magenta"))+
+        scale_color_manual(values=c("#009900","magenta"))+
+        theme(legend.position = c(0.1,1), legend.justification = c(0,1))
+}
+```
+
+## The same example with causal relationship from $X$ to $Y$
+
+```{r fig.width=1.5, fig.height=3, results="asis"}
+knitr::include_graphics("Vis/example/example_dag1_open.pdf")
+```
+
+## BART: a regression model to impute potential outcomes
+
+```{r fig.width=6, fig.height=2.8, only.plot="1"}
+.bart <- run.bart(.dt$y, .dt$x, cbind(.dt$c1, .dt$c2))
+plot.bart(.bart)
+```
+
+```{r fig.width=6, fig.height=2.8, only.plot="2"}
+p1 <-
+    ggplot(.bart, aes(x, y.obs, fill=x)) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("observed outcome\nY|X=1 vs. Y|X=0")
+
+p2 <-
+    ggplot(.bart, aes(x, y.obs-y.imp, fill=x)) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("adjusted outcome\nY(do(X=1)) - Y(do(X=0))")
+
+p1|p2
+```
+
+## Revisit the example without causal relationship from $X$ to $Y$
+
+```{r fig.width=1.5, fig.height=3, results="asis"}
+knitr::include_graphics("Vis/example/example_dag2.pdf")
+```
+
+## BART correctly adjusts spurious correlation
+
+```{r fig.width=6, fig.height=2.8, only.plot="1"}
+.dt <- sim.example2()
+.bart <- run.bart(.dt$y, .dt$x, cbind(.dt$c1, .dt$c2))
+plot.bart(.bart)
+```
+
+```{r fig.width=6, fig.height=2.8, only.plot="2"}
+p1 <-
+    ggplot(.bart, aes(x, y.obs, fill=x)) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("observed outcome\nY|X=1 vs. Y|X=0")
+
+p2 <-
+    ggplot(.bart, aes(x, y.obs-y.imp, fill=x)) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("adjusted outcome\nY(do(X=1)) - Y(do(X=0))")
+
+p1|p2
+```
+
+## Estimating potential outcome by matching - 1
+
+```{r fig.width=2, fig.height=3, results="asis", only.plot="1"}
+knitr::include_graphics("Vis/example/example_dag1.pdf")
+```
+
+```{r}
+.dt <- sim.example1()
+cc <- cbind(.dt$c1, .dt$c2)
+x <- .dt$x
+yy1 <- .dt$y[x == 1]
+yy0 <- .dt$y[x == 0]
+cc1 <- cc[x == 1, ]
+cc0 <- cc[x == 0, ]
+
+## match x=1 -> x=0
+.out.1 <- FNN::get.knnx(cc0, cc1, k=1)
+## match x=0 -> x=1
+.out.0 <- FNN::get.knnx(cc1, cc0, k=1)
+```
+
+```{r}
+.dt.matched <- 
+    rbind(data.table(obs=cc1, matched=cc0[.out.1$nn.index,], x = 1),
+          data.table(obs=cc0, matched=cc1[.out.0$nn.index,], x = 0)) %>% 
+    cbind(data.table(y0=c(yy0[.out.1$nn.index], yy0),
+                     y1=c(yy1, yy1[.out.0$nn.index])))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+ggplot(.dt.matched, aes(obs.V1, obs.V2, xend=matched.V1, yend=matched.V2)) +
+    geom_segment(size=.5, lty=2, colour="gray") +
+    geom_point(aes(fill=factor(x, c(0,1))), pch=21) +
+    scale_fill_manual("x", values=c("#009900","magenta"))+
+    xlab("C1") + ylab("C2")
+```
+
+```{r fig.width=6, fig.height=2.8, only.plot="3"}
+p1 <-
+    ggplot(.dt, aes(as.factor(x), y, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("observed outcome\nY|X=1 vs. Y|X=0")
+
+p2 <-
+    ggplot(.dt.matched, aes(as.factor(x), y1-y0, fill=as.factor(x))) +
+    geom_violin() +
+    geom_boxplot(fill="white", outlier.size=0, outlier.stroke=0, width=.2) +
+    scale_fill_brewer(palette="Set3", guide="none") +
+    ggpubr::stat_compare_means(vjust=1, color="blue", size=2) +
+    xlab("exposure/treatment") +
+    ylab("matched & adjusted outcome\nY(do(X=1)) - Y(do(X=0))")
+
+p1|p2
+```
+
+
+# When we don't know an underlying causal graph
+
+##
+
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causal_inference_two.pdf")
+```
+
+## Causal DAG from data: an intractiable, yet very tempting problem
+
+:::::: {.columns}
+::: {.column width=.45}
+
+::: {.block}
+### Intractability
+
+Large-sample learning learning of a Bayesian Network is NP-hard.
+
+:::
+
+:::
+::: {.column width=.45}
+
+\Large
+
+\only<2>{
+But there is hope if we have "intervention" data
+}
+
+:::
+::::::
+
+\tiny
+Chickering and Heckerman, *UAI*, (2002)
+
+## {}
+
+![](Vis/causal_struct_perturb.pdf)
+
+## Causal Structure Discovery by Invariance 
+
+\only<2>{
+\large
+Testing hypothesis (model): $Y \sim X_{1} + \epsilon$
+}
+
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causal_struct_invar.pdf")
+```
+
+\vfill
+
+\only<1>{
+
+\large
+\textbf{The premise:}
+There is a causal structure that remain \textbf{\color{red} invariant} across multiple experimental conditions.
+
+\vfill
+
+\tiny
+Peters, B\"uhlmann, Meinshausen, \emph{J. Royal Stat. B} (2016)
+}
+
+\only<2->{
+\begin{columns}
+\begin{column}{.3\linewidth}
+Exp \#1:
+
+$Y = \epsilon_{Y}$ and
+
+$X_{1} = 0$
+\end{column}
+\begin{column}{.3\linewidth}
+Exp \#2:
+
+$Y = X_{1} + \epsilon_{Y}$ and
+
+$X_{1} = \epsilon_{1}$
+\end{column}
+\begin{column}{.3\linewidth}
+Exp \#3:
+
+$Y = \epsilon_{Y}$ and
+
+$X_{1} = 0$
+\end{column}
+\end{columns}
+}
+
+##
+
+![](Vis/causal_struct_invar_2.pdf)
+
+## Causal Structure Discovery by Invariance - 2
+
+\large
+Testing hypothesis (model): $Y \sim X_{1} + {\color{teal} X_{3}} + \epsilon$
+
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causal_struct_invar.pdf")
+```
+
+\only<2->{
+\begin{columns}
+\begin{column}{.3\linewidth}
+Exp \#1:
+
+$Y = \epsilon_{Y}$ and
+
+$X_{1} = 0, X_{3} = 0$
+\end{column}
+\begin{column}{.3\linewidth}
+Exp \#2:
+
+$Y = X_{1} + \epsilon_{Y}$ and
+
+$X_{1} = \epsilon_{1}, X_{3} = 0$
+\end{column}
+\begin{column}{.3\linewidth}
+Exp \#3:
+
+$Y = \epsilon_{Y}$ and
+
+$X_{1} = 0, X_{3} = Y + \epsilon_{3}$
+\end{column}
+\end{columns}
+}
+
+##
+
+![](Vis/causal_struct_invar_3.pdf)
+
+## Causal Structure Discovery by Invariance - 3
+
+\large
+Testing hypothesis (model): $Y \sim {\color{teal} X_{2}} + \epsilon$
+
+```{r out.width=".8\\textwidth", results="asis"}
+knitr::include_graphics("Vis/causal_struct_invar.pdf")
+```
+
+\only<2->{
+\begin{columns}
+\begin{column}{.3\linewidth}
+Exp \#1:
+
+$Y = \epsilon_{Y}$ and
+
+$X_{2} = \epsilon_{2}$
+\end{column}
+\begin{column}{.3\linewidth}
+Exp \#2:
+
+$Y = X_{1} + \epsilon_{Y}$ and
+
+$X_{2} = X_{1} + \epsilon_{2}$
+\end{column}
+\begin{column}{.3\linewidth}
+Exp \#3:
+
+$Y = \epsilon_{Y}$ and
+
+$X_{2} = 0$
+\end{column}
+\end{columns}
+}
+
+##
+
+![](Vis/causal_struct_invar_4.pdf)
+
+## Summary
+
+* Introduction to causal inference
+
+* Causal structural model (DAG)
+
+* Confounding factor adjustment
+
+* Potential outcome model
+
+* Causal DAG learning
 

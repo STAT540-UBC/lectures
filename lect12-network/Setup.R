@@ -3,7 +3,7 @@ setup.env <- function(fig.dir) {
     ## save figures here
     dir.create(fig.dir, showWarnings = FALSE, recursive = TRUE)
     knitr::opts_chunk$set(warning = FALSE, message = FALSE, fig.path = fig.dir)
-    knitr::opts_chunk$set(results = FALSE, fig.align="center")
+    knitr::opts_chunk$set(results = FALSE, echo=FALSE, fig.align="center")
 
     ## allow the code to chunk set size="tiny" ##
     hook.chunk  <- knitr::knit_hooks$get("chunk")
@@ -34,10 +34,4 @@ setup.env <- function(fig.dir) {
         }
         return(hook.plot(x, options))
     })
-
-    ## setup the font
-    library(showtext)
-    ## font_add_google("Open Sans", "osans")
-    font_add("Open Sans", "fonts/static/OpenSans/OpenSans-Medium.ttf")
-    showtext_auto()
 }

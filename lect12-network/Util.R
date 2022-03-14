@@ -1,5 +1,9 @@
 options(stringsAsFactors = FALSE)
 
+`%&%` <- function(a,b) paste0(a, b)
+`%r%` <- function(mat,rr) mat[rr, , drop = FALSE]
+`%c%` <- function(mat,cc) mat[, cc, drop = FALSE]
+
 library(tidyverse)
 library(data.table)
 library(ggrepel)
@@ -134,7 +138,6 @@ order.pair <- function(pair.tab, ret.tab=FALSE) {
 .gg.plot <- function(...) {
     ggplot(...) +
         theme_classic() +
-        theme(text=element_text(family='Open Sans')) +
         theme(axis.title = element_text(size=8)) +
         theme(axis.text = element_text(size=6)) +
         theme(legend.spacing = unit(.1, "lines"),
@@ -145,4 +148,17 @@ order.pair <- function(pair.tab, ret.tab=FALSE) {
               plot.background = element_rect(fill='transparent', color=NA),
               legend.background = element_rect(fill='transparent', size=0.05),
               legend.box.background = element_rect(fill='transparent'))
+}
+
+as.dt <- function(x, col.names=NULL) {
+    .mat <- as.matrix(x)
+    if(is.null(col.names)) col.names <- str_c("V",1:ncol(.mat))
+    colnames(.mat) <- col.names
+    as.data.table(.mat)
+}
+
+################################################################
+if.needed <- function(.file, .code) {
+    if(!all(file.exists(unlist(.file)))){ .code }
+    stopifnot(all(file.exists(unlist(.file))))
 }
