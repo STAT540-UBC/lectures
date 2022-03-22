@@ -1,5 +1,5 @@
 ---
-title: "Advanced GWAS"
+title: "Advanced statistical genetics methods"
 author: |
     | Yongjin Park
     | University of British Columbia
@@ -31,8 +31,7 @@ header-includes:
   - \usepackage[normalem]{ulem}
   - \usepackage{makecell}
   - \usepackage{xcolor}
-  - \setbeamercolor{alerted text}{fg=magenta}
-  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}\tableofcontents[currentsection]\end{frame}}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
   - |
     \makeatletter
     \def\ps@titlepage{%
@@ -78,4 +77,1361 @@ theme_set(theme_classic())
     * Advanced Mendelian randomization
 
     * LD-score regression
+
+
+# Population structures in human genetics data
+
+## The 1000 Genomes Project to investigate Human Genetic Variation
+
+```{r}
+dir.create("Data/genotype/", recursive=TRUE, showWarnings=FALSE)
+.bed.file <- "Data/genotype/1000G_phase3_common_norel.bed"
+if(!file.exists(.bed.file)){
+    download_1000G("Data/genotype/")
+}
+.bk.file <- "Data/genotype/1000G_phase3_common_norel.rds"
+if(!file.exists(.bk.file)){
+    BED <- snp_readBed(.bed.file)
+}
+data <- snp_attach(.bk.file)
+```
+
+```{r}
+kg.url <-
+  paste0("ftp://ftp.1000genomes.ebi.ac.uk/",
+         "vol1/ftp/technical/working/",
+         "20130606_sample_info/",
+         "20130606_sample_info.xlsx")
+
+kg.sample.file <- "Data/genotype/1KG.sample.xlsx"
+if(!file.exists(kg.sample.file)){
+    download.file(kg.url, destfile = kg.sample.file)
+}
+sample.info <- readxl::read_xlsx(kg.sample.file)
+```
+
+```{r}
+cat.dt <- 
+    data.table(Population =
+                   c("GBR", "FIN", "IBS", "CEU", "TSI", 
+                     "CHS", "CDX", "KHV", "CHB", "JPT", 
+                     "PJL", "STU", "ITU", "GIH", "BEB",
+                     "PUR", "CLM", "PEL", "MXL",
+                     "MSL", "YRI", "LWK", "ASW", "ACB", "GWD", "ESN"),
+               pop =
+                   c(rep("eur", 5),
+                     rep("asn", 5),
+                     rep("ind", 5),
+                     rep("lax", 4),
+                     rep("afr", 7)))
+sample.info <-
+    sample.info %>% left_join(cat.dt)
+```
+
+```{r}
+library(bigsnpr)
+dir.create("Data/genotype/", recursive=TRUE, showWarnings=FALSE)
+.bed.file <- "Data/genotype/1000G_phase3_common_norel.bed"
+if(!file.exists(.bed.file)){
+    download_1000G("Data/genotype/")
+}
+.bk.file <- "Data/genotype/1000G_phase3_common_norel.rds"
+if(!file.exists(.bk.file)){
+    BED <- snp_readBed(.bed.file)
+}
+X <- snp_attach(.bk.file)
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r out.width="\\linewidth", results="asis"}
+knitr::include_graphics("Vis/1000genomes.jpeg")
+```
+
+:::
+::: {.column width=.45}
+
+$${}$$
+
+\large
+
+1KG contains whole genome sequencing data of `r num.int(nrow(X$genotypes))` individuals sampled from  `r length(unique(sample.info$Population))` groups based on the origins and geographical locations (as of 2013 phase3).
+
+:::
+::::::
+
+## Single Nucleotide Polymorphism (SNP) genotype information
+
+:::::: {.columns}
+::: {.column width=.55}
+
+```{r fig.width=2, fig.height=2}
+xx <- X$genotypes[1:10, 1:10]
+.matshow(xx, .lab=3)
+```
+
+\tiny
+
+first 10 individuals and 10 variants
+
+:::
+::: {.column width=.45}
+
+\large
+
+Previously on the lecture 18:
+
+* We will focus on biallelic variant (two allele, two different forms)
+
+* Major and minor characters (depending on the frequency in reference data)
+
+* We keep track of the number of the minor allele (0 to 2, due to diploid genome)
+
+:::
+::::::
+
+
+## Variant-level variation across individuals
+
+Using the minor allele frequency (MAF), let $f_{j}$ be a minor allele frequency (MAF) of a variant $j$. In Binomial distribution,
+
+\vfill
+
+\large
+
+\begin{itemize}
+\item<1-> What is the mean of this variant?
+\onslide<2->{$$\hat{\mathbb{E}}\!\left[X_{j}\right] = 2 f_{j}$$}
+\item<3-> What is the variant of this variant?
+\onslide<4>{$$\hat{\mathbb{V}}\!\left[X_{j}\right] = 2 f_{j} (1 - f_{j})$$}
+\end{itemize}
+
+\vfill
+
+\small
+
+*Remark*: Technically, the dosage (0,1,2) does not follow binomial distribution. Why? The underlying data generation process involves haplotypes (separating the maternal and paternal 0/1 counts) and dependency along the genomic axis.
+
+## Variant-level variation across individuals
+
+:::::: {.columns}
+::: {.column width=.5}
+
+We can easily calculate MAF using `bigsnpr`
+
+```{r echo=TRUE, size="large"}
+maf <- snp_MAF(X$genotypes,
+               ncores=8)
+```
+
+$${}$$
+
+What is your interpretation?
+
+:::
+::: {.column width=.5}
+
+```{r fig.width=2.5, fig.height=2}
+ggplot(data.table(MAF=maf), aes(MAF)) +
+    geom_density(aes(y = ..count..), fill="gray")
+```
+
+:::
+::::::
+
+## Much of human genetics problems centre on two covariance matrices
+
+For a standardized $n \times p$ genotype matrix $X$,
+
+:::::: {.columns}
+::: {.column width=.48}
+
+::: {.block}
+### 1. Genetic relatedness matrix (GRM)
+
+a $n \times n$ matrix 
+
+$$K \approx XX^{\top}/n$$
+
+The matrix $K$ captures population structure/correlation across different individuals.
+
+- Kinship matrix; population admixture
+
+- Human migration history
+
+:::
+
+:::
+::: {.column width=.48}
+
+::: {.block}
+### 2. Linkage disequilibrium (LD)
+
+a $p \times p$ matrix 
+
+$$R \approx X^{\top}X/n$$
+
+The matrix $R$ captures localized correlation patterns along the genomic axis within a chromosome.
+
+- LD matrix
+
+- The results of many, many recombination events
+
+:::
+
+:::
+::::::
+
+## Recall: SVD captures principal components
+
+\Large
+\onslide<1->{
+$$X = U D V^{\top}$$
+}
+
+\large
+\onslide<2->{
+What is this?
+$$\frac{1}{n} X^{\top}X = \frac{1}{n} V D U^{\top} U D V^{\top} = 
+\underset{\textsf{\color{magenta} variant x variant}}{\frac{1}{n} V D^{2} V^{\top}}$$
+}
+
+\onslide<3->{
+What is this?
+$$\frac{1}{n} XX^{\top} = \frac{1}{n} U D V^{\top} V D U^{\top} = 
+\underset{\textsf{\color{teal} sample x sample}}{\frac{1}{n} U D^{2} U^{\top}}$$
+}
+
+## Let's take top 1000 most frequent variants
+
+```{r}
+idx <-
+  order(maf, decreasing=TRUE) %>%
+  head(1000)
+
+xx <- X$genotypes[,idx]
+
+.svd <- rsvd::rsvd(xx,5)
+u.dt <- data.table(.svd$u) %>%
+    cbind(X$fam) %>%
+    merge(sample.info,
+          by.x = "sample.ID",
+          by.y = "Sample")
+```
+
+PCA already teaches us something interesting...
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=FALSE, fig.width=3, fig.height=2, onslide.plot="1-"}
+.gg.plot(u.dt, aes(V1, V2, colour=pop)) +
+    geom_point(stroke=0, alpha=.5) + xlab("PC1") + ylab("PC2") +
+    scale_colour_brewer(palette = "Paired")
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo=FALSE, fig.width=3, fig.height=2, onslide.plot=2}
+.gg.plot(u.dt, aes(V2, V3, colour=pop)) +
+    geom_point(stroke=0, alpha=.5) + xlab("PC2") + ylab("PC3") +
+    scale_colour_brewer(palette = "Paired")
+```
+
+:::
+::::::
+
+## What about the 1000 least frequent variants?
+
+```{r}
+idx <- order(maf) %>% head(1000)
+xx <- X$genotypes[,idx]
+
+.svd <- rsvd::rsvd(xx,5)
+u.dt <- data.table(.svd$u) %>%
+    cbind(X$fam) %>%
+    merge(sample.info,
+          by.x = "sample.ID",
+          by.y = "Sample")
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=FALSE, fig.width=3, fig.height=2, onslide.plot="1-"}
+.gg.plot(u.dt, aes(V1, V2, colour=pop)) +
+    geom_point(stroke=0, alpha=.5) + xlab("PC1") + ylab("PC2") +
+    scale_colour_brewer(palette = "Paired")
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo=FALSE, fig.width=3, fig.height=2, onslide.plot=2}
+.gg.plot(u.dt, aes(V2, V3, colour=pop)) +
+    geom_point(stroke=0, alpha=.5) + xlab("PC2") + ylab("PC3") +
+    scale_colour_brewer(palette = "Paired")
+```
+
+:::
+::::::
+
+
+## Estimating population admixture using top 10k variants
+
+```{r}
+out.file <- "result_1kg_topic.RDS"
+if.needed(out.file,
+{
+    library(torch)
+    torch_set_num_threads(16)
+    idx <- order(maf) %>% tail(10000)
+    xx <- torch_tensor(X$genotypes[,idx])
+
+    batch.size <- 128
+    ntot <- nrow(xx)
+    nbatch <- ceiling(ntot /batch.size)
+    nn <- batch.size * nbatch
+
+    source("torch_etm_train.R")
+    llik.vec <- c()
+    etm <- build.geno.etm(ncol(xx), ncol(xx), 9, d = c(128,128,16))
+    opt <- optim_adam(etm$parameters, lr = 5e-3)
+    for(tt in seq(0, 2000)){
+        xx.t <- xx[sample(ntot, nn, TRUE), ]
+        for(b in seq(0, nbatch-1)){
+            .idx <- seq(1 + b * batch.size, (b+1) * batch.size)
+            xx.b <- xx.t[.idx, ]
+            opt$zero_grad()
+            out <- etm(xx.b)
+            kl <- kl.loss(out$z.mean, out$z.lnvar)
+            llik <- etm.llik(xx.b, out$recon)
+            loss <- torch_mean(kl - llik)
+            loss$backward()
+            opt$step();
+            cat(tt, llik$mean()$item(), "\r")
+            llik.vec <- c(llik.vec, llik$mean()$item())
+        }
+    }
+
+    etm$eval()
+    out <- etm(xx)
+    Z <- as.matrix(out$z.mean)
+
+    H <- 
+        apply(Z, 1, function(zz) { exp(zz - max(zz)) }) %>%
+        apply(2, function(pp) { pp/sum(pp) })
+
+    saveRDS(list(hidden=H, llik = llik.vec,
+                 weight=as.matrix(etm$dec$lbeta)),
+            file=out.file)
+})
+etm.out <- readRDS(out.file)
+```
+
+A potential generative model:
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\small
+
+- Sample each individual's topic proportion $H_{i}$
+- Sample a topic membership for each variant $j$, say $Z_{ij}=k$ (could be implicitly handled)
+- Genotype $X_{ij} | Z_{ij}=k$ $\sim$ topic-specific $\beta_{kj}$
+
+:::
+::: {.column width=.35}
+
+\large
+$$\mathcal{L} = \prod_{i=1}^{n}\prod_{j=1}^{\textsf{10k}} \left(\sum_{k=1}^{9} H_{ik} \beta_{kj}\right)^{X_{ij}}$$
+
+:::
+::::::
+
+\vfill
+
+```{r fig.width=5.9, fig.height=1.2}
+colnames(etm.out$hidden) <- X$fam$sample.ID
+
+.dt <- 
+    reshape2::melt(etm.out$hidden) %>%
+    as.data.table %>% 
+    merge(sample.info,
+          by.x = "Var2",
+          by.y = "Sample")
+
+.pop <-
+    unique(sample.info %>% select(Population, pop)) %>%
+    arrange(pop) %>%
+    select(Population) %>%
+    unlist
+
+.dt[, Population := factor(`Population`, .pop)]
+
+ggplot(.dt, aes(Var2, value, fill=as.factor(Var1))) +
+    ggtitle("topic proportion H") +
+    xlab(num.int(length(unique(.dt$Var2))) %&% " individuals") +
+    ylab("topic proportion") +
+    theme(title = element_text(size=8)) +
+    theme(axis.title = element_text(size=6)) +
+    theme(axis.text.y = element_text(size=4)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(strip.text = element_text(size=4)) +
+    theme(strip.background = element_blank()) +
+    facet_grid(~Population, scales="free") +
+    theme(panel.spacing = unit(.1, "lines")) +
+    geom_bar(stat="identity") +
+    scale_fill_brewer("", palette="Paired", guide="none")
+
+```
+
+\small
+
+Related work: Pritchard, Stephens, Donnelly, *Genetics* (2000)
+
+## How do we deal with such a population structure in GWAS?
+
+\large
+
+:::::: {.columns}
+::: {.column width=.45}
+
+1. Consider these population structures as a "backdoor" variable and adjust or include them in the regression model
+
+$${}$$
+
+\begin{itemize}
+\item<2-> We need to first estimate the population structures... Are there any uncertainty? Can we propagate the measurement errors?
+\item<3-> Which variants are okay to include in the latent topic model?
+\end{itemize}
+
+:::
+::: {.column width=.45}
+
+\onslide<4->{
+2. Treat such population structure-related effects as a "random" effect
+}
+
+$${}$$
+
+\begin{itemize}
+\item<5-> We can include some proxy random variables for population structures in a linear GWAS model
+\item<6-> We might still need to consider uncertainty of the random effects
+\end{itemize}
+
+:::
+::::::
+
+## (digression) Useful facts on multivariate Gaussian distribution - 1
+
+\large
+
+If we have $\mathbf{y}$
+
+$$\mathbf{y} \sim \mathcal{N}\!\left(\boldsymbol{\mu}, \Sigma\right)$$
+
+then
+
+$$\mathbb{E}\!\left[U^{\top}\mathbf{y}\right] = U^{\top} \boldsymbol{\mu},\quad
+\mathbb{V}\!\left[U^{\top}\mathbf{y}\right] = U^{\top} \Sigma U$$
+
+and (affine transformation)
+
+$$U^{\top}\mathbf{y} \sim \mathcal{N}\!\left(U^{\top} \boldsymbol{\mu}, U^{\top} \Sigma U\right)$$
+
+## (digression) Useful facts on multivariate Gaussian distribution - 2
+
+\large
+
+If we have two Gaussian random vectors, 
+$\mathbf{y}\sim\mathcal{N}\!\left(\boldsymbol{\mu} + \mathbf{u}, \Sigma_{y}\right)$ and $\mathbf{u}\sim\mathcal{N}\!\left(\mathbf{u}|\mathbf{0}, \Sigma_{u}\right)$
+
+\Large
+
+Bayesian integration:
+
+$$\int \mathcal{N}\!\left(\mathbf{y}|\boldsymbol{\mu} + \mathbf{u}, \Sigma_{y}\right) \mathcal{N}\!\left(\mathbf{u}|\mathbf{0}, \Sigma_{u}\right) d\mathbf{u} = \mathcal{N}\!\left(\mathbf{y}|\boldsymbol{\mu}, \Sigma_{y} + \Sigma_{u}\right)$$
+
+\normalsize
+
+A key idea in the proof:
+
+$$\left[ \Sigma_{y}^{-1} - \Sigma_{y}^{-1}\left(\Sigma_{y}^{-1} + \Sigma_{u}^{-1} \right)^{-1}\Sigma_{y}^{-1} \right]^{-1} = \Sigma_{y} + \Sigma_{u}$$
+
+by Woodbury identity.
+
+
+## A linear model with population-driven random effects
+
+\large
+
+:::::: {.columns}
+::: {.column width=.48}
+
+A linear regression model:
+
+\Large
+
+$$\mathbf{y} = \mathbf{x}_{j} \underset{\textsf{\color{magenta} a fixed genetic effect}}{\beta_{j}} + \boldsymbol{\epsilon}$$
+
+\large
+
+What are we missing? Can we assume homo-scedasticity, i.e., 
+$$\boldsymbol{\epsilon} \overset{?}{\sim} \mathcal{N}\!\left(\mathbf{0}, \sigma^{2}I\right)$$
+
+:::
+::: {.column width=.48}
+
+\onslide<2->{
+
+\large
+
+A linear model with a random effect:
+
+\Large
+
+$$\mathbf{y} = \mathbf{x}_{j} \underset{\textsf{\color{gray} fixed}}{\beta_{j}} + \underset{\textsf{\color{magenta} random effect}}{\mathbf{u}} + \boldsymbol{\epsilon}$$
+
+\large
+
+{\emph Note}: There is no specific parameterization for this $n\times{1}$ random vector $\mathbf{u}$. Now, we assume:
+
+$$\boldsymbol{\epsilon} \sim \mathcal{N}\!\left(\mathbf{0}, \sigma^{2}I\right)$$
+
+}
+
+:::
+::::::
+
+## A linear model with population-driven random effects - 2
+
+\large
+
+We want to capture unwanted population, cohort-specific random effects by $n \times 1$ vector $\mathbf{u}$ and \textbf{\color{magenta} remove} since our \textbf{\color{blue} goal} is to estimate the fixed genetic effect of a particular variant $j$.
+
+\Large
+
+$$\mathbf{y} = \mathbf{x}_{j} \underset{\textsf{\color{blue} goal}}{\beta_{j}} + \underset{\textsf{\color{magenta} remove}}{\mathbf{u}} + \boldsymbol{\epsilon}$$
+
+\large
+
+\begin{enumerate}
+\item<2-> Note that $\mathbf{u}$ shouldn't be tied to a particular variant (by definition)
+\item<3-> Also, the covariation of $\mathbf{u}$ is primarily driven by relatedness among individuals, not the variants. 
+\end{enumerate}
+
+\onslide<3->{
+\Large
+$$\mathbf{u} \sim \mathcal{N}\!\left(\mathbf{0}, \tau^{2} K\right),\quad
+K \approx \frac{1}{n} XX^{\top}$$
+}
+
+## A linear mixed effect model (LMM) to test associations while adjusting population structure
+
+\large
+We can define a hierarchical model:
+
+\Large
+
+\begin{eqnarray}
+\mathbf{y}|X,\beta,\mathbf{u},\sigma &\sim& \mathcal{N}\!\left(X\boldsymbol{\beta} + \mathbf{u}, \sigma^{2} I\right) \\
+\mathbf{u}|\tau,K &\sim& \mathcal{N}\!\left(\mathbf{0}, \tau^{2} K\right)
+\end{eqnarray}
+
+\large
+
+If we integrate out $\mathbf{u}$,
+
+\Large
+
+$$\mathbf{y}|X,\beta \sim \mathcal{N}\!\left(\mathbf{y} \, \middle| \, X \boldsymbol{\beta}, \underbrace{\tau^{2} K}_{\textsf{\color{magenta} genetic-relatedness matrix}} + \underbrace{\sigma^{2} I}_{\textsf{\color{teal} irreducible}}\right)$$
+
+
+## Why using LMM instead of regressing out confounding factors?
+
+\large
+
+\begin{itemize}[<+->]
+\item It is hard to distinguish between causative vs. confounding effects
+\item Cumbersome computation required for matrix factorization or other latent variable modelling on a large genotype matrix
+\item We many not have a large matrix to learn about non-genetic confounders...
+\item One LMM estimation can substitute multiple matrix factorization steps
+\item We may have a good idea about relationships induced by random effects!
+\end{itemize}
+
+
+## FaST Linear Mixed Model (Lippert *et al.* 2011)
+
+\only<1-2>{
+
+We can resolve maximum likelihood estimate of the parameters, $\boldsymbol{\beta}, \tau, \sigma$, 
+
+$$\max \, \log \mathcal{N}\!\left(\mathbf{y} \, \middle| \, X \boldsymbol{\beta}, \sigma_{2} \left(\delta K + I \right)\right)$$
+
+where $\tau^{2} = \delta \sigma^{2}$.
+}
+
+\only<2>{
+We need to deal with this unfriendly form of likelihood:
+$$-\frac{1}{2} \left(
+n\log(2\pi\sigma^{2}) +
+\log \left|I + \delta K \right| + 
+\frac{1}{\sigma^{2}}\left[\mathbf{y} - X\boldsymbol{\beta}\right]^{\top} (I + \delta K)^{-1} \left[\mathbf{y} - X\boldsymbol{\beta}\right]
+\right)$$
+}
+
+\only<3->{
+Instead, we can transform the underlying distribution using spectral decomposition of the genetic-relatedness matrix (GRM), 
+
+\large
+
+$K = U S U^{\top}$ where $U^{\top}U=I$, and $S$ is a diagonal matrix.
+}
+\begin{eqnarray*}
+\only<3-4>{
+\underset{\textsf{\color{teal} projected output}}{U^{\top}\mathbf{y}} &\sim& \mathcal{N}\!\left(\underset{\textsf{\color{magenta} projected genotype}}{U^{\top}X}\boldsymbol{\beta}, \sigma^{2} U^{\top}(I + \delta K)U\right) \\
+}
+\only<4>{
+\textsf{\color{gray} (by the affine transformation)}
+&\sim& \mathcal{N}\!\left(\underset{\textsf{\color{pink} projected genotype}}{U^{\top}X} \boldsymbol{\beta},\, \underset{\textsf{\color{blue} diagonal matrix}}{\sigma^{2} (I + \delta S)}\right)
+}
+\end{eqnarray*}
+
+\vfill
+\only<4>{
+\normalsize
+\begin{itemize}
+\item We can find $\beta$ by weighted least square
+\item We can find $\sigma^{2}$ and $\delta$ by fixing $\beta$
+\end{itemize}
+}
+
+\tiny
+
+Lippert, Listgarten, .. , Heckerman, \emph{Nature Methods} (2011)
+
+## A key research question in LMM: What covariance matrix?
+
+\large
+If there were many types of random effects,
+
+$\mathbf{y} = \underset{\textsf{\color{magenta} fixed}}{X \boldsymbol{\beta}} + \underset{\textsf{\color{teal} random effects}}{\mathbf{u} + \mathbf{w} + \ldots} + \underset{\textsf{\color{gray} unknown}}{\epsilon}$
+
+\onslide<2->{
+We would need to many covariance matrices:
+
+$$\mathbf{y}|\cdot \sim \mathcal{N}\!\left(X\boldsymbol{\beta},\,\sigma^{2}(I + \underbrace{\delta_{u} K_{u}  + \delta_{w} K_{w} + \ldots}_{\textsf{\color{teal} random effects}})\right)$$
+}
+
+\onslide<3>{
+If we only care about variance decomposition $\beta_{j} \sim \mathcal{N}\!\left(0,\tau\right)$:
+
+$$\mathbf{y} \sim \mathcal{N}\!\left(\mathbf{0},\, \sigma^{2}\left(\underset{\textsf{\color{magenta} observed genetic}}{\frac{\sigma^{2}_{\textsf{genetic}}}{n} XX^{\top}} + I + \underbrace{\delta_{u} K_{u}  + \delta_{w} K_{w} + \ldots}_{\textsf{\color{teal} random effects}}\right)\right)$$
+}
+
+## Should we worry about "over-fitting" in LMM?
+
+\large 
+
+An equivalent question for PCA-based confounder adjustment: 
+
+\vfill
+
+> How many PCs to adjust in GWAS?
+
+> Can we include a candidate SNP in the GRM $K$ matrix?
+
+\vfill
+
+\only<2>{
+For each chromosome $c \in \{1,\ldots, 22, \textsf{X}, \textsf{Y}\}$, build a leave-one-chromosome-out (LOCO) kinship matrix, say $K_{-c}$:
+
+$$\mathcal{N}\!\left(\mathbf{y} | \mathbf{x}_{j} \beta_{j}, \sigma^{2} (\delta K_{-c} + I)\right)$$
+
+\vfill
+\tiny
+Yang, {\it et al.}, \emph{Nature Genetics} (2014)
+
+Tucker, Price, Berger, \emph{Genetics} (2014)
+}
+
+## BSLMM: What will be a good prior for the effect variable in a LMM?
+
+Bayesian Sparse LMM (BSLMM): Causal variants should have a higher, additional level of effect size ($\sigma_{a}^{2}$) than the background ones ($\sigma_{b}^{2})$.
+
+$$\beta_{j} \sim \pi \mathcal{N}\!\left(0, \frac{\sigma_{a}^{2} + \sigma_{b}^{2}}{p\tau}\right) +
+(1-\pi) \mathcal{N}\!\left(0, \frac{\sigma_{b}^{2}}{p\tau}\right)$$
+
+```{r out.width="\\textwidth", results="asis"}
+knitr::include_graphics("Vis/BSLMM.pdf")
+```
+
+\tiny 
+
+Zhou, Carbonetto, Stephens, \emph{PLoS Genetics} (2014)
+
+# Linkage Disequilibrium: blessing and curse
+
+## Much of human genetics problems centre on two covariance matrices
+
+For a standardized $n \times p$ genotype matrix $X$,
+
+:::::: {.columns}
+::: {.column width=.48}
+
+::: {.block}
+### 1. Genetic relatedness matrix (GRM)
+
+a $n \times n$ matrix 
+
+$$K \approx XX^{\top}/n$$
+
+The matrix $K$ captures population structure/correlation across different individuals.
+
+- Kinship matrix; population admixture
+
+- Human migration history
+
+:::
+
+:::
+::: {.column width=.48}
+
+::: {.block}
+### 2. Linkage disequilibrium (LD)
+
+a $p \times p$ matrix 
+
+$$R \approx X^{\top}X/n$$
+
+The matrix $R$ captures localized correlation patterns along the genomic axis within a chromosome.
+
+- LD matrix
+
+- The results of many, many recombination events
+
+:::
+
+:::
+::::::
+
+
+## Let's discuss LD structures
+
+Pairwise correlations between SNPs
+
+:::::: {.columns}
+::: {.column width=.48}
+
+
+```{r fig.width=2.5, fig.height=2.5}
+set.seed(10)
+xx <- X$genotypes[, sample(ncol(X$genotypes)-100,1) + 1:100]
+R <- abs(cor(xx))
+.matshow(R, .lab=0, .size=0) + ggtitle("consecutive 100 SNPs")
+```
+
+:::
+::: {.column width=.48}
+
+```{r fig.width=2.5, fig.height=2.5}
+set.seed(10)
+xx <- X$genotypes[, sample(ncol(X$genotypes), 100)]
+R <- abs(cor(xx))
+.matshow(R, .lab=0, .size=0) + ggtitle("random 100 SNPs")
+```
+
+:::
+::::::
+
+
+## GWAS fail to pinpoint exact locations associated with a disease
+
+\vfill
+
+```{r out.height=".4\\textheight", results="asis"}
+knitr::include_graphics("Vis/direct_indirect_associations.pdf")
+```
+
+\vfill
+
+\tiny
+
+Balding, \emph{Nature Genetics Review} (2006)
+
+## Common strategies to deal with LD structures
+
+:::::: {.columns}
+::: {.column width=.3}
+
+\onslide<1->{
+{\bf Strategy 1.} \textbf{\color{teal} Fine-mapping} to find a handful of causal ones
+
+- Bayesian posterior estimation
+
+- Overlap with epigenomics data
+
+}
+
+:::
+::: {.column width=.3}
+
+\onslide<2->{
+{\bf Strategy 2.} \textbf{\color{teal} Aggregation} to combine all the information: 
+
+- Rare variant analysis
+
+- Gene-level enrichment/association
+
+}
+
+:::
+::: {.column width=.3}
+
+\onslide<3>{
+{\bf Strategy 3.} \textbf{\color{teal} Pruning } to remove somewhat redundant information (heuristics)
+
+- p-value thresholding
+
+- Useful in polygenic risk prediction
+
+}
+
+:::
+::::::
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.3}
+
+\only<1->{
+\includegraphics[width=\linewidth]{Vis/GWAS_LD_strategy_1.pdf}
+}
+
+:::
+::: {.column width=.3}
+
+\only<2->{
+\includegraphics[width=\linewidth]{Vis/GWAS_LD_strategy_2.pdf}
+}
+
+:::
+::: {.column width=.3}
+
+\only<3>{
+\includegraphics[width=\linewidth]{Vis/GWAS_LD_strategy_3.pdf}
+}
+
+:::
+::::::
+
+\small
+x-axis: genomic location; y-axis: -log10 p-value
+
+
+## Why fine-mapping?
+
+\Large
+
+A lead SNP^[lowest p-value] within a locus $\neq$ a causal SNP
+
+## Fine-mapping typically follows GWAS meta-analysis
+
+\vfill
+
+\centerline{\includegraphics[width=.9\linewidth]{Vis/finemapping_pipeline.pdf}}
+
+\vfill
+
+\tiny
+
+Schaid *et al.*, \emph{Nature Review Genetics} (2018)
+
+## Fine-mapping could be done by a variable selection problem 
+
+If we had fully observed $X$ and $Y$ for the $>$ 10k samples,
+
+\Large
+
+$$\mathbf{y} \sim \sum_{j=1}^{p} \mathbf{x}_{j} \beta_{j} + \boldsymbol{\epsilon}$$
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.3}
+
+\onslide<1->{
+
+\normalsize
+
+1. \textbf{\color{teal} A greedy forward selection method}
+
+- $\mathbf{y} \sim \mathbf{x}_{k} \beta_{k}$ (find the best)
+
+- $\mathbf{y} \gets \mathbf{y} - \mathbf{x}_{k} \beta_{k}$ (take the residual)
+
+${}$
+
+\tiny
+(technically not a fine-mapping method)
+
+}
+
+:::
+::: {.column width=.3}
+
+\onslide<2->{
+
+\normalsize
+
+2. \textbf{\color{magenta} A brute-force combinatorial search}
+
+For all possible subsets of non-zero's $S \subset [p]$:
+
+$\max_{S} p(\mathbf{y}|\sum_{j \in S} \mathbf{x}_{j} \beta_{j})$
+
+${}$
+
+\tiny
+(usually limit the search space $|S| < k$)
+
+}
+
+:::
+::: {.column width=.3}
+
+\onslide<3->{
+
+\normalsize
+
+3. \textbf{\color{blue} Bayesian prior}, L1 or spike-slab
+
+- with a sparse prior $p(\beta)$
+
+$$\min \|\mathbf{y} - X \boldsymbol{\beta} \|^{2} - \log p(\boldsymbol{\beta})$$
+
+\tiny
+(normalization is required)
+}
+
+:::
+::::::
+
+## In practice, we don't have a full panel of genotypes!
+
+But we have summary statistics of meta-analysis:
+
+\onslide<1->{
+
+\textbf{\color{teal} A generative model of SNP-level statistics}
+
+For each $\beta_{j}$'s, effect size, variance, z-score:
+
+$$\hat{\beta}_{j} = \frac{\sum_{i} X_{ij} Y_{i}}{\sum_{i} X_{ij}^{2}}, \quad \hat{\mathbb{V}}\!\left[\beta_{j}\right] = \frac{\sigma_{\epsilon}^{2}}{\sum_{i=1}X_{ij}^{2}}, \quad Z_{j} = \frac{\hat{\beta}_{j}}{\sqrt{\hat{\mathbb{V}}\!\left[\beta_{j}\right]}}$$
+
+}
+
+\onslide<2->{
+Although
+\textbf{\color{magenta} the underlying multivariate regression model}:
+
+\Large
+$$\mathbf{y} = X \boldsymbol{\theta} + \boldsymbol{\epsilon}$$
+
+\normalsize
+where $\theta_{j} \neq \beta_{j}$
+}
+
+## What is the relationship between the summary (univariate) and multivariate effects?
+
+For simplicity, let's assume standardized genotype matrix $X$, i.e., $\bar{X}_{j} = 0$ and $\hat{\sigma}_{X_{j}}^{2} = 1$. The we have z-score
+
+\only<1>{
+\large
+
+$$\hat{Z}_{j} = \sum_{i=1}^{n} X_{ij} Y_{i} / \sigma_{\epsilon} \sqrt{n}$$ for all $j \in [p]$.
+}
+
+\Large
+\begin{eqnarray*}
+\onslide<2->{
+	\underset{\textsf{\color{teal} $p \times 1$ univariate}}{\mathbf{z}} &=& \frac{1}{\sigma \sqrt{n}} X^{\top}\mathbf{y}
+}
+\onslide<3->{
+	= \frac{1}{\sigma \sqrt{n}} X^{\top}\underbrace{\left(X\boldsymbol{\theta} + \boldsymbol{\epsilon}\right)}_{\textsf{\color{magenta} a multivariate model}}
+} \\
+\only<4>{
+&=& \frac{\sqrt{n}}{\sigma} \underbrace{\left( \frac{1}{n} X^{\top}X \right)}_{\textsf{\color{teal} LD}} \boldsymbol{\theta} + \frac{1}{\sigma\sqrt{n}} X^{\top} \boldsymbol{\epsilon}
+}
+\only<5>{
+&=& \mathbf{\color{teal} R} {{\color{magenta} \frac{\sqrt{n}}{\sigma} \boldsymbol{\theta} }} + \tilde{\boldsymbol{\epsilon}},\quad  \tilde{\boldsymbol{\epsilon}} \sim \mathcal{N}\!\left(\mathbf{0}, \mathbf{\color{teal} R} \right)
+}
+\end{eqnarray*}
+
+\only<5>{
+\normalsize
+where $\mathbf{\color{teal} R} = n^{-1} X^{\top}X$ is an empirical LD matrix.
+}
+
+\vfill
+\tiny
+Hormozdiari \textit{et al.}, Genetics (2014); Zhu and Stephens, Annals of Applied Statistics (2017)
+
+
+## Fine-mapping is to find a sparse multivariate $\theta$
+
+\large
+
+**Input:**
+
+* Summary statistics $p\times{1}$ z-score vector: $\mathbf{z}$
+
+* Reference panel $p\times{p}$ LD matrix: $R$
+
+\vfill
+
+**Goal:**
+
+$$\max_{\boldsymbol{\theta}} \mathcal{N}\!\left(\mathbf{z}\middle|\, \frac{\sqrt{n}}{\sigma} R \boldsymbol{\theta}, R\right)$$
+
+where
+
+$\theta_{j} \sim \pi \delta_{0}(\theta_{j}) + (1-\pi) \mathcal{N}\!\left(0, \tau^{-1}\right)$
+
+\vfill
+
+\tiny
+
+Zhu and Stephens, Annals of Applied Statistics (2017)
+
+
+## Not all GWA-significant variants are causal
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[width=\linewidth]{Vis/finemapping_example_hormozdiari.pdf}}
+
+:::
+::: {.column width=.55}
+
+A reasonable fine-mapping approach:
+
+- Identify GWAS loci (with p $< 5 \times 10^{-8}$)
+
+- Find neighbouring SNPs in each GWAS locus
+
+- Convert p-values to z-scores (caution: We should take into account major/minor allele directions)
+
+- Take an appropriate local LD matrix $R$
+
+- Estimate $\theta$ in the following model:
+
+$$\mathbf{z} \sim \mathcal{N}\!\left(R \theta, R\right)$$
+
+- We may construct 95% credible set:
+
+$$\{j:\, \hat{p}(\theta_{j} \neq 0|R,\mathbf{z}) > .95\}$$
+
+:::
+::::::
+
+\vfill
+
+\tiny
+Hormozdiari \textit{et al.}, Genetics (2014)
+
+## Fine-mapping approaches - 1: heuristics and Bayesian approach
+
+\centerline{\includegraphics[width=\textwidth]{Vis/finemapping_strategy.pdf}}
+
+- In almost all cases, Bayesian method outperforms
+
+- Note: This is a "statistical" fine-mapping
+
+\vfill
+
+\tiny
+
+Schaid *et al.*, \emph{Nature Review Genetics} (2018)
+
+## Fine-mapping approaches - 2: *trans*-ethnic analysis
+
+\centerline{\includegraphics[width=\textwidth]{Vis/finemapping_strategy_2.pdf}}
+
+- Additional information across multiple GWAS summary statistics 
+
+- "Causal triangulation" to combine multiple lines of orthogonal evidence
+
+\vfill
+
+\tiny
+
+Schaid *et al.*, \emph{Nature Review Genetics} (2018)
+
+
+## How should we deal with LD structures?
+
+:::::: {.columns}
+::: {.column width=.3}
+
+\includegraphics[width=\linewidth]{Vis/GWAS_LD_strategy_1.pdf}
+
+\textbf{\color{gray} fine-mapping}
+
+:::
+::: {.column width=.3}
+
+\includegraphics[width=\linewidth]{Vis/GWAS_LD_strategy_2.pdf}
+
+\textbf{\color{red} Aggregate information} within an independent LD block!
+
+:::
+::: {.column width=.3}
+
+\includegraphics[width=\linewidth]{Vis/GWAS_LD_strategy_3.pdf}
+
+\textbf{\color{gray} will not discuss this}
+
+:::
+::::::
+
+
+## Burden test: Can we aggregate all the SNPs to boost power?
+
+\large
+
+**Motivation:**
+
+* Summary statistics $p\times{1}$ z-score vector: $\mathbf{z}$
+
+* Reference panel $p\times{p}$ LD matrix: $R$
+
+* Unfortunately, none of the SNPs make GWA significance 
+
+\vfill
+
+**Question:**
+
+* Should we give up on this GWAS result (z-scores)?
+
+* Alternatively, is there any way to reduce the number of hypothesis?
+
+## Gene-level aggregate test statistics
+
+Assume underlying multivariate effect $\theta$ for the observed z-score vector:
+
+$$\mathbf{z} \sim \mathcal{N}\!\left(R \theta, R\right)$$
+
+\vfill
+
+\centerline{\includegraphics[width=\linewidth]{./Vis/aggregate_motivation.pdf}}
+
+\vfill
+
+- Can we aggregate information over many SNPs within each gene (box)?
+
+- Although each genetic variant can occur rarely (hence, very weak association statistics), they may implicate the same target gene.
+
+\vfill
+
+## Sequence Kernel Association Test (SKAT) to aggregate rare variant info
+
+In a model $\mathbf{y} \sim X^{(g)} \boldsymbol{\theta}_{g}$, where $X$ is constructed within a window around a specific gene $g$, we want to test
+
+$$H_{0}:\, \boldsymbol{\theta}_{g} = 0\quad \textsf{vs.} \quad H_{1}:\, \boldsymbol{\theta}_{g} = 0$$
+
+In a sense, it is the same as doing model comparison (after integrate out $\theta$):
+
+$$H_{0}:\,\mathcal{N}\!\left(\mathbf{y}\middle|\, \mathbf{0},\, \underbrace{\tau^{2} \mathbf{\color{magenta} K}}_{\textsf{\color{teal} e.g., local kinship}} + \sigma^{2} I\right)\quad \textsf{vs.} \quad H_{1}:\, \mathcal{N}\!\left(\mathbf{y}| \mathbf{0},\, \sigma^{2} I \right)$$
+
+where $K \propto n^{-1} X^{(g)}{X^{(g)}}^{\top}$ or we can substitute it with a different type of kernel matrix. $\implies$ We want to test $H_{0}:\,\tau = 0$ or not.
+
+\vfill
+\tiny
+
+Wu, Lee, ..., Lin, \emph{AJHG} (2011)
+
+## 
+
+\Large
+
+> Can we aggregate genetic association statistics using prior knowledge?
+
+## Expression Quantitative Trait Loci (eQTL) results provide necessary context to interpret GWAS signals
+
+\centerline{\includegraphics[width=\textwidth]{Vis/GWAS_blackbox_TWAS.pdf}}
+
+\vfill
+
+$$\mathbf{m}_{g} \sim X \boldsymbol{\alpha}_{g} + \boldsymbol{\epsilon}_{g} \quad \implies \quad \mathbf{y}_{\textsf{GWAS}} = \sum_{g \in \textsf{causal genes}} \mathbf{m}_{g} \beta_{g} + \boldsymbol{\epsilon}_{y}$$
+
+## Transcriptome-wide association study to test gene-level correlations
+
+The same type of a linear model for a phenotype vector $\mathbf{y}$
+
+$$\mathbf{y} \sim X \boldsymbol{\theta} + \boldsymbol{\epsilon}_{y},$$ 
+
+where $X$ is constructed within a $cis$-window around a specific gene $g$ (say $\pm$ 500kb).
+
+\onslide<2->{
+We also have a gene expression vector $\mathbf{m}$:
+
+$$\mathbf{m}_{g} \sim X \boldsymbol{\alpha}_{g} + \boldsymbol{\epsilon}_{m}$$
+}
+
+\onslide<3->{
+\textbf{A key question}: Are they correlated?
+
+$$H_{0}:\, \mathbb{E}\!\left[\mathbf{y}^{\top} \mathbf{m}\right] = 0 \quad \textsf{vs.} \quad H_{1}: \, \mathbb{E}\!\left[\mathbf{y}^{\top} \mathbf{m}\right] \neq 0$$
+
+}
+
+\vfill
+\tiny
+
+Gusev, ..., Price, \emph{Nature Genetics} (2016)
+
+## Transcriptome-wide association study to test gene-level correlations
+
+:::::: {.columns}
+::: {.column width=.3}
+
+$${}$$
+
+\centerline{\includegraphics[height=.7\textheight]{Vis/TWAS.pdf}}
+
+\tiny
+
+Gusev, ..., Price, \emph{Nature Genetics} (2016)
+
+:::
+::: {.column width=.65}
+
+\normalsize
+
+Is this non-zero?
+
+\begin{eqnarray*}
+  \frac{1}{n}\mathbf{m}^{\top}\mathbf{y}
+ &=& \frac{1}{n} (X\boldsymbol{\alpha} + \boldsymbol{\epsilon}_{m})^{\top}
+ (X\boldsymbol{\theta} + \boldsymbol{\epsilon}_{y}) \\
+\onslide<2->{
+ &=& \boldsymbol{\alpha}^{\top} \underset{\color{teal} LD}{\left( \frac{1}{n} X^{\top}X \right)} \boldsymbol{\theta} + \ldots \\
+}
+\onslide<3->{
+\textsf{\color{teal} (we saw this)} &=& \boldsymbol{\alpha}^{\top} \underbrace{\left( \frac{1}{n} X^{\top}X \right) \boldsymbol{\theta}}_{\textsf{\color{magenta} GWAS z-score}} + \ldots
+}
+\end{eqnarray*}
+
+\onslide<4>{
+TWAS statistic:
+$$T_{g} = \frac{\boldsymbol{\alpha}_{g}^{\top}\mathbf{z}}{\sqrt{\boldsymbol{\alpha}_{g}^{\top} R \boldsymbol{\alpha}_{g}}} \sim \mathcal{N}\!\left(0,1\right)$$
+\small 
+where $\alpha_{g}$ = multivariate eQTL for a gene $g$.
+}
+
+:::
+::::::
+
+
+## 
+
+For a standardized $n \times p$ genotype matrix $X$,
+
+:::::: {.columns}
+::: {.column width=.48}
+
+::: {.block}
+### 1. Genetic relatedness matrix (GRM)
+
+a $n \times n$ matrix 
+
+$$K \approx XX^{\top}/n$$
+
+The matrix $K$ captures population structure/correlation across different individuals.
+
+- Kinship matrix; population admixture
+
+- Human migration history
+
+:::
+
+:::
+::: {.column width=.48}
+
+::: {.block}
+### 2. Linkage disequilibrium (LD)
+
+a $p \times p$ matrix 
+
+$$R \approx X^{\top}X/n$$
+
+The matrix $R$ captures localized correlation patterns along the genomic axis within a chromosome.
+
+- LD matrix
+
+- The results of many, many recombination events
+
+:::
+
+:::
+::::::
+
+# Systems genetics and summary statistics-based inference
+
+## GWAS is only the beginning of a post-GWAS analysis
+
+
+## LD-score regression
+
+
+## Bivariate LD-score regression
+
+## Stratified LD-score regression
+
+## Polygenic risk prediction
+
+## TODO
+
+```{r}
+#' @param X
+#' @param h2
+#' @param n.causal
+#' @param n.traits
+simulate.pgs <- function(X, h2, n.causal, n.traits = 1) {
+    .rnorm <- function(d1, d2) matrix(rnorm(d1*d2), d1, d2)
+    causal.snp <- sample(ncol(X), n.causal)
+    xx.causal <- scale(X[, causal.snp, drop=FALSE])
+    xx.causal[is.na(xx.causal)] <- 0
+
+    n.ind <- nrow(X)
+    y.true <- scale(xx.causal %*% .rnorm(n.causal, n.traits))
+    y.err <- scale(.rnorm(n.ind, n.traits))
+    y.obs <- y.true * sqrt(h2) + y.err * sqrt(1 - h2)
+
+    list(y = y.obs, causal = causal.snp)
+}
+
+## set.seed(1)
+## ntot <- nrow(data$genotypes)
+## .train.ind <- sample(ntot, 1000)
+## .test.ind <- setdiff(1:ntot, .train.ind)
+## X <- data$genotypes[.train.ind, 1:2000]
+## sim <- simulate.pgs(X, h2=0.2, n.causal=20)
+## X <- scale(X)
+## y <-  sim$y
+
+## ## sort individuals for visualization
+## o <- order(y)
+## y <- y[o, , drop = FALSE]
+## X <- X[o, , drop = FALSE]
+```
+
+
 
