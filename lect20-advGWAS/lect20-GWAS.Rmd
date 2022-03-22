@@ -74,8 +74,6 @@ theme_set(theme_classic())
 
     * Transcriptome-wide association studies
 
-    * Advanced Mendelian randomization
-
     * LD-score regression
 
 
@@ -766,9 +764,12 @@ Bayesian Sparse LMM (BSLMM): Causal variants should have a higher, additional le
 $$\beta_{j} \sim \pi \mathcal{N}\!\left(0, \frac{\sigma_{a}^{2} + \sigma_{b}^{2}}{p\tau}\right) +
 (1-\pi) \mathcal{N}\!\left(0, \frac{\sigma_{b}^{2}}{p\tau}\right)$$
 
-```{r out.width="\\textwidth", results="asis"}
+```{r out.width=".9\\textwidth", results="asis"}
 knitr::include_graphics("Vis/BSLMM.pdf")
 ```
+
+\small
+BVSR: spike-and-slab; BSLMM: mixture of two Gaussians; LMM: Gaussian 
 
 \tiny 
 
@@ -1315,8 +1316,8 @@ Gusev, ..., Price, \emph{Nature Genetics} (2016)
 
 \normalsize
 
-Is this non-zero?
-
+*Goal*: hypothesis testing of non-zeroness
+\vspace{-10pt}
 \begin{eqnarray*}
   \frac{1}{n}\mathbf{m}^{\top}\mathbf{y}
  &=& \frac{1}{n} (X\boldsymbol{\alpha} + \boldsymbol{\epsilon}_{m})^{\top}
@@ -1385,53 +1386,219 @@ The matrix $R$ captures localized correlation patterns along the genomic axis wi
 
 # Systems genetics and summary statistics-based inference
 
-## GWAS is only the beginning of a post-GWAS analysis
+## 
 
+\large
 
-## LD-score regression
+> GWAS is only the beginning of a post-GWAS analysis.
 
+## Post-GWAS analysis example: genetic correlations across many traits
 
-## Bivariate LD-score regression
+\only<1>{
+\centerline{\includegraphics[width=\textwidth]{Vis/postGWAS_brainstorm_table.pdf}}
+}
+\only<2>{
+\centerline{\includegraphics[width=\textwidth]{Vis/postGWAS_brainstorm_summary.pdf}}
+How did they measure correlations?
+}
+
+\vfill
+\tiny
+The Brainstorm Consortium, \emph{Science} (2018)
+
+## Several benefits of post-GWAS (or systems genetics) analysis
+
+\large
+
+- Inherited genetic information is usually stable over a lifetime.
+
+- It is hard to test/measure all the disease-related phenotypes for all individuals.
+
+- Full, unlimited access to individual-level information is often unnecessary in a post-GWAS analysis.
+
+- A post-GWAS analysis is often computationally more efficient than an individual-level analysis.
+
+## LD-score regression: a model-based summary-statistics analysis
+
+\normalsize
+
+What is a generative model for a $\chi_{j}^{2} (\equiv Z_{j}^{2})$ statistics vector?
+
+\only<1>{
+We have seen that 
+
+$$Z_{j} = \frac{\sqrt{n}}{\sigma} \sum_{k} R_{jk} \theta_{k}  + \epsilon_{j}$$
+
+where $\epsilon \sim \mathcal{N}\!\left(0,1\right)$.
+}
+
+\onslide<2->{
+$$\mathbb{E}\!\left[\chi_{j}^{2}\right] = \mathbb{E}\!\left[Z_{j}^{2}\right] = \mathbb{E} \left( \sqrt{n} \sum_{k} R_{jk} \theta_{k} + \epsilon_{j} \right)^{2}$$
+}
+
+\only<3>{
+If "true" multivariate effect for each variant is independent of other variants' effects, i.e., $\mathbb{E}\!\left[\theta_{k}\theta_{j}\right] = 0$ for all $k \neq j$, 
+
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] = n \underbrace{\sum_{k} R_{jk}^{2}}_{\textsf{\color{blue} LD-score}} \mathbb{E}\!\left[ \theta_{k}^{2} \right] + 1$$
+}
+
+\vfill
+\tiny
+
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014); Finucane *et al.*, \emph{Nature Genetics} (2015)
+
+## Baseline LD-score regression to measure polygenic heritability
+
+If we assume $\theta_{k} = \tau / p$, assuming all the variants can exert weak effects, and defining an LD score for a variant $j$, $l_{j} = \sum_{k} R^{2}_{jk}$, we have
+
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] 
+\only<1-2>{ = n \underbrace{\sum_{k} R_{jk}^{2}}_{\textsf{\color{blue} LD-score}} \mathbb{E}\!\left[ \theta_{k}^{2} \right] + 1 }
+\only<2->{ = \underset{\textsf{\color{teal} sample size}}{n} \underset{\textsf{\color{blue} LD score}}{l_{j}} \underset{\textsf{\color{magenta}per SNP heritability}}{\frac{\tau}{p}} + 1}$$
+\only<2>{
+where $p$ is the total number of SNPs.
+}
+
+\onslide<3>{
+We estimate the parameters by regressing the observed $\chi^{2}$ statistics on the reference LD scores $l_{j}$:
+$$
+\left(
+\begin{array}{c}
+\chi^{2}_{1} \\
+\vdots \\
+\chi^{2}_{j} \\
+\vdots
+\end{array}
+\right)
+\sim
+n 
+\left(
+\begin{array}{l}
+l_{1} \\
+\vdots \\
+l_{j} \\
+\vdots
+\end{array} 
+\right)
+\underset{\textsf{\color{magenta}per SNP heritability}}{\frac{\tau}{p}}
++ \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
++ \underset{\textsf{\color{teal} null}}{1}
+$$
+}
+
+\vfill
+\tiny
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014)
+
 
 ## Stratified LD-score regression
 
-## Polygenic risk prediction
+When genome is partitioned by annotations (e.g., epigenetic tracks)
 
-## TODO
-
-```{r}
-#' @param X
-#' @param h2
-#' @param n.causal
-#' @param n.traits
-simulate.pgs <- function(X, h2, n.causal, n.traits = 1) {
-    .rnorm <- function(d1, d2) matrix(rnorm(d1*d2), d1, d2)
-    causal.snp <- sample(ncol(X), n.causal)
-    xx.causal <- scale(X[, causal.snp, drop=FALSE])
-    xx.causal[is.na(xx.causal)] <- 0
-
-    n.ind <- nrow(X)
-    y.true <- scale(xx.causal %*% .rnorm(n.causal, n.traits))
-    y.err <- scale(.rnorm(n.ind, n.traits))
-    y.obs <- y.true * sqrt(h2) + y.err * sqrt(1 - h2)
-
-    list(y = y.obs, causal = causal.snp)
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] = \frac{n}{p} \sum_{t} l_{jt} \underset{\textsf{\color{magenta} stratified heritability}}{\tau_{t}} + \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
++ \underset{\textsf{\color{teal} null}}{1}$$
+where we use partitioned LD-scores for each annotation type $t$
+$$l_{jt} = \sum_{k} R^{2}_{jk} I\left\{ k \in \mathcal{A}_{t}\right\}.$$
+More explicitly,
+$$
+\left(
+\begin{array}{c}
+\chi^{2}_{1} \\
+\vdots \\
+\chi^{2}_{j} \\
+\vdots
+\end{array}
+\right)
+\sim
+\frac{n}{p} 
+\left(
+\begin{array}{l l l l}
+l_{11} & l_{12} & l_{1t}& \ldots \\
+& \vdots & & \\
+l_{j1} & l_{j2} & l_{jt}& \ldots \\
+\vdots
+\end{array} 
+\right)
+\underset{\textsf{\color{magenta} stratified heritability}}{
+\left(
+\begin{array}{c}
+\tau_{1} \\
+\vdots \\
+\tau_{t} \\
+\vdots
+\end{array} 
+\right)
 }
++ \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
++ \underset{\textsf{\color{teal} null}}{1}
+$$
+\vfill
+\tiny
+Finucane *et al.*, \emph{Nature Genetics} (2015)
 
-## set.seed(1)
-## ntot <- nrow(data$genotypes)
-## .train.ind <- sample(ntot, 1000)
-## .test.ind <- setdiff(1:ntot, .train.ind)
-## X <- data$genotypes[.train.ind, 1:2000]
-## sim <- simulate.pgs(X, h2=0.2, n.causal=20)
-## X <- scale(X)
-## y <-  sim$y
+## Stratified LD-score regression can identify tissue-specific heritability enrichment
 
-## ## sort individuals for visualization
-## o <- order(y)
-## y <- y[o, , drop = FALSE]
-## X <- X[o, , drop = FALSE]
-```
+\centerline{\includegraphics[height=.7\textheight]{Vis/sLDSC_GTEx.pdf}}
 
+\vfill
+\tiny
+Finucane *et al.*, \emph{Nature Genetics} (2018)
 
+## Bivariate LD-score regression
 
+Instead of one $\chi^{2}$ vector, we need to deal with the element-wise product of two vectors of z-scores (between a trait 1 and 2):
+
+$$
+\left(
+\begin{array}{c}
+z^{(1)}_{1} z^{(2)}_{1} l_{1}\\
+\vdots \\
+z^{(1)}_{j} z^{(2)}_{j} l_{j}\\
+\vdots
+\end{array}
+\right)
+\sim
+\frac{\sqrt{N_{1} N_{2}}}{p}
+\left(
+\begin{array}{l}
+l_{1} \\
+\vdots \\
+l_{j} \\
+\vdots
+\end{array} 
+\right)
+\underset{\textsf{\color{magenta}genetic correlation}}{\rho}
++ \underset{\textsf{\color{teal} sample sharing}}{\frac{\rho_{0} N_{s}}{\sqrt{N_{1} N_{2}}}}
+$$
+where $N_{1}$ and $N_{2}$ count sample size of the GWAS 1 and 2; $N_{s}$ is the number of control individuals shared between the two traits.
+
+\vfill
+\tiny
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2015)
+
+## Bivariate LD-score regression to test genetic correlations
+
+\centerline{\includegraphics[height=.7\textheight]{Vis/postGWAS_brainstorm_behavior_disorder.pdf}}
+
+\vfill
+\tiny
+The Brainstorm Consortium, \emph{Science} (2018)
+
+## Learning objective
+
+* Population structures in genetics data
+
+    * Admixture model
+
+    * Linear mixed effect model
+
+* Linkage disequilibrium
+
+    * Rare variant burden tests
+
+    * Fine-mapping causal variants
+
+* GWAS summary statistics
+
+    * Transcriptome-wide association studies
+
+    * LD-score regression
