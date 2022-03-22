@@ -1444,6 +1444,8 @@ The matrix $R$ captures localized correlation patterns along the genomic axis wi
 
 ## Post-GWAS analysis example: genetic correlations across many traits
 
+\vfill
+
 \only<1>{
 \centerline{\includegraphics[width=\textwidth]{Vis/postGWAS_brainstorm_table.pdf}}
 }
@@ -1472,17 +1474,18 @@ The Brainstorm Consortium, \emph{Science} (2018)
 
 \normalsize
 
-What is a generative model for a $\chi_{j}^{2} (\equiv Z_{j}^{2})$ statistics vector?
+What is a generative model for a $\chi_{j}^{2}$ ($= Z_{j}^{2}$) statistics vector?
 
 \only<1>{
-We have seen that 
+We have seen this relationship in the fine-mapping model:
 
-$$Z_{j} = \frac{\sqrt{n}}{\sigma} \sum_{k} R_{jk} \theta_{k}  + \epsilon_{j}$$
+$$\underset{\textsf{\color{teal} univariate, summary stat}}{Z_{j}} = \frac{\sqrt{n}}{\sigma} \sum_{k} \underset{\textsf{\color{gray} LD between j and k}}{R_{jk}} \underset{\textsf{\color{magenta} multivariate, true effect}}{\theta_{k}}  + \epsilon_{j}$$
 
 where $\epsilon \sim \mathcal{N}\!\left(0,1\right)$.
 }
 
 \onslide<2->{
+Simply plugging $Z_{j}$ in the equation,
 $$\mathbb{E}\!\left[\chi_{j}^{2}\right] = \mathbb{E}\!\left[Z_{j}^{2}\right] = \mathbb{E} \left( \sqrt{n} \sum_{k} R_{jk} \theta_{k} + \epsilon_{j} \right)^{2}$$
 }
 
@@ -1499,17 +1502,52 @@ Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014); Finucane *et al.*, \emph
 
 ## Baseline LD-score regression to measure polygenic heritability
 
-If we assume $\theta_{k} = \tau / p$, assuming all the variants can exert weak effects, and defining an LD score for a variant $j$, $l_{j} = \sum_{k} R^{2}_{jk}$, we have
 
-$$\mathbb{E}\!\left[\chi^{2}_{j}\right] 
-\only<1-2>{ = n \underbrace{\sum_{k} R_{jk}^{2}}_{\textsf{\color{blue} LD-score}} \mathbb{E}\!\left[ \theta_{k}^{2} \right] + 1 }
-\only<2->{ = \underset{\textsf{\color{teal} sample size}}{n} \underset{\textsf{\color{blue} LD score}}{l_{j}} \underset{\textsf{\color{magenta}per SNP heritability}}{\frac{\tau}{p}} + 1}$$
-\only<2>{
+\large
+
+:::::: {.columns}
+::: {.column width=.48}
+
+(1) Assuming that all the variants equally contribute, 
+
+$$\mathbb{E}\!\left[\theta_{k}^{2}\right] = \tau / p,$$ 
+
+\only<1>{
+where $p$ is the total number of SNPs,
+}
+
+:::
+::: {.column width=.48}
+
+\onslide<2->{
+(2) defining an LD score for a variant/SNP $j$ as
+$$l_{j} \overset{\textsf{def}}{=} \sum_{k} R^{2}_{jk},$$ 
+}
+
+:::
+::::::
+
+\vfill
+
+\onslide<3->{We get}
+
+$$\onslide<3->{
+\mathbb{E}\!\left[\chi^{2}_{j}\right]  = n \underbrace{\sum_{k} R_{jk}^{2}}_{\textsf{\color{blue} LD-score}} \mathbb{E}\!\left[ \theta_{k}^{2} \right] + 1 }
+\onslide<4->{ = \underset{\textsf{\color{teal} sample size}}{n} \underset{\textsf{\color{blue} LD score}}{l_{j}} \underset{\textsf{\color{magenta}per SNP heritability}}{\frac{\tau}{p}} + 1}$$
+\only<4>{
 where $p$ is the total number of SNPs.
 }
 
-\onslide<3>{
-We estimate the parameters by regressing the observed $\chi^{2}$ statistics on the reference LD scores $l_{j}$:
+\vfill
+\tiny
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014)
+
+## Baseline LD-score regression to measure polygenic heritability
+
+\large
+
+We can treat the relationships as a regression model
+and find the heritability parameters by regressing the observed $\chi^{2}$ statistics on the reference LD scores $l_{j}$:
 $$
 \left(
 \begin{array}{c}
@@ -1520,7 +1558,7 @@ $$
 \end{array}
 \right)
 \sim
-n 
+\frac{n}{p}
 \left(
 \begin{array}{l}
 l_{1} \\
@@ -1529,18 +1567,29 @@ l_{j} \\
 \vdots
 \end{array} 
 \right)
-\underset{\textsf{\color{magenta}per SNP heritability}}{\frac{\tau}{p}}
+\underset{\textsf{\color{magenta}per SNP heritability}}{\tau}
 + \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
 + \underset{\textsf{\color{teal} null}}{1}
 $$
-}
+
+If the intercept of $\{\chi^{2}_{j}\}$ deviate from $1$, we can interpret that the GWAS statistics are inflated by some unadjusted population structures or other confounding factors. 
 
 \vfill
 \tiny
 Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014)
 
 
-## Stratified LD-score regression
+## Stratified LD-score regression to partition (stratify) total heritability into multiple genomic annotations
+
+\vfill
+
+\centerline{\includegraphics[height=.4\textheight]{Vis/GWAS_herit_partition.pdf}}
+
+\vfill
+
+E.g., How much heritability of a disease is explained by tissue-specific epigenomic signals?
+
+## Stratified LD-score regression in math
 
 When genome is partitioned by annotations (e.g., epigenetic tracks)
 
@@ -1548,6 +1597,12 @@ $$\mathbb{E}\!\left[\chi^{2}_{j}\right] = \frac{n}{p} \sum_{t} l_{jt} \underset{
 + \underset{\textsf{\color{teal} null}}{1}$$
 where we use partitioned LD-scores for each annotation type $t$
 $$l_{jt} = \sum_{k} R^{2}_{jk} I\left\{ k \in \mathcal{A}_{t}\right\}.$$
+
+\only<2>{
+Instead of assuming a single parameter for the overall per-SNP heritability $\tau$, we can ``partition'' this total heritability into annotation-type-specific ones, $\{\tau_{t}\}$.
+}
+
+\onslide<3->{
 More explicitly,
 $$
 \left(
@@ -1560,14 +1615,16 @@ $$
 \right)
 \sim
 \frac{n}{p} 
+\underset{\textsf{\color{blue} stratified LD scores}}{
 \left(
 \begin{array}{l l l l}
 l_{11} & l_{12} & l_{1t}& \ldots \\
 & \vdots & & \\
 l_{j1} & l_{j2} & l_{jt}& \ldots \\
-\vdots
+& \vdots & & \\
 \end{array} 
 \right)
+}
 \underset{\textsf{\color{magenta} stratified heritability}}{
 \left(
 \begin{array}{c}
@@ -1581,13 +1638,16 @@ l_{j1} & l_{j2} & l_{jt}& \ldots \\
 + \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
 + \underset{\textsf{\color{teal} null}}{1}
 $$
+}
 \vfill
 \tiny
 Finucane *et al.*, \emph{Nature Genetics} (2015)
 
 ## Stratified LD-score regression can identify tissue-specific heritability enrichment
 
-\centerline{\includegraphics[height=.7\textheight]{Vis/sLDSC_GTEx.pdf}}
+\vfill
+
+\centerline{\includegraphics[height=.6\textheight]{Vis/sLDSC_GTEx.pdf}}
 
 \vfill
 \tiny
