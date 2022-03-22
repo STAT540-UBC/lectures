@@ -102,9 +102,10 @@ kg.url <-
          "20130606_sample_info.xlsx")
 
 kg.sample.file <- "Data/genotype/1KG.sample.xlsx"
-if(!file.exists(kg.sample.file)){
+if.needed(kg.sample.file,
+{
     download.file(kg.url, destfile = kg.sample.file)
-}
+})
 sample.info <- readxl::read_xlsx(kg.sample.file)
 ```
 
@@ -201,7 +202,7 @@ Using the minor allele frequency (MAF), let $f_{j}$ be a minor allele frequency 
 \begin{itemize}
 \item<1-> What is the mean of this variant?
 \onslide<2->{$$\hat{\mathbb{E}}\!\left[X_{j}\right] = 2 f_{j}$$}
-\item<3-> What is the variant of this variant?
+\item<3-> What is the variance of this variant?
 \onslide<4>{$$\hat{\mathbb{V}}\!\left[X_{j}\right] = 2 f_{j} (1 - f_{j})$$}
 \end{itemize}
 
@@ -377,16 +378,51 @@ u.dt <- data.table(.svd$u) %>%
 ::::::
 
 
-## Estimating population admixture using top 10k variants
+## Why do we study population structures in human genetics?
+
+\large
+
+- If there is no mutation/variation, there is no genetic association. 
+
+- Without knowing a macro-level dependency structures across cohorts, it is hard to dissect micro-level, perhaps disease-specific patterns.
+
+- *Causal inference*: It also serves as a natural way to stratify/divide cohorts in a population genetics study to edify causal relationships that hold invariantly across multiple strata.
+
+- *Precision health*: Characterization of population-invariant or specific variation is one of the first steps toward precision medicine.
+
+
+## An admixture model to identify hidden groups in a genotype matrix $X$
+
+$\mathsf{\color{blue} H}_{ik} \in (0,1)$: hidden (probabilistic) membership of an individual $i$ to a group $k$
+
+$\boldsymbol{\color{teal}\beta}_{kl} \in (0,1)$: a group $k$-specific allele frequency in a locus $l$.
+
+\vfill
+
+\only<1>{
+\centerline{\includegraphics[height=.6\textheight]{Vis/GWAS_pop_structure_data.pdf}}
+}
+
+\only<2>{
+\centerline{\includegraphics[height=.6\textheight]{Vis/GWAS_pop_structure_model.pdf}}
+}
+
+
+\vfill
+\tiny
+Related work: Pritchard, Stephens, Donnelly, *Genetics* (2000)
+
+## Population admixture learned from top 10k high MAF variants
 
 ```{r}
 out.file <- "result_1kg_topic.RDS"
 if.needed(out.file,
 {
     library(torch)
+    MY.DEV <- torch_device("cuda:1")
     torch_set_num_threads(16)
     idx <- order(maf) %>% tail(10000)
-    xx <- torch_tensor(X$genotypes[,idx])
+    xx <- torch_tensor(X$genotypes[,idx], device=MY.DEV)
 
     batch.size <- 128
     ntot <- nrow(xx)
@@ -396,6 +432,7 @@ if.needed(out.file,
     source("torch_etm_train.R")
     llik.vec <- c()
     etm <- build.geno.etm(ncol(xx), ncol(xx), 9, d = c(128,128,16))
+    etm$to(device=MY.DEV)
     opt <- optim_adam(etm$parameters, lr = 5e-3)
     for(tt in seq(0, 2000)){
         xx.t <- xx[sample(ntot, nn, TRUE), ]
@@ -414,22 +451,25 @@ if.needed(out.file,
         }
     }
 
+    CPU <- torch_device("cpu")
+
     etm$eval()
     out <- etm(xx)
-    Z <- as.matrix(out$z.mean)
+    Z <- as.matrix(out$z.mean$to(device=CPU))
 
     H <- 
         apply(Z, 1, function(zz) { exp(zz - max(zz)) }) %>%
         apply(2, function(pp) { pp/sum(pp) })
 
-    saveRDS(list(hidden=H, llik = llik.vec,
-                 weight=as.matrix(etm$dec$lbeta)),
+    W <- etm$dec$lbeta$to(device=CPU) %>% as.matrix()
+
+    saveRDS(list(hidden=H, llik=llik.vec, weight=W),
             file=out.file)
 })
 etm.out <- readRDS(out.file)
 ```
 
-A potential generative model:
+A generative model:
 
 :::::: {.columns}
 ::: {.column width=.6}
@@ -441,7 +481,7 @@ A potential generative model:
 - Genotype $X_{ij} | Z_{ij}=k$ $\sim$ topic-specific $\beta_{kj}$
 
 :::
-::: {.column width=.35}
+::: {.column width=.4}
 
 \large
 $$\mathcal{L} = \prod_{i=1}^{n}\prod_{j=1}^{\textsf{10k}} \left(\sum_{k=1}^{9} H_{ik} \beta_{kj}\right)^{X_{ij}}$$
@@ -451,7 +491,7 @@ $$\mathcal{L} = \prod_{i=1}^{n}\prod_{j=1}^{\textsf{10k}} \left(\sum_{k=1}^{9} H
 
 \vfill
 
-```{r fig.width=5.9, fig.height=1.2}
+```{r fig.width=5.5, fig.height=1.5}
 colnames(etm.out$hidden) <- X$fam$sample.ID
 
 .dt <- 
@@ -474,8 +514,8 @@ ggplot(.dt, aes(Var2, value, fill=as.factor(Var1))) +
     xlab(num.int(length(unique(.dt$Var2))) %&% " individuals") +
     ylab("topic proportion") +
     theme(title = element_text(size=8)) +
-    theme(axis.title = element_text(size=6)) +
-    theme(axis.text.y = element_text(size=4)) +
+    theme(axis.title = element_text(size=4)) +
+    theme(axis.text.y = element_text(size=2)) +
     theme(axis.text.x = element_blank()) +
     theme(axis.ticks.x = element_blank()) +
     theme(strip.text = element_text(size=4)) +
@@ -483,13 +523,23 @@ ggplot(.dt, aes(Var2, value, fill=as.factor(Var1))) +
     facet_grid(~Population, scales="free") +
     theme(panel.spacing = unit(.1, "lines")) +
     geom_bar(stat="identity") +
-    scale_fill_brewer("", palette="Paired", guide="none")
+    scale_fill_brewer("", palette="Paired", guide="none", direction=-1)
 
 ```
 
 \small
 
 Related work: Pritchard, Stephens, Donnelly, *Genetics* (2000)
+
+## What is the benefit of learning an admixture model in GWAS data?
+
+\large
+
+- Probabilistic interpretation of latent states
+
+- Bayesian missing data imputation
+
+- Potentially, a scalable approach for a biobank-scale data
 
 ## How do we deal with such a population structure in GWAS?
 

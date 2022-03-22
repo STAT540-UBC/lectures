@@ -89,7 +89,7 @@ build.geno.decoder <-
         classname = "Decoder",
         initialize = function(n.out, K, jitter = .1) {
             self$lbeta <- nn_parameter(torch_randn(K, n.out) * jitter)
-            self$beta <- nn_log_softmax(2) # topic x variant (softmax for each variant)
+            self$beta <- nn_log_softmax(2) # topic x variant (softmax for each topic)
             self$hid <- nn_log_softmax(2)  # sample x topic (softmax for each sample)
         },
         forward = function(zz) {
