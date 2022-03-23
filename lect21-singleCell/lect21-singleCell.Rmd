@@ -54,20 +54,134 @@ fig.dir <- "Fig/singleCell/"
 setup.env(fig.dir)
 dir.create("Data", showWarnings=FALSE)
 theme_set(theme_classic())
-```
-
-```{r}
 if(!require(mmutilR)) remotes::install_github("causalpathlab/mmutilR")
 ```
 
-# Technology
+# Single-cell sequencing technology
+
+## Droplet-based single-cell sequencing technology
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{Vis/dropseq_technology/dropseq1.pdf}}
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
+
+## Drop-seq idea 1: Capture one cell with a microbead in a droplet
+
+\vfill
+\centerline{\includegraphics[height=.7\textheight]{Vis/dropseq_technology/dropseq2.pdf}}
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
+
+## Drop-seq idea 2: Massively-parallel sequencing followed by cell-specific barcoding
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{Vis/dropseq_technology/dropseq3.pdf}}
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
 
 
+## Drop-seq idea 3: How single-cell barcodes distinguish transcripts from different cells
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{Vis/dropseq_technology/dropseq4.pdf}}
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
+
+
+## How do we construct millions of unique barcodes?
+
+\vfill
+
+\only<1>{
+\includegraphics[height=.5\textheight]{Vis/dropseq_technology/dropseq5.pdf}
+}
+
+\only<2>{
+\includegraphics[height=.5\textheight]{Vis/dropseq_technology/dropseq6.pdf}
+}
+
+\only<3>{
+\includegraphics[height=.55\textheight]{Vis/dropseq_technology/dropseq7.pdf}
+}
+
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
+
+## The lengths of barcode sequences determine data dimensionality
+
+\vfill
+
+
+:::::: {.columns}
+::: {.column width=.75}
+
+\centerline{\includegraphics[width=\linewidth]{Vis/dropseq_technology/dropseq8.pdf}}
+
+:::
+::: {.column width=.2}
+
+\begin{block}{}
+Technically, we can build up to a `r num.int(4^8)` $\times$ `r num.int(4^12)`, gene $\times$ cell expression matrix in one single-cell RNA-seq experiment.
+\end{block}
+
+:::
+::::::
+
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
+
+
+## Droplet-based single-cell sequencing pipeline
+
+\vfill
+\centerline{\includegraphics[width=.9\textwidth]{Vis/dropseq_technology/dropseq9.pdf}}
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
+
+## People love to see this high-dimensional data matrix in 2D/3D space
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\onslide<1->{
+\includegraphics[width=.9\linewidth]{Vis/scRNA_data_cartoon.pdf}
+}
+
+:::
+::: {.column width=.45}
+
+\onslide<2->{
+\includegraphics[width=.8\linewidth]{Vis/scRNA_data_cartoon_tSNE.pdf}
+}
+
+:::
+::::::
+
+\vfill
+
+
+\onslide<2->{
+\small
+\texttt{tSNE}: t-distributed Stochastic Neighbourhood Embedding (Van der Maaten \& Hinton, 2008).
+}
+\onslide<3>{
+\normalsize
+Is that it? \textbf{\color{teal} No, statisticians do much more than visualization!}
+}
 
 # Basic Data Q/C
 
 ## Single-cell RNA-seq data of human pancreatic cells
-
 
 ```{r}
 raw.data <- fileset.list("Data/GSE85241")
@@ -77,22 +191,28 @@ cell.index <- rcpp_mmutil_read_index(raw.data$idx)
 
 
 :::::: {.columns}
-::: {.column width=.5}
+::: {.column width=.45}
 
 \centerline{\includegraphics[height=.7\textheight]{Vis/Muraro_GSE85241.png}}
 
 :::
-::: {.column width=.5}
+::: {.column width=.45}
+
+$${}$$
 
 \large
 
 We will use scRNA-seq data (GEO accession: GSE85241) as a working example.
+
+$${}$$
 
 * genes/features/rows: `r num.int(.info$max.row)`
 
 * cells/columns: `r num.int(.info$max.col)`
 
 * non-zero elements: `r num.int(.info$max.elem)`
+
+* ~ `r round(100 * .info$max.elem / .info$max.col / .info$max.row)` % non-zero
 
 :::
 ::::::
@@ -143,7 +263,7 @@ gene.scores <- eda.out$gene
 cell.scores <- eda.out$cell
 ```
 
-## Statistics of genes across cells
+## Gene-level statistics across cells
 
 ```{r}
 .fit.kmeans.log1p <- function(val, k, ...) {
@@ -178,8 +298,7 @@ if.needed(.file,
 
 `nnz`: number of non-zero elements, `sd`: standard deviation, `cv`: coefficient of variation (`sd`/`mean`), `sum.sq`: sum of squares.
 
-## Can we drop any features?
-
+## Can we drop any genes?
 
 ```{r gene_qc_by_nnz_cv, message=FALSE, fig.width=5, fig.height=2.5}
 .dt <- melt(.genes[, .(name, nnz, cv, k)], id.vars=c("name","k"))
@@ -202,7 +321,7 @@ kk <- .clust.stat[`mean` > .1 & `cv` > 1, .(k)] %>% unlist
 
 ```{r}
 .selected <-
-    .genes[k %in% kk, .(name)] %>% 
+    .genes[k %in% kk, .(name)] %>%
     filter(!str_starts(name, "ERCC-")) %>%  # no spike-in controls
     unlist(use.names=FALSE)
 .selected.hdr <- str_c(fig.dir, "/selected")
@@ -234,7 +353,7 @@ if.needed(.file,
 ```
 
 
-## Statistics of cells across genes
+## Cell-level statistics across genes within each cell
 
 ```{r cell_qc, fig.width=5.8, fig.height=2.5}
 .dt <- melt(.cells, id.vars = c("name", "k"))
@@ -326,7 +445,7 @@ We may remove cells with too few non-zero elements (e.g., NNZ $<$ 1000).
 .qc.hdr <- str_c(fig.dir, "/qc_data")
 qc.data <- fileset.list(.qc.hdr)
 
-if.needed(qc.data, 
+if.needed(qc.data,
 {
     qc.data <-
         rcpp_mmutil_copy_selected_columns(raw.data$mtx,
@@ -341,9 +460,45 @@ if.needed(qc.data,
 ::::::
 
 
-# Data normalization
+# Data normalization across many batches
 
-## 
+##
+
+```{r}
+if.needed("Data/GSE131886_RAW.tar",
+{
+    options(timeout=1000)
+    .url <- "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE131886&format=file"
+    download.file(.url, "Data/GSE131886_RAW.tar")
+})
+
+dir.create("Data/GSE131886/", recursive = TRUE, showWarnings = FALSE)
+.hdrs <- "Data/GSE131886/" %&%
+    c("GSM3823985_HPD1_filtered_matrix",
+      "GSM3823986_HPD2_filtered_matrix",
+      "GSM3823987_HPD3_filtered_matrix")
+
+.mtx.files <- lapply(.hdrs, function(x) x %&% ".mtx.gz")
+
+if.needed(.mtx.files,
+{
+    untar("Data/GSE131886_RAW.tar", exdir="Data/GSE131886")
+})
+```
+
+
+```{r}
+
+mmutilR::rcpp_mmutil_merge_file_sets
+
+
+features <- 
+
+fread("Data/GSE131886/GSM3823986_HPD2_filtered_features.tsv.gz", header=FALSE)
+
+fread("Data/GSE131886/GSM3823986_HPD2_filtered_barcodes.tsv.gz", header=FALSE)
+
+```
 
 
 # Latent topic modelling
@@ -354,6 +509,14 @@ if.needed(qc.data,
 
 
 # Doublet detection in single-cell data
+
+## scRNA-seq pipeline: What if we capture more than one cell in a droplet?
+
+\vfill
+\centerline{\includegraphics[width=.9\textwidth]{Vis/dropseq_technology/dropseq9.pdf}}
+\vfill
+\tiny
+Macosko \textit{et al.}, \emph{Cell} (2015)
 
 ## What is a doublet in single-cell data?
 
@@ -441,8 +604,16 @@ dbl.eda <- run.eda(doublet.data$mtx,
                    str_c(fig.dir, "/dbl_eda.RDS"))
 ```
 
-## Can you tell the difference by a quick visual inspection?
+## k-Nearest Neighbour classification for doublet detection
 
+\vfill
+
+\centerline{\includegraphics[width=.9\textwidth]{Vis/doublet_knn.pdf}}
+
+\vfill
+\tiny
+
+## Can you tell the difference by a quick visual inspection?
 
 ```{r fig.width=3, fig.height=2.5, echo = FALSE, only.plot=1}
 .dt <- copy(dbl.eda$pca)
@@ -491,7 +662,6 @@ dbl.eda <- run.eda(doublet.data$mtx,
 
 > Can we design a classifier to distinguish singlets vs. doublets?
 
-
 ## k-Nearest Neighbour classification for doublet detection
 
 \large
@@ -534,12 +704,12 @@ if.needed(.knn.file,
 
 .tgt.cells <-
   fread(doublet.data$col, col.names="cell", header=FALSE) %>%
-  mutate(doublet = str_detect(cell, "[+]")) %>% 
+  mutate(doublet = str_detect(cell, "[+]")) %>%
   mutate(tgt.index = 1:n()) %>% as.data.table
 
 knn.dt <- readRDS(.knn.file) %>%
-  merge(.src.cells) %>% 
-  merge(.tgt.cells, by="tgt.index", suffixes = c(".src", ".tgt")) %>% 
+  merge(.src.cells) %>%
+  merge(.tgt.cells, by="tgt.index", suffixes = c(".src", ".tgt")) %>%
   select(cell.src, cell.tgt, dist, doublet) %>%
   as.data.table()
 ```
@@ -559,7 +729,7 @@ There is a principal component that can set apart hidden doublets from the most 
 :::
 ::: {.column width=.48}
 
-```{r echo=FALSE, fig.width=2.5, fig.height=2, only.plot=1}
+```{r fig.width=2.5, fig.height=2, only.plot=1}
 .dt <- .dbl.dt %>%
   arrange(`P`) %>%
   mutate(i = 1:n())
@@ -572,9 +742,9 @@ There is a principal component that can set apart hidden doublets from the most 
     geom_point(stroke=0)
 ```
 
-```{r echo=FALSE, fig.width=2.5, fig.height=2.2, only.plot=2}
+```{r fig.width=2.5, fig.height=2.2, only.plot=2}
 .dt <- eda.out$tsne %>%
-    merge(eda.out$cell) %>% 
+    merge(eda.out$cell) %>%
     merge(.dbl.dt, by.x="name", by.y="cell.src") %>%
     na.omit
 
@@ -588,9 +758,9 @@ There is a principal component that can set apart hidden doublets from the most 
     xlab("tSNE1") + ylab("tSNE2")
 ```
 
-```{r echo=FALSE, fig.width=2.5, fig.height=2, only.plot=3}
+```{r fig.width=2.5, fig.height=2, only.plot=3}
 .dt <- eda.out$pca %>%
-    merge(eda.out$cell) %>% 
+    merge(eda.out$cell) %>%
     merge(.dbl.dt, by.x="name", by.y="cell.src") %>%
     na.omit
 
@@ -604,18 +774,18 @@ There is a principal component that can set apart hidden doublets from the most 
     xlab("PC1") + ylab("PC2")
 ```
 
-```{r echo=FALSE, fig.width=2.5, fig.height=2, only.plot=4}
+```{r fig.width=2.5, fig.height=2, only.plot=4}
 .gg.plot(.dt, aes(V3, V4, fill=`P`)) +
     geom_point(size=1, stroke=.1, pch=21) +
     scale_fill_distiller("P", palette="YlGnBu",direction=1) +
-    theme(legend.position = c(0,0)) +
-    theme(legend.justification = c(0,0)) +
+    theme(legend.position = c(0,1)) +
+    theme(legend.justification = c(0,1)) +
     theme(legend.key.width = unit(.2,"lines"))+
     theme(legend.key.height = unit(.3,"lines"))+
     xlab("PC3") + ylab("PC4")
 ```
 
-```{r echo=FALSE, fig.width=2.5, fig.height=2, only.plot=5}
+```{r fig.width=2.5, fig.height=2, only.plot=5}
 .gg.plot(.dt, aes(V5, V6, fill=`P`)) +
     geom_point(size=1, stroke=.1, pch=21) +
     scale_fill_distiller("P", palette="YlGnBu",direction=1) +
@@ -628,3 +798,367 @@ There is a principal component that can set apart hidden doublets from the most 
 :::
 ::::::
 
+## Artificial Neural Network-based classification for doublet detection
+
+\vfill
+
+\centerline{\includegraphics[width=.9\textwidth]{Vis/doublet_ann.pdf}}
+
+\vfill
+
+## Training a parametric classifier to discern doublets vs. singlets
+
+```{r echo = FALSE}
+library(torch)
+torch_set_num_threads(8)
+```
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\large
+
+$$f: \mathbf{x}_{i} \to y_{i},\, y \in \{ 0, 1 \}$$
+
+```{r echo=TRUE, size="tiny"}
+build.classifier <-
+    nn_module(
+        classname = "classfier",
+        initialize = function(d, k = 5) {
+            self$fc <- nn_sequential(
+                nn_batch_norm1d(d),
+                nn_linear(d, k),
+                nn_batch_norm1d(k),
+                nn_relu(),
+                nn_linear(k, 2 * k),
+                nn_batch_norm1d(2 * k),
+                nn_relu(),
+                nn_linear(2 * k, 1),
+                nn_sigmoid())
+        },
+        forward = function(x, min_=.01, max_=.99) {
+            torch_clamp(self$fc(x), min_, max_)
+        })
+```
+
+:::
+::: {.column width=.5}
+
+$$\prod_{i=1}^{n} f(\mathbf{x}_{i})^{y_{i}} (1 - f(\mathbf{x}_{i}))^{1 - y_{i}}$$
+
+```{r echo = FALSE}
+llik <- function(y.hat, y) {
+    torch_sum(
+        y * torch_log(y.hat) +
+        (-y + 1) * torch_log1p(-y.hat),
+        dim = -1)
+}
+```
+
+```{r echo = FALSE}
+.model.file <- str_c(fig.dir, "/nn_model.torch")
+.train.file <- str_c(fig.dir, "/nn_train.RDS")
+.files <- c(.model.file, .train.file)
+
+if.needed(.files,
+{
+
+    X <-
+        t(read.dense(doublet.data$mtx)) # cell x gene
+    is.doublet <-
+        function(x) str_detect(x, "[+]")
+    y <-
+        .readv(doublet.data$col) %>%
+        sapply(is.doublet) %>%
+        as.numeric %>%
+        as.matrix
+
+    xx <- torch_tensor(X)
+    yy <- torch_tensor(y)
+    nn <- nrow(xx)
+    p <- ncol(xx)
+    k.fold <- 5
+
+    .test <- which(sample(k.fold, nn, replace=TRUE) == 1)
+    .train <- setdiff(1:nn, .test)
+    n.test <- length(.test)
+    n.train <- length(.train)
+
+    y.model <- build.classifier(p)
+    opt <- optim_adam(y.model$parameters, lr = 1e-2)
+    batch.size <- 100
+
+    max.iter <- 500
+    train.loss.vec <- rep(NA, max.iter)
+    test.loss.vec <- rep(NA, max.iter)
+
+    for(ii in 1:max.iter){
+        .rand <- .train[sample(n.train, batch.size)]
+        xx.b <- xx[.rand, ]
+        yy.b <- yy[.rand, ]
+        opt$zero_grad()
+        y.hat <- y.model(xx.b)
+        loss <- torch_mean(-llik(y.hat, yy.b))
+        loss$backward()
+        opt$step()
+
+        .rand <- .test[sample(n.test, batch.size)]
+        xx.b <- xx[.rand, ]
+        yy.b <- yy[.rand, ]
+        y.hat <- y.model(xx.b)
+        loss.test <- torch_mean(-llik(y.hat, yy.b))
+
+        train.loss.vec[ii] <- loss$item()
+        test.loss.vec[ii] <- loss.test$item()
+        cat("iter: ", ii,
+            ", train:", train.loss.vec[ii],
+            ", test:", test.loss.vec[ii],
+            "\r")
+    }
+
+    total.pred <- as.numeric(y.model(xx))
+    torch_save(y.model, .model.file)
+    saveRDS(list(train.loss = train.loss.vec,
+                 test.loss = test.loss.vec,
+                 pred = total.pred),
+            .train.file)
+
+})
+```
+
+```{r fig.width=2.2, fig.height=2, only.plot="2"}
+train.result <- readRDS(.train.file)
+.dt <-
+    data.table(train = train.result$train.loss,
+               test = train.result$test.loss) %>%
+    mutate(iteration = 1:n()) %>%
+    melt(id.vars = "iteration", value.name="-log-likelihood") %>%
+    arrange(`-log-likelihood`)
+
+.aes <- aes(`iteration`, `-log-likelihood`, shape=variable, colour=variable)
+
+.gg.plot(.dt, .aes) +
+    geom_point(stroke=0, alpha=.8) +
+    theme(legend.position = c(1,1)) +
+    theme(legend.justification = c(1,1)) +
+    theme(legend.key.width = unit(.2,"lines"))+
+    theme(legend.key.height = unit(.2,"lines"))+
+    scale_colour_manual(values=c("gray", "gray20"))
+
+```
+
+```{r echo = FALSE}
+.class.file <- str_c(fig.dir, "/nn_classification.RDS")
+if(!file.exists(.class.file)) {
+    y.model <- torch_load(.model.file)
+    X <- t(read.dense(raw.data$mtx))
+    y <- y.model(torch_tensor(X)) %>%
+        as.numeric()
+    saveRDS(y, .class.file)
+}
+y <- readRDS(.class.file)
+```
+
+```{r fig.width=2.2, fig.height=2, only.plot=3}
+pred.dt <-
+    data.table(`name` = .readv(raw.data$col),
+               `doublet` = y) %>%
+    mutate(dbl.bin = round(`doublet` * 5)/5)
+
+.dt <- eda.out$tsne %>%
+    merge(eda.out$cell) %>%
+    merge(pred.dt) %>%
+    arrange(doublet) %>%
+    na.omit
+
+.gg.plot(.dt, aes(V1, V2, fill=`doublet`)) +
+    geom_point(stroke=.1, pch=21, size=1, alpha=.8) +
+    scale_fill_distiller(palette="YlGnBu",direction=1) +
+    theme(legend.position = c(1,1)) +
+    theme(legend.justification = c(1,1)) +
+    theme(legend.key.width = unit(.2,"lines"))+
+    theme(legend.key.height = unit(.3,"lines"))+
+    xlab("tSNE1") + ylab("tSNE2")
+
+```
+
+:::
+::::::
+
+
+## The predicted doublets generally correspond to cells with few non-zero elements
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r fig.width=2.2, fig.height=2}
+.aes <- aes(as.factor(dbl.bin), nnz)
+
+.gg.plot(.dt, .aes) +
+    ylab("number of non-zero elements") +
+    xlab("predicted Pr(doublet)") +
+    geom_violin(aes(fill=dbl.bin)) +
+    scale_fill_distiller(palette="YlGnBu", direction=1, guide="none") +
+    geom_boxplot(width=.1, outlier.stroke = 0, outlier.size = 0)
+```
+
+:::
+::: {.column width=.45}
+
+```{r fig.width=2.2, fig.height=2}
+.aes <- aes(as.factor(dbl.bin), `sd`)
+
+.gg.plot(.dt, .aes) +
+    ylab("standard deviation") +
+    xlab("predicted Pr(doublet)") +
+    geom_violin(aes(fill=dbl.bin)) +
+    scale_fill_distiller(palette="YlGnBu", direction=1, guide="none") +
+    geom_boxplot(width=.1, outlier.stroke = 0, outlier.size = 0)
+```
+
+:::
+::::::
+
+Low expression within a cell may stem from unwanted burst-out cells or ambient RNA molecules.
+
+## The predicted doublets generally correspond to cells with few non-zero elements
+
+```{r fig.width=3, fig.height=2.5}
+
+p1 <-
+    .gg.plot(.dt, aes(doublet)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.title.x = element_blank()) +
+    geom_histogram() +
+    geom_vline(xintercept = .75, lty = 2, colour="red", size=.5)
+
+.aes <- aes(doublet, nnz)
+
+p2 <-
+    .gg.plot(.dt, .aes) +
+    geom_hex(colour="black", size=.1) +
+    geom_vline(xintercept = .75, lty = 2, colour="red", size=.5) +
+    geom_hline(yintercept = 1000, lty = 2, colour="red", size=.5) +
+    scale_fill_distiller(palette="YlGnBu", trans="log10", direction=1) +
+    scale_y_log10() +
+    theme(legend.position = "right") +
+    theme(legend.key.width = unit(.2,"lines"))+
+    theme(legend.key.height = unit(.5,"lines"))+
+    ylab("number of non-zero\nelements") +
+    xlab("predicted Pr(doublet)")
+
+wrap_plots(p1, p2, heights=c(1, 2))
+```
+
+## After removing potential doublets
+
+:::::: {.columns}
+::: {.column width=.5}
+
+* All the cells
+
+```{r echo=FALSE, fig.width=2, fig.height=2, only.plot=1}
+
+.gg.plot(.dt, aes(V1, V2, fill=`doublet`)) +
+    geom_point(stroke=.1, pch=21, size=1, alpha=.8) +
+    scale_fill_distiller(palette="YlGnBu",direction=1, guide="none") +
+    theme(legend.position = c(1,1)) +
+    theme(legend.justification = c(1,1)) +
+    theme(legend.key.width = unit(.2,"lines"))+
+    theme(legend.key.height = unit(.3,"lines"))+
+    xlab("tSNE1") + ylab("tSNE2")
+
+```
+
+:::
+::: {.column width=.5}
+
+* P(doublet) < .75, \#non-zeros > 1k
+
+```{r echo=FALSE, fig.width=2, fig.height=2}
+
+.gg.plot(.dt[doublet < .75 & nnz > 1000], aes(V1, V2)) +
+    geom_point(stroke=.1, colour="gray", size=1, alpha=.8) +
+    theme(legend.position = c(1,1)) +
+    theme(legend.justification = c(1,1)) +
+    theme(legend.key.width = unit(.2,"lines"))+
+    theme(legend.key.height = unit(.3,"lines"))+
+    xlab("tSNE1") + ylab("tSNE2")
+
+```
+
+:::
+::::::
+
+
+
+## Maybe it is more than just low expression cells
+
+:::::: {.columns}
+::: {.column width=.5}
+
+* \#non-zeros > 1k
+
+```{r echo=FALSE, fig.width=2, fig.height=2.1}
+
+.dt.2 <- .dt %>%
+    filter(nnz > 1000) %>%
+    mutate(doublet = (doublet > .75)) %>%
+    arrange(doublet)
+
+.gg.plot(.dt.2, aes(V1, V2, colour=doublet)) +
+    geom_point(stroke=.1, size=1, alpha=.8) +
+    scale_colour_manual(values=c("gray", "red")) +
+    theme(legend.position = c(1,1)) +
+    theme(legend.justification = c(1,1)) +
+    theme(legend.key.width = unit(.2,"lines"))+
+    theme(legend.key.height = unit(.3,"lines"))+
+    xlab("tSNE1") + ylab("tSNE2")
+
+```
+
+
+:::
+::: {.column width=.5}
+
+* P(doublet) < .75, \#non-zeros > 1k
+
+```{r echo=FALSE, fig.width=2, fig.height=2}
+
+.gg.plot(.dt[doublet < .75 & nnz > 1000], aes(V1, V2)) +
+    geom_point(stroke=.1, colour="gray", size=1, alpha=.8) +
+    theme(legend.position = c(1,1)) +
+    theme(legend.justification = c(1,1)) +
+    theme(legend.key.width = unit(.2,"lines"))+
+    theme(legend.key.height = unit(.3,"lines"))+
+    xlab("tSNE1") + ylab("tSNE2")
+
+```
+
+:::
+::::::
+
+
+## Discussion on doublet Q/C
+
+\Large
+
+* It's a unique routine in single-cell sequencing data analysis
+
+* Do we need it in practice? How frequently doublets emerge?
+
+* Perhaps a majority of them simply stem from "dying" cells or broken cells... If so, we can just filter out low-expressed cells.
+
+# Other topics
+
+## Other interesting topics in scRNA-seq analysis
+
+\Large
+
+1. Differential expression analysis
+
+2. RNA velocity and pseudo-time analysis
+
+3. Multiomics data integration
+
+4. Spatial transcriptomics

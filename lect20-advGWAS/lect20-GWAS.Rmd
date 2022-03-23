@@ -241,7 +241,7 @@ ggplot(data.table(MAF=maf), aes(MAF)) +
 
 ## Much of human genetics problems centre on two covariance matrices
 
-For a standardized $n \times p$ genotype matrix $X$,
+For a standardized $n \times p$ genotype matrix $X$ ($n$: \#individuals, $p$: \#SNPs),
 
 :::::: {.columns}
 ::: {.column width=.48}
@@ -249,7 +249,7 @@ For a standardized $n \times p$ genotype matrix $X$,
 ::: {.block}
 ### 1. Genetic relatedness matrix (GRM)
 
-a $n \times n$ matrix 
+individual by individual, $n \times n$ matrix
 
 $$K \approx XX^{\top}/n$$
 
@@ -267,7 +267,7 @@ The matrix $K$ captures population structure/correlation across different indivi
 ::: {.block}
 ### 2. Linkage disequilibrium (LD)
 
-a $p \times p$ matrix 
+SNP by SNP, $p \times p$ matrix 
 
 $$R \approx X^{\top}X/n$$
 
@@ -524,7 +524,6 @@ ggplot(.dt, aes(Var2, value, fill=as.factor(Var1))) +
     theme(panel.spacing = unit(.1, "lines")) +
     geom_bar(stat="identity") +
     scale_fill_brewer("", palette="Paired", guide="none", direction=-1)
-
 ```
 
 \small
@@ -829,7 +828,7 @@ Zhou, Carbonetto, Stephens, \emph{PLoS Genetics} (2014)
 
 ## Much of human genetics problems centre on two covariance matrices
 
-For a standardized $n \times p$ genotype matrix $X$,
+For a standardized $n \times p$ genotype matrix $X$ ($n$: \#individuals, $p$: \#SNPs),
 
 :::::: {.columns}
 ::: {.column width=.48}
@@ -837,7 +836,7 @@ For a standardized $n \times p$ genotype matrix $X$,
 ::: {.block}
 ### 1. Genetic relatedness matrix (GRM)
 
-a $n \times n$ matrix 
+individual by individual, $n \times n$ matrix
 
 $$K \approx XX^{\top}/n$$
 
@@ -855,7 +854,7 @@ The matrix $K$ captures population structure/correlation across different indivi
 ::: {.block}
 ### 2. Linkage disequilibrium (LD)
 
-a $p \times p$ matrix 
+SNP by SNP, $p \times p$ matrix 
 
 $$R \approx X^{\top}X/n$$
 
@@ -1390,10 +1389,136 @@ where $\alpha_{g}$ = multivariate eQTL for a gene $g$.
 :::
 ::::::
 
+## TWAS is a special case of Mendelian Randomization
+
+\vfill
+
+\centerline{\includegraphics[height=.3\textheight]{Vis/TWAS_MR_Egger/MR_model.pdf}}
+
+\vfill
+
+- TWAS is a gene-by-gene MR with no "pleiotropic" effect.
+
+- But TWAS is initially designed to handle local LD structures
+
+\vfill
+\tiny
+Burgess and Thompson, \emph{Eur J Epidemiol} (2018)
+
+## TWAS may lead to a false conclusion 
+
+- If there is a pleiotropic (direct) effect, not going through a risk factor of interest (e.g., gene)...
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\onslide<1->{
+\includegraphics[width=\linewidth]{Vis/TWAS_MR_Egger/IVW_simulated.pdf}
+}
+
+:::
+::: {.column width=.35}
+
+\only<1>{
+$${}$$
+In a TWAS example:
+\begin{itemize}
+\item x-axis: eQTL effect sizes
+\item y-axis: GWAS effect sizes
+\end{itemize}
+
+}
+
+\only<2>{
+\includegraphics[width=\linewidth]{Vis/TWAS_MR_Egger/IVW_urea_CAD.pdf}
+}
+
+:::
+::::::
+
+
+\vfill
+\tiny
+Burgess and Thompson, \emph{Eur J Epidemiol} (2018)
+
+## MR-Egger regression is meant to handle unidirectional pleiotropy
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.25}
+
+- Compare two types of genetic effect sizes
+
+- Allow intercept in the scatter plot
+
+:::
+::: {.column width=.5}
+
+\includegraphics[width=\linewidth]{Vis/TWAS_MR_Egger/MR_Egger_original.pdf}
+
+:::
+::: {.column width=.25}
+
+InSIDE: Instrument Strength Independent of Direct Effect.
+
+(E.g., eQTL effects are not affected by unknown direct effects)
+
+:::
+::::::
+
+
+\vfill
+\tiny
+
+Bowden, Davey Smith, Burgess, \emph{Int J Epidemiol} (2015)
+
+## Summary-based aggregation is an active research problem in MR research
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.2}
+
+$${}$$
+
+*CHD*: Coronary Heart Disease
+
+$${}$$
+
+\small
+
+x-axis: LDL-cholesterol GWAS
+
+y-axis: CHD GWAS
+
+:::
+::: {.column width=.5}
+
+\includegraphics[width=\linewidth]{Vis/TWAS_MR_Egger/MR_Egger_Mixture.pdf}
+
+:::
+::: {.column width=.3}
+
+$${}$$
+
+- We could have multiple regression lines in MR studies. 
+
+- Recall a mixture of regression models.
+
+:::
+::::::
+
+\vfill
+\tiny
+
+Burgess, \textit{et al.}, \emph{Nature Communications} (2020)
 
 ## 
 
-For a standardized $n \times p$ genotype matrix $X$,
+For a standardized $n \times p$ genotype matrix $X$ ($n$: \#individuals, $p$: \#SNPs),
 
 :::::: {.columns}
 ::: {.column width=.48}
@@ -1401,7 +1526,7 @@ For a standardized $n \times p$ genotype matrix $X$,
 ::: {.block}
 ### 1. Genetic relatedness matrix (GRM)
 
-a $n \times n$ matrix 
+individual by individual, $n \times n$ matrix
 
 $$K \approx XX^{\top}/n$$
 
@@ -1419,7 +1544,7 @@ The matrix $K$ captures population structure/correlation across different indivi
 ::: {.block}
 ### 2. Linkage disequilibrium (LD)
 
-a $p \times p$ matrix 
+SNP by SNP, $p \times p$ matrix 
 
 $$R \approx X^{\top}X/n$$
 
