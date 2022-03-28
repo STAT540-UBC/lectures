@@ -84,16 +84,15 @@ Macosko \textit{et al.}, \emph{Cell} (2015)
 Macosko \textit{et al.}, \emph{Cell} (2015)
 
 
-## Drop-seq idea 3: How single-cell barcodes distinguish transcripts from different cells
+## Drop-seq idea 3: How do we keep track of mRNA short reads' membership to a certain droplet?
 
 \vfill
-\centerline{\includegraphics[width=\textwidth]{Vis/dropseq_technology/dropseq4.pdf}}
+\centerline{\includegraphics[width=.9\textwidth]{Vis/dropseq_technology/dropseq4.pdf}}
 \vfill
 \tiny
 Macosko \textit{et al.}, \emph{Cell} (2015)
 
-
-## How do we construct millions of unique barcodes?
+## How do we construct millions of unique barcodes? Use DNA as a hashing function!
 
 \vfill
 
@@ -116,7 +115,6 @@ Macosko \textit{et al.}, \emph{Cell} (2015)
 ## The lengths of barcode sequences determine data dimensionality
 
 \vfill
-
 
 :::::: {.columns}
 ::: {.column width=.75}
@@ -174,21 +172,130 @@ Macosko \textit{et al.}, \emph{Cell} (2015)
 \small
 \texttt{tSNE}: t-distributed Stochastic Neighbourhood Embedding (Van der Maaten \& Hinton, 2008).
 }
-\onslide<3>{
-\normalsize
-Is that it? \textbf{\color{teal} No, statisticians do much more than visualization!}
+
+## SNE: What is "stochastic neighbourhood embedding?"
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.6}
+
+$${}$$
+
+\includegraphics[width=\linewidth]{Vis/scRNA_ETM/tSNE.pdf}
+
+:::
+::: {.column width=.35}
+
+$${}$$
+
+\small
+
+\onslide<1->{
+\begin{itemize}
+\item $p_{ij}$: probability between cells $i$ and $j$ in the original high-dimensional space
+\end{itemize}
+$p_{ij} \propto \exp(\|\mathbf{x}_{i} - \mathbf{x}_{j}\|^{2}/2\sigma^{2})$
 }
+
+\onslide<2->{
+\begin{itemize}
+\item $q_{ij}$: probability between cells $i$ and $j$ in the embedded low-dimensional space
+\end{itemize}
+$q_{ij} \propto \exp(\|\mathbf{y}_{i} - \mathbf{y}_{j}\|^{2}/2\sigma^{2})$
+}
+
+:::
+::::::
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\onslide<3->{
+\textbf{\color{teal} Goal}: make pairwise probabilities between cells in the observed and latent space as close as possible.
+}
+
+:::
+::: {.column width=.5}
+
+\onslide<4->{
+
+$$\min D_{\textsf{KL}}\left(p_{ij}\| q_{ij}\right)=\sum_{ij} p_{ij} \frac{p_{ij}}{q_{ij}}$$
+}
+
+:::
+::::::
+
+
+## tSNE: What is t-distributed "stochastic neighbourhood embedding?"
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\includegraphics[width=\linewidth]{Vis/scRNA_ETM/tSNE.pdf}
+
+:::
+::: {.column width=.35}
+
+\small
+
+* $p_{ij}$: probability between cells $i$ and $j$ in the original high-dimensional space
+
+$p_{ij} \propto \exp(\|\mathbf{x}_{i} - \mathbf{x}_{j}\|^{2}/2\sigma^{2})$
+
+* $q_{ij}$: probability between cells $i$ and $j$ in the embedded low-dimensional space
+
+${\color{red} q_{ij} \propto \left(1 + \|\mathbf{y}_{i} - \mathbf{y}_{j}\|^{2} \right)^{-1}}$
+
+:::
+::::::
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Goal**: make pairwise probabilities between cells in the observed and latent space as close as possible.
+
+:::
+::: {.column width=.5}
+
+$$\min D_{\textsf{KL}}\left(p_{ij}\| q_{ij}\right)=\sum_{ij} p_{ij} \frac{p_{ij}}{q_{ij}}$$
+
+:::
+::::::
+
+## Warning: Don't make over-interpretation on embedding results
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{Vis/scRNA_ETM/tSNE_over.pdf}}
+\vfill
+
+\tiny
+
+Kobak and Berens, \emph{Nature Biotech} (2021)
+
+Check out these papers:
+
+[Initialization is critical for preserving global data structure in both t-SNE and UMAP](https://www.nature.com/articles/s41587-020-00809-z)
+
+[The art of using t-SNE for single-cell transcriptomics](https://www.nature.com/articles/s41467-019-13056-x)
+
+[Dimensionality reduction for visualizing single-cell data using UMAP](https://www.nature.com/articles/nbt.4314)
 
 # Basic Data Q/C
 
-## Single-cell RNA-seq data of human pancreatic cells
+## Example: single-cell RNA-seq data of human pancreatic cells
 
 ```{r}
 raw.data <- fileset.list("Data/GSE85241")
 .info <- rcpp_mmutil_info(raw.data$mtx)
 cell.index <- rcpp_mmutil_read_index(raw.data$idx)
 ```
-
 
 :::::: {.columns}
 ::: {.column width=.45}
@@ -458,54 +565,6 @@ if.needed(qc.data,
 
 :::
 ::::::
-
-
-# Data normalization across many batches
-
-##
-
-```{r}
-if.needed("Data/GSE131886_RAW.tar",
-{
-    options(timeout=1000)
-    .url <- "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE131886&format=file"
-    download.file(.url, "Data/GSE131886_RAW.tar")
-})
-
-dir.create("Data/GSE131886/", recursive = TRUE, showWarnings = FALSE)
-.hdrs <- "Data/GSE131886/" %&%
-    c("GSM3823985_HPD1_filtered_matrix",
-      "GSM3823986_HPD2_filtered_matrix",
-      "GSM3823987_HPD3_filtered_matrix")
-
-.mtx.files <- lapply(.hdrs, function(x) x %&% ".mtx.gz")
-
-if.needed(.mtx.files,
-{
-    untar("Data/GSE131886_RAW.tar", exdir="Data/GSE131886")
-})
-```
-
-
-```{r}
-
-mmutilR::rcpp_mmutil_merge_file_sets
-
-
-features <- 
-
-fread("Data/GSE131886/GSM3823986_HPD2_filtered_features.tsv.gz", header=FALSE)
-
-fread("Data/GSE131886/GSM3823986_HPD2_filtered_barcodes.tsv.gz", header=FALSE)
-
-```
-
-
-# Latent topic modelling
-
-
-## Embedded Topic Model
-
 
 
 # Doublet detection in single-cell data
@@ -926,7 +985,7 @@ if.needed(.files,
 })
 ```
 
-```{r fig.width=2.2, fig.height=2, only.plot="2"}
+```{r fig.width=2.5, fig.height=2, only.plot="2"}
 train.result <- readRDS(.train.file)
 .dt <-
     data.table(train = train.result$train.loss,
@@ -959,7 +1018,7 @@ if(!file.exists(.class.file)) {
 y <- readRDS(.class.file)
 ```
 
-```{r fig.width=2.2, fig.height=2, only.plot=3}
+```{r fig.width=2.5, fig.height=2, only.plot=3}
 pred.dt <-
     data.table(`name` = .readv(raw.data$col),
                `doublet` = y) %>%
@@ -1149,9 +1208,1062 @@ wrap_plots(p1, p2, heights=c(1, 2))
 
 * Perhaps a majority of them simply stem from "dying" cells or broken cells... If so, we can just filter out low-expressed cells.
 
-# Other topics
 
-## Other interesting topics in scRNA-seq analysis
+# Data normalization across many batches
+
+
+## Batch normalization for joint analysis across multiple single-cell RNA-seq data
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.75}
+
+\centerline{
+\includegraphics[width=\linewidth]{Vis/scRNA_normalization/scanorama.pdf}
+}
+
+:::
+::: {.column width=.2}
+
+$${}$$
+
+How do we integrate multiple samples/batches?
+
+$${}$$
+
+**Scanorama**: mutual nearest neighbourhood-based data integration
+
+:::
+::::::
+
+\vfill
+\tiny
+Hie, Bryson, Berger \emph{Nature Biotechnology} (2019)
+
+## Batch normalization aims to minimize the difference between nearest cells across different batches
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+\only<1-2>{\centerline{\includegraphics[width=\linewidth]{Vis/scRNA_normalization/mutual_neighbour1.pdf}}}
+
+:::
+::: {.column width=.45}
+
+\only<2>{\centerline{\includegraphics[width=\linewidth]{Vis/scRNA_normalization/mutual_neighbour2.pdf}}}
+
+:::
+::::::
+
+\only<3>{\centerline{\includegraphics[width=.8\linewidth]{Vis/scRNA_normalization/mutual_neighbour3.pdf}}}
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\only<4>{
+\centerline{\includegraphics[width=\linewidth]{Vis/scRNA_normalization/mutual_neighbour4.pdf}}
+}
+
+\only<5>{
+\centerline{\includegraphics[width=\linewidth]{Vis/scRNA_normalization/mutual_neighbour5.pdf}}
+}
+
+:::
+::: {.column width=.45}
+
+\only<4-5>{
+What is the gap $\Delta$ between the batches?
+
+$$\min_{\Delta} \sum_{a,b} W_{ab} \| \mathbf{x}_{a} - \mathbf{x}_{b} - \Delta\|_{2}$$
+}
+
+\only<4>{
+Assume that the similarity between cells
+$$0 \approx W_{ac} < W_{ab}$$
+}
+
+\only<5>{
+Fixed point (local) optimal solution:
+$$\Delta \gets \frac{\sum_{a,b} W_{ab}(\mathbf{x}_{a} - \mathbf{x}_{a})}{\sum_{b} W_{ab}}$$
+}
+
+:::
+::::::
+
+\vfill
+\tiny
+Haghverdi, .., and Marioni, \emph{Nature Biotechnology} (2018)
+
+## A batch-balancing k-nearest neighbour graph
+
+BBKNN method strikes balance between over- and under-normalization
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.75}
+
+\only<1>{\includegraphics[width=\linewidth]{Vis/scRNA_normalization/bbknn1.pdf}}
+
+:::
+::: {.column width=.2}
+
+\only<1>{
+What kind of differences in due to inter-batch, technical discrepancy, not inter-cell-type divergence?
+}
+
+:::
+::::::
+
+
+\only<2>{\centerline{\includegraphics[width=.8\linewidth]{Vis/scRNA_normalization/bbknn2.pdf}}}
+\only<3>{\centerline{\includegraphics[width=.8\linewidth]{Vis/scRNA_normalization/bbknn3.pdf}}}
+
+\vfill
+\tiny
+Polanski, .., Teichmann \emph{Bioinformatics} (2019)
+
+## Harmony: clustering-based data normalization
+
+\vfill
+\centerline{
+\onslide<1->{\includegraphics[width=.23\linewidth]{Vis/scRNA_normalization/harmony1.pdf}}
+\onslide<2->{$\to$\includegraphics[width=.23\linewidth]{Vis/scRNA_normalization/harmony2.pdf}}
+\onslide<3->{$\to$\includegraphics[width=.23\linewidth]{Vis/scRNA_normalization/harmony3.pdf}}
+\onslide<4>{$\to$\includegraphics[width=.23\linewidth]{Vis/scRNA_normalization/harmony4.pdf}}
+}
+\vfill
+\tiny
+Korsunsky, .., Loh, Raychaudhuri \emph{Nature Methods} (2019)
+
+
+## Example: another scRNA-seq data on human pancreatic islet cells
+
+```{r}
+if.needed("Data/GSE131886_RAW.tar",
+{
+    options(timeout=1000)
+    .url <- "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE131886&format=file"
+    download.file(.url, "Data/GSE131886_RAW.tar")
+})
+dir.create("Data/GSE131886/", recursive = TRUE, showWarnings = FALSE)
+
+.hdrs <- "Data/GSE131886/" %&%
+    c("GSM3823985_HPD1_filtered_matrix",
+      "GSM3823986_HPD2_filtered_matrix",
+      "GSM3823987_HPD3_filtered_matrix")
+
+.mtx.files <- lapply(.hdrs, function(x) x %&% ".mtx.gz")
+
+if.needed(.mtx.files,
+{
+    untar("Data/GSE131886_RAW.tar", exdir="Data/GSE131886")
+})
+```
+
+
+```{r}
+merged.data <- fileset.list("Data/GSE131886")
+
+if.needed(merged.data,
+{
+    hdrs <- c("Data/GSE131886/GSM3823985_HPD1",
+              "Data/GSE131886/GSM3823986_HPD2",
+              "Data/GSE131886/GSM3823987_HPD3")
+    
+    bats <- c("HPD1","HPD2","HPD3")
+
+    mtx <- c("Data/GSE131886/GSM3823985_HPD1_filtered_matrix.mtx.gz",
+             "Data/GSE131886/GSM3823986_HPD2_filtered_matrix.mtx.gz",
+             "Data/GSE131886/GSM3823987_HPD3_filtered_matrix.mtx.gz")
+
+    cols <- c("Data/GSE131886/GSM3823985_HPD1_filtered_barcodes.tsv.gz",
+              "Data/GSE131886/GSM3823986_HPD2_filtered_barcodes.tsv.gz",
+              "Data/GSE131886/GSM3823987_HPD3_filtered_barcodes.tsv.gz")
+
+    feats <- c("Data/GSE131886/GSM3823985_HPD1_filtered_features.tsv.gz",
+               "Data/GSE131886/GSM3823986_HPD2_filtered_features.tsv.gz",
+               "Data/GSE131886/GSM3823987_HPD3_filtered_features.tsv.gz")
+
+    for(ff in feats){
+        rr <- str_replace(ff, ".tsv.gz$", ".rows.gz")
+        if.needed(rr, {
+            fwrite(fread(ff, header=FALSE)[,1], rr,
+                   row.names = FALSE, col.names = FALSE)
+        })
+    }
+
+    rows <- str_replace(feats, ".tsv.gz$", ".rows.gz")
+
+    merged.data <-
+        rcpp_mmutil_merge_file_sets(r_batches=bats,
+                                    r_mtx=mtx,
+                                    r_row=rows,
+                                    r_col=cols,
+                                    nnz_cutoff = 1,
+                                    output="Data/GSE131886")
+})
+```
+
+```{r}
+.batch.info <- fread(merged.data$col, header = FALSE, col.names = "tag")
+.batch.info[, c("barcode", "batch") := tstrsplit(tag, split="_")]
+
+bbknn.file <- fig.dir %&% "/GSE131886_bbknn.RDS"
+if.needed(bbknn.file,
+{
+    bbknn.out <- rcpp_mmutil_bbknn_pca(mtx_file = merged.data$mtx,
+                                   r_batches = .batch.info$batch,
+                                   knn = 100,
+                                   RANK = 50,
+                                   EM_ITER = 10,
+                                   NUM_THREADS = 16)
+    saveRDS(bbknn.out, bbknn.file)
+})
+
+bbknn.out <- readRDS(bbknn.file)
+```
+
+
+```{r}
+tsne.file <- fig.dir %&% "GSE131886_tSNE.RDS"
+
+if.needed(tsne.file,
+{
+    tsne.raw.out <- Rtsne::Rtsne(bbknn.out$V, verbose=TRUE, num_threads=16)
+    tsne.adj.out <- Rtsne::Rtsne(bbknn.out$factors.adjusted,
+                                 verbose=TRUE, num_threads=16)
+
+    tsne.dt <- cbind(.batch.info,
+                     raw = tsne.raw.out$Y,
+                     raw.pc = bbknn.out$V,
+                     adjusted = tsne.adj.out$Y,
+                     adjusted.pc = bbknn.out$factors.adjusted)
+    saveRDS(tsne.dt, tsne.file)
+})
+
+tsne.dt <- readRDS(tsne.file)
+```
+
+\vfill
+Single-cell RNA-seq data from three donors (three batches)
+\vfill
+
+\centerline{\includegraphics[height=.35\textheight]{Vis/scRNA_normalization/GSE131886.pdf}}
+
+\vfill
+
+*Goal*: Remove potential batch effects across different donors. (1) Construct BBKNN graphs between cells; (2) compute average discrepancy $\Delta$ between batches in the PC space; (3) adjust them.
+
+\vfill
+\tiny
+Qadir, \textit{et al.}, \emph{PNAS} (2020)
+
+## BBKNN-guided normalization ($\Delta$) adjusts the inter-batch discrepancy
+
+```{r fig.width=5.8, fig.height=2.5, only.plot="1"}
+p1 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(raw.pc.V1, raw.pc.V2, color=batch)) +
+    ggtitle("raw") +
+    geom_point(stroke=0, size = .7, alpha=.7) +
+    theme(legend.position = c(0,1), legend.justification = c(0,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("PC1") + ylab("PC2")
+
+p2 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(adjusted.pc.V1, adjusted.pc.V2, color=batch)) +
+    ggtitle("BBKNN adjusted") +
+    geom_point(stroke=0, size =.7, alpha=.7) +
+    theme(legend.position = c(0,1), legend.justification = c(0,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("PC1") + ylab("PC2")
+
+p1 | p2
+```
+
+```{r fig.width=5.8, fig.height=2.5, only.plot="2"}
+p1 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(raw.pc.V2, raw.pc.V3, color=batch)) +
+    ggtitle("raw") +
+    geom_point(stroke=0, size = .7, alpha=.7) +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("PC2") + ylab("PC3")
+
+p2 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(adjusted.pc.V2, adjusted.pc.V3, color=batch)) +
+    ggtitle("BBKNN adjusted") +
+    geom_point(stroke=0, size =.7, alpha=.7) +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("PC2") + ylab("PC3")
+
+p1 | p2
+```
+
+```{r fig.width=5.8, fig.height=2.5, only.plot="3"}
+p1 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(raw.pc.V3, raw.pc.V4, color=batch)) +
+    ggtitle("raw") +
+    geom_point(stroke=0, size = .7, alpha=.7) +
+    theme(legend.position = c(1,1), legend.justification = c(1,0)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("PC3") + ylab("PC4")
+
+p2 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(adjusted.pc.V3, adjusted.pc.V4, color=batch)) +
+    ggtitle("BBKNN adjusted") +
+    geom_point(stroke=0, size =.7, alpha=.7) +
+    theme(legend.position = c(1,1), legend.justification = c(1,0)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("PC3") + ylab("PC4")
+
+p1 | p2
+```
+
+```{r fig.width=5.8, fig.height=2.5, only.plot="4"}
+p1 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(raw.V1, raw.V2, color=batch)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("raw") +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("tSNE1") + ylab("tSNE2")
+
+p2 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(adjusted.V1, adjusted.V2, color=batch)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("BBKNN adjusted") +
+    theme(legend.position = c(0,1), legend.justification = c(0,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("tSNE1") + ylab("tSNE2")
+
+p1 | p2
+```
+
+## Discussions
+
+\large
+
+- What can we do with BBKNN graphs?
+
+- Why do we need batch normalization?
+
+- Is it possible to over-correct the differences?
+
+- Is it also possible to under-correct the differences?
+
+# Latent topic modelling
+
+## What is a generative model of single-cell data?
+
+\vfill
+
+\centerline{\includegraphics[height=.5\textheight]{Vis/scRNA_ETM/Matrix_Factorization.pdf}}
+
+\Large
+
+$$\mathbb{E}\!\left[X\right] \approx f\left( H \beta \right)$$
+
+\large
+
+Can we assign tens of thousands of cells to some hidden probability space ($H$)?
+
+## Why do we need unsupervised learning for single-cell RNA-seq data?
+
+\large
+
+- Probabilistic interpretation of latent states
+
+- Incomplete single-cell data, lots of drop-out measurements
+
+- We can design generative model parameters as interpretable as possible!
+
+## Variation autoencoder (VAE): a Bayesian inference framework for easy/scalable inference of latent variable model
+
+\vfill
+
+\centerline{\includegraphics[height=.4\textheight]{Vis/scRNA_ETM/VAE.pdf}}
+
+\vfill
+
+* Define relationships between variables (auto generative process)
+
+* Usually, the decoder side captures our scientific hypothesis
+
+* We can use an "auto-diff" algorithm (e.g., Facebook `torch` or Google `tensorflow`) to calculate gradients for the model parameters to optimize.
+
+## Deep generative modeling for single-cell transcriptomics
+
+\vfill
+
+\centerline{\includegraphics[height=.6\textheight]{Vis/scRNA_ETM/scVI.pdf}}
+
+\vfill
+
+Generative model: zero-inflated negative binomial distribution
+
+\vfill
+\tiny
+
+Lopez, .., Jordan, Yosef, \emph{Nature Methods} (2018)
+
+## Multinomial topic modelling for (incomplete) single-cell expression data
+
+\vfill
+
+Can we simply model scRNA-seq counts by multinomial distribution?
+
+\only<1>{
+\centerline{\includegraphics[height=.4\textheight]{Vis/scRNA_ETM/ETM.pdf}}
+}
+
+\vfill
+
+\only<2>{
+Likelihood model:
+
+\Large
+$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\sum_{k} H_{ik} \beta_{kj}\right)^{X_{ij}}$$
+}
+
+\only<3>{
+Likelihood model:
+
+\Large
+$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\underset{\textsf{\color{magenta} a gene $g$'s probability in a cell $ι$} \equiv \rho_{ig}}{\sum_{k} H_{ik} \beta_{kj}}\right)^{X_{ij}}$$
+}
+
+\normalsize
+
+* $X_{ig}$: gene expression of a gene $g$ in a single cell $i$ 
+
+* $H_{ik}$: latent topic proportion of a cell $i$ to a topic $k$
+
+* $\beta_{kg}$: topic $k$-specific gene probability
+
+## Single-cell Embedded Topic Model
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{Vis/scRNA_ETM/scETM.pdf}}
+\vfill
+
+\tiny
+Zhao, Cai, .., Li, \emph{Nature Comm.} (2021)
+
+
+## Topic Modelling: Compare between document vs. single-cell
+
+\small
+We think of a cell as a document, which is $\approx$ a bag of words, or $\approx$ a bag short mRNA reads. 
+
+\normalsize
+
+```{r echo = FALSE, results="asis"}
+.dt <- data.table(
+    variables = c("$D$",
+                  "$d$",
+                  "$N_{d}$",
+                  "$j$",
+                  "$K$",
+                  "$k$",
+                  "$V$",
+                  "$v$",
+                  "$W_{dj}^{v}$",
+                  "$X_{dv}$"),
+    `in document topic model` = c("Total number of documents (corpus)",
+                    "Document index",
+                    "Number of words in a document $d$",
+                    "Word index, $j \\in [N_{d}]$",
+                    "Total number of topics",
+                    "Topic index, $k \\in [K]$",
+                    "Size of vocabulary",
+                    "Vocabulary index $v \\in [V]$",
+                    "Indicator for a word to vocabulary $\\in \\{0, 1\\}$",
+                    "Vocabulary $v$ occurrence in a document $d$"),
+    `in single cell ETM` = c("Total number of cells",
+                   "Cell index",
+                   "Number of read counts in a cell $d$",
+                   "Read index",
+                   "Total number of cell type topics",
+                   "Cell topic index",
+                   "Total number of genes",
+                   "Gene index",
+                   "Indicator for a read to a gene $\\in \\{0, 1\\}$",
+                   "Gene expression of a gene $v$ in a cell $d$ $\\in [0, N_{d}]$"))
+
+knitr::kable(.dt)
+```
+
+$W_{dj}^{v} = 1$ if and only if a word $j$ in a document $d$ takes $v$-th word in the vocabulary; otherwise, $W_{dj}^{v}=0$.
+
+## Single-cell Embedded topic model's latent states and model parameters
+
+```{r echo = FALSE, results = "asis"}
+.dt.param <- data.table(
+    variables = c("$Z_{dj}^{k}$",
+                  "$H_{dk}$",
+                  "$\\beta_{kv}$"),
+    `in document topic model` = c("Indicator for assigning a word to a topic $k$",
+                         "Hidden state $k$ of a document $d$",
+                         "topic $k$-specific vocabulary $v$ frequency"),
+    `in single cell ETM` = c("Indicator for assigning a read to a topic $k$",
+                         "Hidden state $k$ of a cell $d$",
+                         "topic $k$-specific, a gene $v$'s exression"))
+
+knitr::kable(.dt.param)
+```
+
+* In Latent Dirichlet Allocation: $\sum_{k=1}^{K} H_{dk} = 1$ and $H_{dk} > 0$, and $\mathbf{h}_{d} \sim \mathsf{Dirichlet}(\alpha/K, \ldots, \alpha/K)$ _a priori_. Approximately, we have $\hat{H}_{dk} = \sum_{j}^{N_{d}} Z_{dj}^{k} / N_{d}$.
+
+* In Embedded Topic model, $H_{dk}$ with the simplex constraints; $H_{dk} = \exp(\delta_{dk}) / \sum_{k'} \exp(\delta_{dk'})$ where $\delta_{dk} \sim \mathcal{N}\!\left(0,1\right)$ _a priori_.
+
+* Additional constraints: $\beta_{kv} > 0$ and $\sum_{v} \beta_{kv} = 1$, meaning that only a handful of vocabulary $v$ contribute to a topic $k$.
+
+
+## Multinomial topic modelling for (incomplete) single-cell expression data
+
+\vfill
+
+Can we simply model scRNA-seq counts by multinomial distribution?
+
+\centerline{\includegraphics[height=.4\textheight]{Vis/scRNA_ETM/ETM.pdf}}
+
+\vfill
+
+## Example: single-cell RNA-seq data of human pancreatic cells
+
+```{r}
+raw.data <- fileset.list("Data/GSE85241")
+.info <- rcpp_mmutil_info(raw.data$mtx)
+cell.index <- rcpp_mmutil_read_index(raw.data$idx)
+```
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\centerline{\includegraphics[height=.7\textheight]{Vis/Muraro_GSE85241.png}}
+
+:::
+::: {.column width=.45}
+
+$${}$$
+
+\large
+
+We will use scRNA-seq data (GEO accession: GSE85241) as a working example.
+
+$${}$$
+
+* genes/features/rows: `r num.int(.info$max.row)`
+
+* cells/columns: `r num.int(.info$max.col)`
+
+* non-zero elements: `r num.int(.info$max.elem)`
+
+* ~ `r round(100 * .info$max.elem / .info$max.col / .info$max.row)` % non-zero
+
+:::
+::::::
+
+\tiny
+Muraro \textit{et al.} \emph{Cell Systems} (2016)
+
+```{r}
+source("torch_etm_train.R")
+train.etm <- function(.data.hdr, rds.file, torch.file){
+
+    MY.DEV <- torch_device("cuda:1")
+    CPU <- torch_device("cpu")
+
+    .data <- scdata.loader(.data.hdr, MY.DEV)
+
+    etm <- build.etm(.data$.dim(), .data$.dim(), 12, c(128,128,16))
+    etm <- etm$to(device=MY.DEV)
+    adam <- optim_adam(etm$parameters, lr = 5e-3)
+
+    llik.vec <- c()
+    kl.vec <- c()
+    hh.list <- list()
+    ww.list <- list()
+
+    batch.size <- 128
+    ntot <- .data$.length()
+    nbatch <- ceiling(ntot /batch.size)
+    nn <- batch.size * nbatch
+
+    hh <- matrix(NA, nrow = ntot, ncol = etm$enc$K)
+
+    for(tt in seq(0, 2000)){
+        .data.pos <- sample(ntot, nn, replace=TRUE)
+        for(b in seq(0, nbatch-1)){
+            .idx <- seq(1 + b * batch.size, (b+1) * batch.size)
+            .idx <- .data.pos[.idx]
+            xx.b <- .data$.getitem(.idx)
+            etm$train()
+            adam$zero_grad()
+            out <- etm(xx.b)
+            llik <- etm.llik(xx.b, out$recon)
+            z.kl <- kl.loss(out$z.mean, out$z.lnvar)
+            loss <- torch_mean(z.kl - llik)$to(device=MY.DEV)
+            loss$backward()
+            . <- adam$step()
+            .kl <- torch_mean(z.kl)$to(device=CPU)$item()
+            .llik <- torch_mean(llik)$to(device=CPU)$item()
+
+            llik.vec <- c(llik.vec, .llik)
+            kl.vec <- c(kl.vec, .kl)
+
+            if(tt %% 30 == 0){
+                etm$eval()
+                hh.b <- nnf_softmax(out$z.mean, dim=2)$to(device=CPU)
+                hh[.idx, ] <- as.matrix(hh.b)
+            }
+            cat(tt, " ", .llik, " ", .kl, "\r", file = stderr())
+            flush(stderr())
+        }        
+        if(tt %% 30 == 0){
+            etm$eval()
+            ww <- as.matrix(nnf_softmax(etm$dec$lbeta, dim=2)$to(device=CPU))
+            hh.list <- c(hh.list, list(hh))
+            ww.list <- c(ww.list, list(ww))
+        }
+    }
+
+    saveRDS(list(llik = llik.vec, kl = kl.vec, hh = hh.list, ww = ww.list),
+            file = rds.file)
+    torch_save(etm, torch.file)
+}
+```
+
+```{r train_etm_GSE85241}
+rds.file <- fig.dir %&% "/ETM_GSE85241.RDS"
+torch.file <- fig.dir %&% "/ETM_GSE85241.torch"
+
+if.needed(c(rds.file, torch.file),
+{
+    train.etm("Data/GSE85241", rds.file, torch.file)
+})
+
+etm.result <- readRDS(rds.file)
+```
+
+```{r}
+.markers <- fread("Data/PanglaoDB_markers_27_Mar_2020.tsv.gz") %>%
+    as_tibble() %>% 
+    filter(organ == "Pancreas") %>%
+    select(`official gene symbol`, `cell type`)
+
+melt.weight <- function(.ww, .genes){
+    colnames(.ww) <- .genes
+    .ww <- as.data.table(.ww)
+    .ww[ , row := "topic" %&% 1:nrow(.ww)]
+    .ww <- .ww %>%
+        melt(id.vars=c("row"), variable.name="col", value.name="weight") %>%
+        filter(!str_starts(col, "ERCC")) %>%
+        as.data.table()
+}
+
+show.weight.matrix <- function(.ww, .genes){
+    .dt <- melt.weight(.ww, .genes)
+
+    .top.cols <-
+        .dt[order(.dt$weight, decreasing=TRUE),
+            head(.SD, 20),
+            by = .(row)] %>%
+        (function(x){
+            x[order(x$weight), head(.SD, 1), by = .(col)]
+        }) %>% 
+        head(30) %>% 
+        select(col) %>%
+        unique %>%
+        unlist
+
+    .dt <- .dt %>%
+        filter(col %in% .top.cols) %>% 
+        mutate(name = as.character(col)) %>%
+        col.order(.ro="topic" %&% 1:20, ret.tab=TRUE) %>% 
+        as.data.table
+
+    .gg.plot(.dt, aes(x = col, y = row, fill = pmin(weight, .01))) +
+        theme(axis.text.x = element_text(angle=70, vjust=1, hjust=1, size=6)) +
+        theme(legend.position = "none") +
+        xlab("Top genes") + ylab("Topics") +
+        geom_tile(colour = "black", size = .1) +
+        scale_fill_distiller("",palette = "PuRd", direction = 1,
+                             trans="sqrt", labels = num.sci)
+}
+
+show.marker.correlation <- function(.ww, .genes){
+
+    .dt <- melt.weight(.ww, .genes)
+    .dt[, c("official gene symbol", "chr") := tstrsplit(col, split = "__")]
+    .dt <- .dt %>% left_join(.markers) %>% na.omit()
+
+    .yy <-
+        dcast(.dt, col ~ row, fun.aggregate = max, value.var = "weight", fill = 0)
+
+    .xx <- .dt %>% mutate(k = 1) %>%
+        dcast(col ~ `cell type`, fun.aggregate = max, value.var = "k", fill = 0)
+
+
+    .xx <- .xx[match(.yy$col, .xx$col), ] %>% select(-col) %>% as.matrix
+    .yy <- .yy %>% select(-col) %>% as.matrix
+
+    .cor.dt <- cor(.xx, .yy, method = "spearman") %>%
+        reshape2::melt() %>% 
+        rename(col = Var1, row = Var2, weight = value) %>% 
+        col.order(.ro="topic" %&% 1:20, ret.tab=TRUE) %>% 
+        as.data.table
+
+    .gg.plot(.cor.dt, aes(col, row, fill = pmax(pmin(weight, .3), -.3))) +
+        theme(axis.text.x = element_text(angle=70, vjust=1, hjust=1, size=6)) +
+        ylab("topic") + xlab("known cell type") +
+        geom_tile(colour = "black", size = .1) +
+        scale_fill_distiller("correlation", palette = "RdBu", direction = -1)
+}
+show.struct <- function(.hh){
+    .K <- ncol(.hh)
+    .dt <- reshape2::melt(.hh) %>%
+        mutate(row = Var2, col = Var1, weight=value) %>% 
+        col.order(.ro=rev(1:.K), ret.tab=TRUE) %>% 
+        as.data.table()
+
+    .gg.plot(.dt, aes(`col`, `weight`, fill=factor(`Var2`, 1:.K))) +
+        ylab("topic proportion") +
+        xlab("cells") +
+        theme(legend.position = "top") +
+        theme(axis.text.x = element_blank()) +
+        theme(axis.ticks.x = element_blank()) +
+        geom_bar(stat="identity", size=0) +
+        scale_fill_brewer("latent topic", palette = "Paired")
+}
+```
+
+## Variational inference $\approx$ maximum likelihood regularized by a KL-divergence term
+
+$$\underbrace{\mathbb{E}\!\left[ \log p(\mathbf{x}|\mathbf{h}(\mathbf{z})) \right]}_{\textsf{\color{red} expected data likelihood}} - 
+\underbrace{\mathbb{E}\!\left[ \log q(\mathbf{z}) / p(\mathbf{z}) \right]}_{\textsf{\color{blue} KL loss}}$$
+
+
+```{r fig.width=5.5, fig.height=1.8}
+.dt <-
+    data.table(llik = etm.result$llik,
+               kl = etm.result$kl) %>%
+    mutate(tt = 0:(n() - 1))
+
+.dt.sub <- .dt[tt %% 10 == 0, ]
+
+p1 <-
+    .gg.plot(.dt.sub, aes(tt, llik)) +
+    xlab("optimization steps") + ylab("log-likelihood") +
+    geom_point(stroke = 0, color="gray", size=1) +
+    geom_smooth(color="red", se=FALSE, size=1)
+
+p2 <-
+    .gg.plot(.dt.sub, aes(tt, kl)) +
+    xlab("optimization steps") + ylab("KL loss") +
+    geom_point(stroke = 0, color="gray", size=1) +
+    geom_smooth(color="red", se=FALSE, size=1)
+
+p1 | p2
+```
+
+\vfill
+
+We may need to train longer than usual... (don't be fooled by log-likelihood)
+
+
+## ETM learning just started ... (hidden states $\mathbf{h}$)
+
+```{r fig.width=5.5, fig.height=2}
+show.struct(etm.result$hh[[4]])
+```
+
+There is no obvious pattern... yet
+
+## ETM learning just started ... (weight parameters $\beta$)
+
+```{r}
+sc.data <- mmutilR::fileset.list("Data/GSE85241")
+.genes <- unlist(fread(sc.data$row, header=FALSE))
+```
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r fig.width=3, fig.height=3}
+show.marker.correlation(first(etm.result$ww), .genes)
+```
+
+:::
+::: {.column width=.45}
+
+$${}$$
+
+* We can correlate each topic-specific gene $\times 1$ weight vector, $\beta_{k}$, with known cell type-specific marker genes
+
+* No obvious concepts emerged yet, not so specific correlation patterns, yet...
+
+:::
+::::::
+
+\vfill
+
+
+## If we keep on training ETM (hidden states) ..
+
+\vfill
+
+```{r fig.width=5.5, fig.height=2, only.plot="1"}
+show.struct(etm.result$hh[[10]]) + ggtitle("epoch = " %&% (30*10))
+```
+
+```{r fig.width=5.5, fig.height=2, only.plot="2"}
+show.struct(etm.result$hh[[20]]) + ggtitle("epoch = " %&% (30*20))
+```
+
+```{r fig.width=5.5, fig.height=2, only.plot="3"}
+show.struct(etm.result$hh[[30]]) + ggtitle("epoch = " %&% (30*30))
+```
+
+```{r fig.width=5.5, fig.height=2, only.plot="4"}
+show.struct(etm.result$hh[[40]]) + ggtitle("epoch = " %&% (30*40))
+```
+
+\vfill
+
+## If we keep on training ETM (weight parameters) ...
+
+\vfill
+
+
+```{r fig.width=4.5, fig.height=3, only.plot="1"}
+show.weight.matrix(etm.result$ww[[10]], .genes) + ggtitle("epoch = " %&% (30*10))
+```
+
+```{r fig.width=4.5, fig.height=3, only.plot="2"}
+show.weight.matrix(etm.result$ww[[20]], .genes) + ggtitle("epoch = " %&% (30*20))
+```
+
+```{r fig.width=4.5, fig.height=3, only.plot="3"}
+show.weight.matrix(etm.result$ww[[30]], .genes) + ggtitle("epoch = " %&% (30*30))
+```
+
+```{r fig.width=4.5, fig.height=3, only.plot="4"}
+show.weight.matrix(etm.result$ww[[40]], .genes) + ggtitle("epoch = " %&% (30*40))
+```
+
+\vfill
+
+
+## If we keep on training ETM (weight parameters) ...
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r fig.width=3, fig.height=3, only.plot="1"}
+show.marker.correlation(etm.result$ww[[10]], .genes) + ggtitle("epoch = " %&% (30*10))
+```
+
+```{r fig.width=3, fig.height=3, only.plot="2"}
+show.marker.correlation(etm.result$ww[[20]], .genes) + ggtitle("epoch = " %&% (30*20))
+```
+
+```{r fig.width=3, fig.height=3, only.plot="3"}
+show.marker.correlation(etm.result$ww[[30]], .genes) + ggtitle("epoch = " %&% (30*30))
+```
+
+```{r fig.width=3, fig.height=3, only.plot="4"}
+show.marker.correlation(etm.result$ww[[40]], .genes) + ggtitle("epoch = " %&% (30*40))
+```
+
+:::
+::: {.column width=.45}
+
+$${}$$
+
+* We can correlate each topic-specific gene $\times 1$ weight vector, $\beta_{k}$, with known cell type-specific marker genes
+
+* We retrieved marker gene information of known cell types from [PangaloDB](https://panglaodb.se/)
+
+:::
+::::::
+
+## After enough training steps...
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r fig.width=3, fig.height=3}
+show.marker.correlation(last(etm.result$ww), .genes)
+```
+
+:::
+::: {.column width=.45}
+
+$${}$$
+
+* We have recapitulated most known Pancreatic cell types in our single-cell analysis
+
+:::
+::::::
+
+
+## Single-cell ETM effectively learns cellular admixture model
+
+\vfill
+
+```{r fig.width=5.5, fig.height=2}
+show.struct(last(etm.result$hh)) + ggtitle("epoch = " %&% (30*length(etm.result$hh)))
+```
+
+\vfill
+
+## 
+
+```{r}
+tsne.file <- fig.dir %&% "GSE85241_tSNE.RDS"
+if.needed(tsne.file,
+{
+    sc.data <- mmutilR::fileset.list("Data/GSE85241")
+    hh <- last(etm.result$hh)
+    xx <- t(read.dense(sc.data$mtx))
+    xx <- rsvd::rsvd(xx, k = 50)
+
+    tsne.raw.out <- Rtsne::Rtsne(xx$u, verbose=TRUE, num_threads=16)
+    tsne.adj.out <- Rtsne::Rtsne(hh, verbose=TRUE, num_threads=16)
+
+    tsne.dt <- cbind(raw = tsne.raw.out$Y,
+                     topic = tsne.adj.out$Y)
+    saveRDS(tsne.dt, tsne.file)
+})
+.argmax <- apply(last(etm.result$hh), 1, which.max)
+
+tsne.dt <- readRDS(tsne.file) %>%
+    (function(x) { colnames(x) <- c("raw.V1", "raw.V2", "topic.V1", "topic.V2");
+        x }) %>% 
+    as.data.table %>% 
+    cbind(topic = "topic" %&% .argmax)
+```
+
+```{r fig.width=5.8, fig.height=2.5}
+p1 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ], aes(raw.V1, raw.V2, color=topic)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("using top 50 PCs") +
+    theme(legend.position = "none") +
+    scale_color_brewer(palette = "Paired") +
+    xlab("tSNE1") + ylab("tSNE2")
+
+p2 <-
+    .gg.plot(tsne.dt[sample(nrow(tsne.dt)), ],
+             aes(topic.V1, topic.V2, color=topic)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("tSNE on the latent topic space") +
+    theme(legend.position = "none") +
+    scale_color_brewer(palette = "Paired") +
+    xlab("tSNE1") + ylab("tSNE2")
+
+p1 | p2
+```
+
+## A latent topic model robustly capture cell states, avoiding batch effects
+
+```{r train_etm_GSE131886}
+rds.file <- fig.dir %&% "/ETM_GSE131886.RDS"
+torch.file <- fig.dir %&% "/ETM_GSE131886.torch"
+
+if.needed(c(rds.file, torch.file),
+{
+    train.etm("Data/GSE131886", rds.file, torch.file)
+})
+
+etm.result <- readRDS(rds.file)
+```
+
+\vfill
+Single-cell RNA-seq data from three donors (three batches)
+\vfill
+
+\centerline{\includegraphics[height=.35\textheight]{Vis/scRNA_normalization/GSE131886.pdf}}
+
+\vfill
+
+*Goal*: Topic space for `r num.int(nrow(last(etm.result$hh)))` cells shared across multiple donors (batches). 
+
+\vfill
+\tiny
+Qadir, \textit{et al.}, \emph{PNAS} (2020)
+
+##
+
+```{r fig.width=5.8, fig.height=2.5}
+show.struct(last(etm.result$hh))
+```
+
+## Multiple batches are well mixed!
+
+```{r}
+tsne.file <- fig.dir %&% "GSE131886_tSNE.RDS"
+tsne.dt <- readRDS(tsne.file)
+
+tsne.etm.file <- fig.dir %&% "GSE131886_ETM_tSNE.RDS"
+
+if.needed(tsne.etm.file, 
+{
+    hh <- last(etm.result$hh)
+    tsne.etm.out <- Rtsne::Rtsne(hh, verbose=TRUE, num_threads=16)
+    saveRDS(tsne.etm.out, file = tsne.etm.file)
+})
+tsne.etm.out <- readRDS(file = tsne.etm.file)
+tsne.dt <- cbind(tsne.dt, etm = tsne.etm.out$Y)
+```
+
+```{r fig.width=5.8, fig.height=2.5}
+p1 <-
+    .gg.plot(tsne.dt, aes(raw.V1, raw.V2, colour=batch)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("tSNE on the top 50 PCs") +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("tSNE1") + ylab("tSNE2")
+p2 <-
+    .gg.plot(tsne.dt, aes(etm.V1, etm.V2, colour=batch)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("tSNE on the latent topic space") +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("tSNE1") + ylab("tSNE2")
+
+p1 | p2
+```
+
+## Discussions on latent topic modelling
+
+\large
+
+* Most cells predominantly belong to one topic (one colour). Why?
+
+* If we model cells as a mixture of cell topics, we can capture doublets or triplets
+
+* The underlying generative model assumes no sequencing depth! This can help avoid batch-specific differences in practice.
+
+* VAE offers a flexible framework with which our scientific hypothesis can be formulated in a probabilistic language
+
+* Potentially, this pure unsupervised learning framework can be combined with supervised, semi-supervised learning models.
+
+# Other interesting topics in scRNA-seq analysis
+
+## Other topics that we don't have time to discuss now
 
 \Large
 
@@ -1162,3 +2274,16 @@ wrap_plots(p1, p2, heights=c(1, 2))
 3. Multiomics data integration
 
 4. Spatial transcriptomics
+
+5. Joint analysis with bulk sequencing data
+
+## Summary 
+
+* Single-cell RNA-seq technology
+
+* Doublet finding and other Q/C in scRNA-seq anlaysis
+
+* Data normalization across multiple batches
+
+* Model-based latent representation identification
+
