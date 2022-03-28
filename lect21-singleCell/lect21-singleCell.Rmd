@@ -879,25 +879,21 @@ torch_set_num_threads(8)
 
 $$f: \mathbf{x}_{i} \to y_{i},\, y \in \{ 0, 1 \}$$
 
-```{r echo=TRUE, size="tiny"}
-build.classifier <-
-    nn_module(
-        classname = "classfier",
-        initialize = function(d, k = 5) {
-            self$fc <- nn_sequential(
-                nn_batch_norm1d(d),
-                nn_linear(d, k),
-                nn_batch_norm1d(k),
-                nn_relu(),
-                nn_linear(k, 2 * k),
-                nn_batch_norm1d(2 * k),
-                nn_relu(),
-                nn_linear(2 * k, 1),
-                nn_sigmoid())
-        },
-        forward = function(x, min_=.01, max_=.99) {
-            torch_clamp(self$fc(x), min_, max_)
-        })
+```{r echo=TRUE, size="small"}
+build.classifier <- nn_module(
+ classname = "classfier",
+ initialize = function(d, k = 5) {
+  self$fc <- nn_sequential(
+   nn_batch_norm1d(d), nn_linear(d, k), 
+   nn_batch_norm1d(k), nn_relu(), 
+   nn_linear(k, 2*k),
+   nn_batch_norm1d(2*k),
+   nn_relu(), nn_linear(2*k, 1),
+   nn_sigmoid())
+ },
+ forward=function(x, min_=.01, max_=.99) {
+     torch_clamp(self$fc(x), min_, max_)
+ })
 ```
 
 :::
@@ -1202,17 +1198,18 @@ wrap_plots(p1, p2, heights=c(1, 2))
 
 \Large
 
-* It's a unique routine in single-cell sequencing data analysis
+* It's a routine unique in single-cell sequencing data analysis
 
 * Do we need it in practice? How frequently doublets emerge?
 
-* Perhaps a majority of them simply stem from "dying" cells or broken cells... If so, we can just filter out low-expressed cells.
+* Perhaps a majority of them simply stem from "dying" cells or broken cells... If so, we can just filter out low-expressed cells?
 
+* **Big assumption**: There are doublet cells. Is it true?
 
 # Data normalization across many batches
 
 
-## Batch normalization for joint analysis across multiple single-cell RNA-seq data
+## Batch normalization for joint analysis across multiple scRNA-seq data
 
 \vfill
 
@@ -1614,7 +1611,7 @@ Lopez, .., Jordan, Yosef, \emph{Nature Methods} (2018)
 
 \vfill
 
-Can we simply model scRNA-seq counts by multinomial distribution?
+\centerline{Can we simply model scRNA-seq counts by multinomial distribution?}
 
 \only<1>{
 \centerline{\includegraphics[height=.4\textheight]{Vis/scRNA_ETM/ETM.pdf}}
@@ -1626,14 +1623,14 @@ Can we simply model scRNA-seq counts by multinomial distribution?
 Likelihood model:
 
 \Large
-$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\sum_{k} H_{ik} \beta_{kj}\right)^{X_{ij}}$$
+$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\sum_{k} H_{ik} \beta_{kg}\right)^{X_{ij}}$$
 }
 
 \only<3>{
 Likelihood model:
 
 \Large
-$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\underset{\textsf{\color{magenta} a gene $g$'s probability in a cell $ι$} \equiv \rho_{ig}}{\sum_{k} H_{ik} \beta_{kj}}\right)^{X_{ij}}$$
+$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\underset{\textsf{\color{magenta} a gene $g$'s probability in a cell $ι$} \equiv \rho_{ig}}{\sum_{k} H_{ik} \beta_{kg}}\right)^{X_{ij}}$$
 }
 
 \normalsize
@@ -1649,6 +1646,8 @@ $$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\underset{\tex
 \vfill
 \centerline{\includegraphics[width=\textwidth]{Vis/scRNA_ETM/scETM.pdf}}
 \vfill
+
+We can factorize $\beta = \alpha \rho$.
 
 \tiny
 Zhao, Cai, .., Li, \emph{Nature Comm.} (2021)
@@ -1727,11 +1726,25 @@ knitr::kable(.dt.param)
 
 \vfill
 
-Can we simply model scRNA-seq counts by multinomial distribution?
-
 \centerline{\includegraphics[height=.4\textheight]{Vis/scRNA_ETM/ETM.pdf}}
 
 \vfill
+
+:::::: {.columns}
+::: {.column width=.5}
+
+Probability of gene $g$ in  a cell $i$:
+
+$$\rho_{ig} = \sum_{k \in \textsf{topics}} H_{ik} \beta_{kg}$$
+
+:::
+::: {.column width=.45}
+
+By **not** normalizing the probability of each cell, we do not worry about modelling sequencing depths.
+
+:::
+::::::
+
 
 ## Example: single-cell RNA-seq data of human pancreatic cells
 
@@ -2020,19 +2033,19 @@ $${}$$
 \vfill
 
 ```{r fig.width=5.5, fig.height=2, only.plot="1"}
-show.struct(etm.result$hh[[10]]) + ggtitle("epoch = " %&% (30*10))
+show.struct(etm.result$hh[[10]]) + ggtitle("epoch = " %&% (30*(10-1)))
 ```
 
 ```{r fig.width=5.5, fig.height=2, only.plot="2"}
-show.struct(etm.result$hh[[20]]) + ggtitle("epoch = " %&% (30*20))
+show.struct(etm.result$hh[[20]]) + ggtitle("epoch = " %&% (30*(20-1)))
 ```
 
 ```{r fig.width=5.5, fig.height=2, only.plot="3"}
-show.struct(etm.result$hh[[30]]) + ggtitle("epoch = " %&% (30*30))
+show.struct(etm.result$hh[[30]]) + ggtitle("epoch = " %&% (30*(30-1)))
 ```
 
 ```{r fig.width=5.5, fig.height=2, only.plot="4"}
-show.struct(etm.result$hh[[40]]) + ggtitle("epoch = " %&% (30*40))
+show.struct(etm.result$hh[[40]]) + ggtitle("epoch = " %&% (30*(40-1)))
 ```
 
 \vfill
@@ -2043,19 +2056,19 @@ show.struct(etm.result$hh[[40]]) + ggtitle("epoch = " %&% (30*40))
 
 
 ```{r fig.width=4.5, fig.height=3, only.plot="1"}
-show.weight.matrix(etm.result$ww[[10]], .genes) + ggtitle("epoch = " %&% (30*10))
+show.weight.matrix(etm.result$ww[[10]], .genes) + ggtitle("epoch = " %&% (30*(10-1)))
 ```
 
 ```{r fig.width=4.5, fig.height=3, only.plot="2"}
-show.weight.matrix(etm.result$ww[[20]], .genes) + ggtitle("epoch = " %&% (30*20))
+show.weight.matrix(etm.result$ww[[20]], .genes) + ggtitle("epoch = " %&% (30*(20-1)))
 ```
 
 ```{r fig.width=4.5, fig.height=3, only.plot="3"}
-show.weight.matrix(etm.result$ww[[30]], .genes) + ggtitle("epoch = " %&% (30*30))
+show.weight.matrix(etm.result$ww[[30]], .genes) + ggtitle("epoch = " %&% (30*(30-1)))
 ```
 
 ```{r fig.width=4.5, fig.height=3, only.plot="4"}
-show.weight.matrix(etm.result$ww[[40]], .genes) + ggtitle("epoch = " %&% (30*40))
+show.weight.matrix(etm.result$ww[[40]], .genes) + ggtitle("epoch = " %&% (30*(40-1)))
 ```
 
 \vfill
@@ -2069,19 +2082,19 @@ show.weight.matrix(etm.result$ww[[40]], .genes) + ggtitle("epoch = " %&% (30*40)
 ::: {.column width=.45}
 
 ```{r fig.width=3, fig.height=3, only.plot="1"}
-show.marker.correlation(etm.result$ww[[10]], .genes) + ggtitle("epoch = " %&% (30*10))
+show.marker.correlation(etm.result$ww[[10]], .genes) + ggtitle("epoch = " %&% (30*(10-1)))
 ```
 
 ```{r fig.width=3, fig.height=3, only.plot="2"}
-show.marker.correlation(etm.result$ww[[20]], .genes) + ggtitle("epoch = " %&% (30*20))
+show.marker.correlation(etm.result$ww[[20]], .genes) + ggtitle("epoch = " %&% (30*(20-1)))
 ```
 
 ```{r fig.width=3, fig.height=3, only.plot="3"}
-show.marker.correlation(etm.result$ww[[30]], .genes) + ggtitle("epoch = " %&% (30*30))
+show.marker.correlation(etm.result$ww[[30]], .genes) + ggtitle("epoch = " %&% (30*(30-1)))
 ```
 
 ```{r fig.width=3, fig.height=3, only.plot="4"}
-show.marker.correlation(etm.result$ww[[40]], .genes) + ggtitle("epoch = " %&% (30*40))
+show.marker.correlation(etm.result$ww[[40]], .genes) + ggtitle("epoch = " %&% (30*(40-1)))
 ```
 
 :::
@@ -2123,7 +2136,7 @@ $${}$$
 \vfill
 
 ```{r fig.width=5.5, fig.height=2}
-show.struct(last(etm.result$hh)) + ggtitle("epoch = " %&% (30*length(etm.result$hh)))
+show.struct(last(etm.result$hh)) + ggtitle("epoch = " %&% (30*(length(etm.result$hh)-1)))
 ```
 
 \vfill
@@ -2176,6 +2189,39 @@ p2 <-
 p1 | p2
 ```
 
+## Wait, what about the doublets?
+
+
+```{r fig.width=6, fig.height=2.5}
+.dt <-
+    last(etm.result$hh) %>%
+    as.data.table() %>% 
+    mutate(`name` = .readv(raw.data$col)) %>% 
+    melt(id.vars = "name", value.name = "weight") %>%
+    left_join(pred.dt) %>%
+    mutate(variable = str_remove(variable, "^V")) %>% 
+    mutate(row = variable, col = name) %>%
+    col.order(.ro=1:20, ret.tab=TRUE)
+    
+.gg.plot(.dt, aes(col, weight, fill=row)) +
+    facet_grid(.~dbl.bin, scales="free", space="free") +
+    ylab("topic proportion") +
+    xlab("cells") +
+    theme(legend.position = "top") +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    geom_bar(stat="identity", size=0) +
+    theme(panel.spacing.x = unit(0.1, "lines")) +
+    theme(strip.text.x = element_text(size=6)) +
+    ggtitle("Stratified by doublet probability") +
+    scale_fill_brewer("latent topic", palette = "Paired")
+```
+
+\vfill
+
+What do you think?
+
+
 ## A latent topic model robustly capture cell states, avoiding batch effects
 
 ```{r train_etm_GSE131886}
@@ -2210,7 +2256,7 @@ Qadir, \textit{et al.}, \emph{PNAS} (2020)
 show.struct(last(etm.result$hh))
 ```
 
-## Multiple batches are well mixed!
+## Multiple batches mingle well in latent topic space!
 
 ```{r}
 tsne.file <- fig.dir %&% "GSE131886_tSNE.RDS"
@@ -2224,11 +2270,14 @@ if.needed(tsne.etm.file,
     tsne.etm.out <- Rtsne::Rtsne(hh, verbose=TRUE, num_threads=16)
     saveRDS(tsne.etm.out, file = tsne.etm.file)
 })
+.argmax <- apply(last(etm.result$hh), 1, which.max)
 tsne.etm.out <- readRDS(file = tsne.etm.file)
-tsne.dt <- cbind(tsne.dt, etm = tsne.etm.out$Y)
+tsne.dt <- cbind(tsne.dt, etm = tsne.etm.out$Y) %>%
+    as.data.table %>% 
+    mutate(topic = "topic" %&% .argmax)
 ```
 
-```{r fig.width=5.8, fig.height=2.5}
+```{r fig.width=5.8, fig.height=2.5, only.plot="1"}
 p1 <-
     .gg.plot(tsne.dt, aes(raw.V1, raw.V2, colour=batch)) +
     geom_point(stroke=0, size = .75, alpha=.7) +
@@ -2236,12 +2285,33 @@ p1 <-
     theme(legend.position = c(1,1), legend.justification = c(1,1)) +
     scale_color_brewer(palette = "Set1") +
     xlab("tSNE1") + ylab("tSNE2")
+
 p2 <-
     .gg.plot(tsne.dt, aes(etm.V1, etm.V2, colour=batch)) +
     geom_point(stroke=0, size = .75, alpha=.7) +
     ggtitle("tSNE on the latent topic space") +
     theme(legend.position = c(1,1), legend.justification = c(1,1)) +
     scale_color_brewer(palette = "Set1") +
+    xlab("tSNE1") + ylab("tSNE2")
+
+p1 | p2
+```
+
+```{r fig.width=5.8, fig.height=2.5, only.plot="2"}
+p1 <-
+    .gg.plot(tsne.dt, aes(etm.V1, etm.V2, colour=batch)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("coloured by batch") +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    scale_color_brewer(palette = "Set1") +
+    xlab("tSNE1") + ylab("tSNE2")
+
+p2 <-
+    .gg.plot(tsne.dt, aes(etm.V1, etm.V2, colour=topic)) +
+    geom_point(stroke=0, size = .75, alpha=.7) +
+    ggtitle("coloured by argmax topic") +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    scale_color_brewer(palette = "Paired") +
     xlab("tSNE1") + ylab("tSNE2")
 
 p1 | p2
