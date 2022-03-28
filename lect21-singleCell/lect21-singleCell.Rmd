@@ -2221,7 +2221,6 @@ p1 | p2
 
 What do you think?
 
-
 ## A latent topic model robustly capture cell states, avoiding batch effects
 
 ```{r train_etm_GSE131886}

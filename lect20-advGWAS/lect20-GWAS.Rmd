@@ -1294,11 +1294,11 @@ $$\mathbf{z} \sim \mathcal{N}\!\left(R \theta, R\right)$$
 
 In a model $\mathbf{y} \sim X^{(g)} \boldsymbol{\theta}_{g}$, where $X$ is constructed within a window around a specific gene $g$, we want to test
 
-$$H_{0}:\, \boldsymbol{\theta}_{g} = 0\quad \textsf{vs.} \quad H_{1}:\, \boldsymbol{\theta}_{g} = 0$$
+$$H_{0}:\, \boldsymbol{\theta}_{g} = 0\quad \textsf{vs.} \quad H_{1}:\, \boldsymbol{\theta}_{g} \neq 0$$
 
 In a sense, it is the same as doing model comparison (after integrate out $\theta$):
 
-$$H_{0}:\,\mathcal{N}\!\left(\mathbf{y}\middle|\, \mathbf{0},\, \underbrace{\tau^{2} \mathbf{\color{magenta} K}}_{\textsf{\color{teal} e.g., local kinship}} + \sigma^{2} I\right)\quad \textsf{vs.} \quad H_{1}:\, \mathcal{N}\!\left(\mathbf{y}| \mathbf{0},\, \sigma^{2} I \right)$$
+$$H_{0}:\, \mathcal{N}\!\left(\mathbf{y}| \mathbf{0},\, \sigma^{2} I \right) \quad \textsf{vs.} \quad H_{1}:\,\mathcal{N}\!\left(\mathbf{y}\middle|\, \mathbf{0},\, \underbrace{\tau^{2} \mathbf{\color{magenta} K}}_{\textsf{\color{teal} e.g., local kinship}} + \sigma^{2} I\right)$$
 
 where $K \propto n^{-1} X^{(g)}{X^{(g)}}^{\top}$ or we can substitute it with a different type of kernel matrix. $\implies$ We want to test $H_{0}:\,\tau = 0$ or not.
 
