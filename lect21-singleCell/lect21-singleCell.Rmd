@@ -195,14 +195,14 @@ $${}$$
 \begin{itemize}
 \item $p_{ij}$: probability between cells $i$ and $j$ in the original high-dimensional space
 \end{itemize}
-$p_{ij} \propto \exp(\|\mathbf{x}_{i} - \mathbf{x}_{j}\|^{2}/2\sigma^{2})$
+$p_{ij} \propto \exp(-\|\mathbf{x}_{i} - \mathbf{x}_{j}\|^{2}/2\sigma^{2})$
 }
 
 \onslide<2->{
 \begin{itemize}
 \item $q_{ij}$: probability between cells $i$ and $j$ in the embedded low-dimensional space
 \end{itemize}
-$q_{ij} \propto \exp(\|\mathbf{y}_{i} - \mathbf{y}_{j}\|^{2}/2\sigma^{2})$
+$q_{ij} \propto \exp(-\|\mathbf{y}_{i} - \mathbf{y}_{j}\|^{2}/2\sigma^{2})$
 }
 
 :::
@@ -245,7 +245,7 @@ $$\min D_{\textsf{KL}}\left(p_{ij}\| q_{ij}\right)=\sum_{ij} p_{ij} \frac{p_{ij}
 
 * $p_{ij}$: probability between cells $i$ and $j$ in the original high-dimensional space
 
-$p_{ij} \propto \exp(\|\mathbf{x}_{i} - \mathbf{x}_{j}\|^{2}/2\sigma^{2})$
+$p_{ij} \propto \exp(-\|\mathbf{x}_{i} - \mathbf{x}_{j}\|^{2}/2\sigma^{2})$
 
 * $q_{ij}$: probability between cells $i$ and $j$ in the embedded low-dimensional space
 
