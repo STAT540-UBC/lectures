@@ -1,0 +1,815 @@
+---
+title: "Exploratory Data Analysis"
+author: |
+    | Yongjin Park
+    | University of British Columbia
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+classoption: "aspectratio=169"
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        colortheme: "orchid"
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage[normalem]{ulem}
+  - \usepackage{makecell}
+  - \usepackage{xcolor}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(patchwork)
+source("Util.R")
+source("Setup.R")
+fig.dir <- "Fig/EDA/"
+setup.env(fig.dir, .echo=TRUE)
+theme_set(theme_classic())
+```
+
+
+# Exploratory Data Analysis
+
+## What is EDA? Why do we need it?
+
+"Graphing data is a powerful approach to detecting these problems. We refer to this as exploratory data analysis (EDA). Many important methodological contributions to existing techniques in data analysis were initiated by discoveries made via EDA."
+
+- Rafael Irizarry
+
+
+## Install packages and download data
+
+:::::: {.columns}
+::: {.column width=.6}
+
+```{r}
+if (!require("BiocManager", quietly = TRUE)){
+    install.packages("BiocManager")
+}
+if(!require("GEOquery", quietly = TRUE)){
+    BiocManager::install("GEOquery")
+}
+raw.data.file <- "GSE107011/GSE107011_Processed_data_TPM.txt.gz"
+if(!file.exists(raw.data.file)){
+    getGEOSuppFiles("GSE107011")
+}
+raw.data <- fread(raw.data.file)
+X <- as.matrix(raw.data[, -1])
+rownames(X) <- unlist(raw.data[,1])
+```
+
+:::
+::: {.column width=.4}
+
+* Install `GEOquery`
+
+* Download and read the data matrix.
+
+:::
+::::::
+
+
+## What do they look like?
+
+```{r}
+X[1:5, 1:5]
+```
+
+* What do you see?
+
+## What are the range of values?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+xv <- as.vector(X)
+range(xv) %>%
+    round(digits=2)
+```
+
+:::
+::: {.column width=.45}
+
+```{r}
+breaks <- c(0.1, 0.25, 0.5, 0.75, 0.9)
+quantile(xv, probs=breaks) %>%
+    round(digits=2)
+```
+
+:::
+::::::
+
+
+## Histogram `hist`: Roughly... how are they distributed?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r fig.width=3.5, fig.height=3, echo=F, onslide.plot="1-"}
+hist(xv, main="raw data")
+```
+
+:::
+::: {.column width=.5}
+
+```{r fig.width=3.5, fig.height=3, echo=F, only.plot="2"}
+hist(log(1 + xv), main="log transform")
+```
+
+```{r fig.width=3.5, fig.height=3, echo=F, only.plot="3"}
+hist(sqrt(xv), main="square root")
+```
+
+:::
+::::::
+
+## Quantile-quantile plot against standard Normal
+
+```{r fig.width=3.7, fig.height=3.2}
+xv.rand <- sample(xv, 1000)     # random 1000 ponits
+qqnorm(log(1+xv.rand), main="") # compare with the Normal
+abline(a=0,b=1,col=2)           # diagnoal line
+```
+
+## Side note: Why do many statisticians care about Normality?
+
+- Full understanding of its properties
+
+- Maximum entropy (most random/chaotic) distribution of real numbers
+
+- Defined by first and second moments (mean and $\approx$ var.)
+
+- Central Limit Theorem (will discuss in the next lecture)
+
+- Many statistical methods were built on the Normality assumption.
+
+## Let's investigate the data more with `ggplot`
+
+`ggplot` and `dplyr` love fully linearized format.
+
+```{r}
+x.melt <- reshape2::melt(X); head(x.melt, 3)
+```
+
+What are `Var1` and `Var2`?
+
+```{r}
+head(rownames(X), 3)
+```
+
+```{r}
+head(colnames(X), 3)
+```
+
+## Excess of zeros... Can we zoom-in non-zero values?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r}
+row.stat <- x.melt %>%
+    group_by(`Var1`) %>%
+    summarize(m=mean(`value`),
+              s=sd(`value`),
+              nz=sum(`value` > 0),
+              cv=`s`/`m`) %>%
+    ungroup()
+```
+
+* `m`: the mean of each row (`Var1`)
+
+* `s`: standard deviation
+
+* `nz`: number of non-zeros
+
+* `cv`: coefficient of variation (`s/m`)
+
+```{r}
+zero.rows <- row.stat %>% filter(m == 0) %>%
+    nrow()
+tot.rows <- nrow(row.stat)
+```
+
+* `r num.int(zero.rows)` rows/features (out of `r num.int(tot.rows)`) are just empty
+
+:::
+::: {.column width=.5}
+
+```{r fig.width=3, fig.height=3, echo=F, only.plot="1"}
+ggplot(row.stat, aes(m, s)) +
+    geom_point(stroke=0) +
+    xlab("mean") +
+    ylab("std. dev.")
+```
+
+```{r fig.width=3, fig.height=3, echo=F, only.plot="2"}
+row.stat %>%
+    filter(nz > 0) %>%
+    ggplot(aes(nz, cv)) +
+    geom_point(stroke=0) +
+    xlab("non-zeros") +
+    ylab("coeff. var.")
+```
+
+```{r fig.width=3, fig.height=3, echo=F, only.plot="3"}
+row.stat %>%
+    filter(nz > 0) %>%
+    .gg.plot(aes(nz, cv)) +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    geom_hex(color="gray20", size=.1) +
+    scale_fill_distiller(trans="log", labels=round, direction=1) +
+    xlab("non-zeros") +
+    ylab("coeff. var.")
+```
+
+:::
+::::::
+
+
+## Filter out features (based on some statistics)
+
+:::::: {.columns}
+::: {.column width=.48}
+
+```{r}
+.df <- row.stat %>%
+    filter(nz > 0)
+
+p1 <-
+    .gg.plot(.df, aes(nz, cv)) +
+    theme(legend.position = c(1,1), legend.justification = c(1,1)) +
+    geom_hex(color="gray20", size=.1) +
+    scale_fill_distiller(trans="log", labels=round, direction=1) +
+    xlab("non-zeros") +
+    ylab("coeff. var.")
+
+```
+
+:::
+::: {.column width=.48}
+
+```{r}
+.df.cv.hist <- .df %>%
+    group_by(cv = round(cv*5)/5) %>%
+    summarize(count = n()) %>%
+    ungroup()
+
+p0 <-
+    .gg.plot(.df.cv.hist, aes(x=0, xend=`count`, y=`cv`, yend=`cv`)) +
+    geom_segment(size=2) +
+    scale_x_reverse("count") +
+    scale_y_continuous(position="right")
+
+```
+
+:::
+::::::
+
+
+## Filter out features (based on some statistics)
+
+```{r fig.height=3, fig.width=5.5}
+wrap_plots(p0, p1, nrow=1, widths=c(2,4))
+```
+
+## Filter out features (based on some statistics)
+
+```{r}
+ub.cv <- quantile(.df$cv, .9) # throw away top 90% of CV
+lb.cv <- quantile(.df$cv, .4) # bottom 30% of CV
+
+lb.nz <- 10  # non-zero in at least 10 samples
+ub.nz <- round(ncol(X) * .9) # avoid ubiquitously expressed
+
+p1.1 <- p1 +
+    geom_hline(yintercept = ub.cv, color="red", lty=2) +
+    geom_hline(yintercept = lb.cv, color="red", lty=2) +
+    geom_vline(xintercept = ub.nz, color="red", lty=2) +
+    geom_vline(xintercept = lb.nz, color="red", lty=2)
+
+p0.1 <- p0 +
+    geom_hline(yintercept = ub.cv, color="red", lty=2) +
+    geom_hline(yintercept = lb.cv, color="red", lty=2)
+```
+
+## Filter out features (based on some statistics)
+
+```{r fig.height=3, fig.width=5.5}
+wrap_plots(p0.1, p1.1, nrow=1, widths=c(2,4))
+```
+
+## How do we find the threshold levels?
+
+- Scientific rationale (based on the sequencing technology)
+
+- Communications with collaborators
+
+- Gut feeling/experience in the field
+
+- Be honest and transparent (never look at the desired outcome, e.g., p-hacking)
+
+- Sensitivity analysis
+
+## Let's take a deeper look at the sub-matrix focusing on informative features
+
+Intersection with the full data tuples
+
+```{r}
+valid.rows <-
+    row.stat %>%
+    filter(`cv` < ub.cv, `cv` > lb.cv) %>%
+    filter(`nz` < ub.nz, `nz` > lb.nz) %>%
+    select(`Var1`)
+
+x.melt.valid <-
+    left_join(valid.rows, x.melt, by = "Var1")
+```
+
+## What could happen after the filtering?
+
+:::::: {.columns}
+::: {.column width=.4}
+
+
+```{r}
+## random 1000 ponits
+xv.org <- sample(xv, 1000)
+## random 1000 ponits
+## among the retained
+xv.filtered <-
+    sample(x.melt.valid$value, 1000)
+```
+
+* What have we done?
+
+* Which side is generally bigger?
+
+:::
+::: {.column width=.6}
+
+```{r echo=F, fig.width=3, fig.height=3.2}
+qqplot(log(1 + xv.org), log(1 + xv.filtered)); abline(a=0,b=1,col=2)
+```
+
+:::
+::::::
+
+
+## What could happen after the filtering?
+
+```{r include = FALSE}
+.df <- rbind(tibble(y = xv.org, type = "raw"),
+             tibble(y = xv.filtered, type = "filtered"))
+```
+
+```{r echo=FALSE, fig.width=5, fig.height=3}
+p1 <-
+    ggplot(.df, aes(type, log(1 + y))) +
+    geom_point(position=position_jitter(w=.2, h=0), color="gray80", stroke=0) +
+    geom_boxplot(width=.5, outlier.stroke=0) +
+    xlab("") + ylab("log(1 + x)")
+
+p2 <-
+    ggplot(.df, aes(type, log(1 + y))) +
+    geom_point(position=position_jitter(w=.2, h=0), color="gray80", stroke=0) +
+    geom_violin() +
+    xlab("") + ylab("log(1 + x)")
+
+p1 | p2
+```
+
+
+## What could happen after the filtering? Normality of "log(1 + x)"
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=F, fig.width=2.8, fig.height=3}
+qqnorm(log(1 + xv.org), main="all"); abline(a=0,b=1,col=2)
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo=F, fig.width=2.8, fig.height=3}
+qqnorm(log(1 + xv.filtered), main="filtered"); abline(a=0,b=1,col=2)
+```
+
+:::
+::::::
+
+
+
+
+## Take top features per condition (for visualization)
+
+```{r}
+top.vars <-
+    x.melt.valid %>%
+    group_by(`Var2`) %>%
+    top_n(n=15, wt=`value`) %>%
+    ungroup() %>%
+    select(Var1) %>%
+    unique()
+```
+
+```{r}
+col.names <-
+    x.melt.valid %>%
+    select(`Var2`) %>%
+    unique() %>%
+    mutate(type = substr(`Var2`, 6, 99)) %>%
+    mutate(m = `type`) %>%
+    separate(`m`, c("major.type","remove"), sep="[_-]") %>%
+    select(-`remove`)
+```
+
+```{r}
+head(col.names, 3)
+```
+
+
+## Drawing a heatmap for the top features
+
+```{r}
+heat.df <- top.vars %>%
+    left_join(x.melt.valid, by="Var1")
+```
+
+```{r}
+p0 <-
+    ggplot(heat.df, aes(Var1, Var2, fill=value)) +
+    geom_tile() +
+    theme(axis.text=element_blank(), axis.ticks=element_blank()) +
+    theme(legend.position = "top",
+          legend.key.height = unit(.2, "lines"),
+          legend.key.width = unit(4, "lines"))
+```
+
+## A vanilla version
+
+```{r echo=F, fig.width=5.5, fig.height=3}
+p0
+```
+
+## A simple transformation will provide a more informative view
+
+```{r echo=F, fig.width=5.5, fig.height=3}
+p0 + scale_fill_distiller(trans="sqrt")
+```
+
+## Can we normalize across samples?
+
+```{r}
+heat.df <- heat.df %>%
+    mutate(x.log = log(1 + `value`)) %>%
+    group_by(`Var1`) %>%
+    mutate(x.log.std = (x.log - mean(x.log))/sd(x.log)) %>%
+    ungroup()
+```
+
+
+```{r}
+.aes <- aes(Var1, Var2, fill=pmin(pmax(`x.log.std`, -2), 2))
+p1 <-
+    ggplot(heat.df, .aes) +
+    geom_tile() +
+    theme(axis.text=element_blank(), axis.ticks=element_blank()) +
+    theme(legend.position = "top",
+          legend.key.height = unit(.2, "lines"))
+```
+
+
+## Can we normalize across samples
+
+```{r echo=F, fig.width=5.5, fig.height=3}
+p1 + scale_fill_distiller("x", palette = "RdBu", direction=-1)
+```
+
+## Sorting columns by cell type (`Var2`)
+
+```{r}
+heat.df <- heat.df %>% left_join(col.names)
+```
+
+```{r}
+v2.order <-
+    heat.df %>%
+    select(`type`, `Var2`) %>%
+    arrange(`type`) %>%
+    unique() %>%
+    select(`Var2`) %>%
+    unlist() %>%
+    as.character()
+```
+
+```{r}
+head(v2.order, 3)
+```
+
+## Sorting columns by cell type (`Var2`)
+
+Recover the data matrix after sorting the rows by `v2.order`
+
+```{r}
+M <- heat.df %>%
+    select(Var1, Var2, x.log.std) %>%
+    mutate(Var2 = factor(Var2, v2.order)) %>%
+    spread(Var1, value=x.log.std, fill = 0)
+```
+
+Diagnoalize the order of columns by maximum value positions
+
+```{r}
+argmax.v2.index <- apply(M[, -1], 2, which.max)
+.order <- order(argmax.v2.index, decreasing=TRUE)
+v1.order <- colnames(M)[-1][.order]
+```
+
+## Plotting the heatmap after sorting the rows and columns
+
+```{r}
+heat.df <- heat.df %>%
+    mutate(v1.sorted = factor(Var1, v1.order)) %>%
+    mutate(v2.sorted = factor(Var2, v2.order))
+
+.aes <- aes(v1.sorted, v2.sorted, fill=pmin(pmax(`x.log.std`, -2), 2))
+
+p2 <-
+    ggplot(heat.df, .aes) +
+    geom_tile() +
+    theme(axis.text=element_blank(), axis.ticks=element_blank()) +
+    theme(legend.position = "top",
+          legend.key.height = unit(.2, "lines"))
+
+```
+
+## Plotting the heatmap after sorting the rows and columns
+
+```{r echo=F, fig.width=5.5, fig.height=3}
+p2 + scale_fill_distiller("x", palette = "RdBu", direction=-1) + ylab("samples") + xlab("genes")
+```
+
+## Take one step forward compare ...
+
+```{r}
+annot.df <-
+    col.names %>%
+    mutate(v1.sorted = factor(type)) %>%
+    mutate(v2.sorted = factor(Var2, v2.order))
+```
+
+```{r}
+.aes <- aes(v1.sorted, v2.sorted)
+
+p2.1 <-
+    ggplot(annot.df, .aes) + geom_tile() + xlab("cell type annotation") +
+    theme(axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          axis.text.x = element_text(size=6, angle=90, vjust=1, hjust=1))
+
+p2.2 <- p2 +
+    scale_fill_distiller("x", palette = "RdBu", direction=-1) +
+    ylab("samples") + xlab("genes")
+
+```
+
+## Compare this heatmap with known cell type annotations
+
+```{r echo=F, fig.height=3, fig.width=5.8}
+wrap_plots(p2.1, p2.2, nrow=1, widths=c(5,10))
+```
+
+## What about relationships between two columns (samples)?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r fig.width=3, fig.height=3.5}
+qqplot(X[,1], X[,2])   # raw X1 and X2
+abline(a=0,b=1,col=2)  # diagnoal line
+```
+
+:::
+::: {.column width=.5}
+
+```{r fig.width=3, fig.height=3.5}
+qqplot(sqrt(X[,1]), sqrt(X[,2]))
+abline(a=0,b=1,col=2)  # diagnoal line
+```
+
+:::
+::::::
+
+## Can we compare them in a more systematic way?
+
+```{r}
+R.1 <- cor(X, method="pearson")
+R.2 <- cor(X, method="spearman")
+```
+
+* What is the dimensionality of `R`?
+
+```{r}
+dim(R.1)
+```
+
+```{r}
+R.1[1:3, 1:3]
+```
+
+* What's the difference between the "pearson" and "spearman" methods?
+
+## Quick visualization -- base version 1
+
+```{r fig.width=3, fig.height=3.5}
+image(R.1)
+```
+
+## Quick visualization -- base version 2
+
+```{r fig.width=3, fig.height=3}
+image(Matrix::Matrix(R.1[1:50, 1:50]))
+```
+
+## We may use `heatmap` function for a small matrix (Pearson)
+
+```{r echo=F, fig.width=3, fig.height=3}
+heatmap(R.1, cexRow = .5, cexCol = .5)
+```
+
+## We may use `heatmap` function for a small matrix (Spearman)
+
+```{r echo=F, fig.width=3, fig.height=3}
+heatmap(R.2, cexRow = .5, cexCol = .5)
+```
+
+## Wait, didn't we filter out some features?
+
+```{r}
+x.valid <- X[as.character(unlist(valid.rows)), ]
+```
+
+```{r}
+R <- cor(x.valid, method="spearman")
+```
+
+## After removing the list of unwanted features
+
+```{r echo=F, fig.width=3, fig.height=3}
+heatmap(R, cexRow = .5, cexCol = .5)
+```
+
+## Just focusing on the top features
+
+```{r echo=F, fig.width=4.2, fig.height=3}
+x.top <-
+    left_join(top.vars, x.melt.valid, by="Var1") %>%
+    spread(Var2, value=`value`)
+
+r.melt <-
+    cor(as.matrix(x.top[, -1]), method="spearman") %>%
+    reshape2::melt() %>%
+    mutate(row=Var1, col=Var2, weight=value) %>%
+    order.pair(ret.tab=TRUE)
+
+.aes <- aes(row, col, fill=weight)
+
+ggplot(r.melt, .aes) + geom_tile(size=.1, color="gray80") +
+    xlab("samples") + ylab("samples") +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(axis.text=element_blank()) +
+    theme(axis.ticks=element_blank()) +
+    scale_fill_gradient2("cor", low="#0033AA", high="red")
+```
+
+## Are there any methods meant for high-dimensional data?
+
+* Clustering similar features into cluster-specific features (Lecture 16)
+
+* Dimensionality reduction methods will project high-dimensional feature space into lower-dimensional space (Lecture 13-15)
+
+## Principal component analysis
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r}
+xx <- log(1 + x.valid)
+## Note: measure PCs for the columns
+pca.out <- prcomp(xx, scale.=TRUE)
+
+## Extract the output
+pcs <- pca.out$rotation[, 1:3]
+
+head(pcs, 3)
+```
+
+:::
+::: {.column width=.5}
+
+How much variance was explained by each component?
+
+```{r echo=F, fig.width=3, fig.height=3}
+plot(pca.out)
+```
+
+:::
+::::::
+
+## Top principal components
+
+```{r echo=F, fig.width=4.5, fig.height=3.5}
+plot(pcs[,1], pcs[,2], xlab="PC1", ylab="PC2", pch=19)
+```
+
+```{r include=F}
+.idx <- match(rownames(pcs), col.names$Var2)
+
+.df <- pcs %>%
+    as_tibble() %>%
+    mutate(Var2=rownames(pcs)) %>%
+    left_join(col.names, by = "Var2")
+
+.centers <- .df %>%
+    group_by(major.type) %>%
+    summarize(PC1=mean(PC1), PC2=mean(PC2), PC3=mean(PC3)) %>%
+    ungroup()
+```
+
+## Top principal components
+
+```{r echo=F, fig.width=4.5, fig.height=3}
+library(RColorBrewer)
+
+ggplot(.df, aes(PC1, PC2)) +
+    geom_point(aes(fill=major.type), pch=21, stroke = .2, size = 2) +
+    ggrepel::geom_text_repel(aes(label=major.type), data=.centers, size=2) +
+    scale_fill_manual(values=colorRampPalette(brewer.pal(12, "Paired"))(nrow(.centers)), guide="none")
+```
+
+## Top principal components
+
+```{r echo=F, fig.width=4.5, fig.height=3}
+ggplot(.df, aes(PC2, PC3)) +
+    geom_point(aes(fill=major.type), pch=21, stroke = .2, size = 2) +
+    ggrepel::geom_text_repel(aes(label=major.type), data=.centers, size=2) +
+    scale_fill_manual(values=colorRampPalette(brewer.pal(12, "Paired"))(nrow(.centers)), guide="none")
+```
+
+## t-SNE: Other dimensionality reduction methods
+
+```{r}
+tsne <- Rtsne::Rtsne(pcs, dims = 2)
+
+.df <- tsne$Y %>%
+    as_tibble() %>%
+    mutate(Var2=rownames(pcs)) %>%
+    left_join(col.names, by = "Var2")
+
+.centers <- .df %>%
+    group_by(major.type) %>%
+    summarize(V1=mean(V1), V2=mean(V2)) %>%
+    ungroup()
+
+```
+
+We will discuss PCA and tSNE later ...
+
+## t-SNE: Other dimensionality reduction methods
+
+```{r echo=F, fig.width=4.5, fig.height=3}
+ggplot(.df, aes(V1, V2)) +
+    xlab("tSNE 1") + ylab("tSNE 2") +
+    geom_point(aes(fill=major.type), pch=21, stroke = .2, size = 2) +
+    ggrepel::geom_text_repel(aes(label=major.type), data=.centers, size=2) +
+    scale_fill_manual(values=colorRampPalette(brewer.pal(12, "Paired"))(nrow(.centers)), guide="none")
+```
