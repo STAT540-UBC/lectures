@@ -106,7 +106,7 @@ We can use **statistical inference** to answer this biological question!
 
 ## Reading in / exploring the data
 
-* Data obtained from the [Gene Expression Omnibus (GEO)](https://www.ncbi.nlm.nih.gov/geo/) repository
+* Data obtained from the [Gene Expression Omnibus (GEO)](https://www.ncbi.nlm.nih.gov/geo/) repository (accession [GSE4051](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE4051))
 
 * Load directly into R session using [`GEOquery` package](https://www.bioconductor.org/packages/release/bioc/html/GEOquery.html) - see code below (which also refactors some of the metadata for convenience)
 
@@ -145,7 +145,6 @@ pData(eset) <- pData(eset) %>%
   mutate(genotype = as.factor(genotype))
 eset
 ```
-
 
 ## Two example genes: *Irs4* and *Nrl*
 
@@ -186,7 +185,7 @@ twoGenes <- toLongerMeta(eset) %>%
   mutate(gene = ifelse(gene == "1422248_at", "Irs4", "Nrl")) 
 twoGenes
 ```
-
+What do you notice? 
 
 ## Visualizing *Irs4* and *Nrl* genes in our sample
 
@@ -862,6 +861,8 @@ A p-value is **NOT**:
 
 - A measure of the size or importance of observed effects
 :::
+
+{{< video https://www.youtube.com/embed/ax0tDcFkPic >}}
 
 
 ## Preview: "Genome-wide" testing of differential expression
