@@ -206,7 +206,7 @@ filter(twoGenes, gene == "Irs4") %>%
 ```
 
 # linear regresion
-**Linear Regression**[^1]
+**Linear Regression**^[Note differences in sign between t-test & linear regression: pay attention to which group is 'reference']
 ```{r}
 #| code-line-numbers: "2"
 filter(twoGenes, gene == "Irs4") %>%
@@ -228,8 +228,6 @@ irs4.lm <- filter(twoGenes, gene == "Irs4") %>%
   summary()
 ```
 
-[^1]: Note differences in sign between t-test & linear regression: pay attention to which group is 'reference'
-
 ## These are not coincidences!
 
 ::: {.panel-tabset}
@@ -244,7 +242,7 @@ list("t statistic" = irs4.ttest$statistic,
      "(t statistic)^2" = irs4.ttest$statistic^2)
 ```
 # ANOVA
-**(One-way) Analysis of Variance (ANOVA)**[^2]
+**(One-way) Analysis of Variance (ANOVA)**^[Note that the t-statistic squared is equal to the ANOVA F statistic]
 ```{r}
 #| echo: false
 list("F statistic" = irs4.aov[[1]]$`F value`[1], 
@@ -269,9 +267,7 @@ list("t statistic" = irs4.lm$coeff[2,3],
 Why are these giving us the same results?
 :::
 
-[^2]: Note that the t-statistic squared is equal to the ANOVA F statistic
-
-## *t*-test vs *line*ar regression: where's the *line*[^3]?
+## *t*-test vs *line*ar regression: where's the *line*^[Note that the $x$-axis in these plots is not numerical, thus a line in this space does not have any mathematical meaning.]?
 
 ```{r echo=FALSE, fig.width=10, fig.height= 4, fig.align="center"}
 #| echo: false
@@ -282,8 +278,6 @@ grid.arrange(irsLim, nrlLim, ncol = 2)
 ```
 
 . . .
-
-[^3]: Note that the $x$-axis in these plots is not numerical, thus a line in this space does not have any mathematical meaning. 
 
 ::: {.callout-tip}
 # Key Question
@@ -354,7 +348,7 @@ Why the name? 'Cell' here refers to a cell of a table - e.g. make a table of mea
 
 * For each group $j$, the **population** mean is given by $E[Y_{ij}] = \mu_j$
 
-* A natural *estimator* of the population mean $\mu_j$ is the **sample** mean $\hat{\mu}_j = \bar{Y} = \frac{\sum_{i=1}^{n_j}Y_{ij}}{n_j}$
+* A natural *estimator* of the population mean $\mu_j$ is the **sample** mean $\hat{\mu}_j = \bar{Y_j} = \frac{\sum_{i=1}^{n_j}Y_{ij}}{n_j}$
 
 * Recall that the `t.test` function calculates these for us in R
 
@@ -522,7 +516,7 @@ $$Y_{ij} = \theta+\tau x_{ij} + \varepsilon_{ij}\;\; \text{where} \; \; x_{ij}=\
 0 \text{ if } j=1\\
 \end{array}$$
 
-**1-way ANOVA with many levels**[^4] using a linear model - e.g for 3 groups:
+**1-way ANOVA with many levels**^[in general; yet *another* parameterization can be used to present ANOVA] using a linear model - e.g for 3 groups:
 $$Y_{ij} = \theta+\tau_2 x_{ij2} + \tau_3 x_{ij3} +\varepsilon_{ij}\;\; \text{where} \; x_{ij2}=\bigg\{\begin{array}{l}
 1\text{ if } j=2\\
 0 \text{ otherwise}\\
@@ -535,8 +529,6 @@ $$Y_{ij} = \theta+\tau_2 x_{ij2} + \tau_3 x_{ij3} +\varepsilon_{ij}\;\; \text{wh
 This equivalence is why R can estimate all of them with `lm()`
 :::
 
-
-[^4]: in general; yet *another* parameterization can be used to present ANOVA 
 
 ## Connections
 
@@ -609,12 +601,10 @@ $E[Y_{i2}]=\theta+\tau_2 \; \rightarrow \tau_2=E[Y_{i2}]-E[Y_{i1}]=\mu_2-\mu_1$
 $E[Y_{i3}]=\theta+\tau_3 \; \rightarrow \tau_3=E[Y_{i3}]-E[Y_{i1}]=\mu_3-\mu_1$
 
 
-## Linear[^1] regression can include *quantitative* & *qualitative* covariates 
+## Linear^[Here we mean **linear** in the parameters $\boldsymbol{\alpha}$; $X$ can contain $x^2$, $log(x)$, etc] regression can include *quantitative* & *qualitative* covariates 
 
 
 ![](img/LM_vbles.png){fig-align="center"}
-
-[^1]: Here we mean **linear** in the parameters $\boldsymbol{\alpha}$; $X$ can contain $x^2$, $log(x)$, etc
 
 
 ## How it works in practice using `lm()` in R
@@ -640,9 +630,7 @@ lm(y ~ x, data = yourData)
 :::
 :::
 
-By default, R uses the reference-treatment parameterization[^1] 
-
-[^1]: but [you can change that](http://genomicsclass.github.io/book/pages/expressing_design_formula.html)!
+By default, R uses the reference-treatment parameterization^[but [you can change that](http://genomicsclass.github.io/book/pages/expressing_design_formula.html)!] 
 
 
 ## `factor` class in R 

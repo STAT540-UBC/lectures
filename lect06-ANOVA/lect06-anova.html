@@ -576,7 +576,7 @@ F-statistic: 0.2794 on 1 and 37 DF,  p-value: 0.6003</code></pre>
 <div class="cell">
 
 </div>
-<aside><ol class="aside-footnotes"><li id="fn1"><p>but <a href="http://genomicsclass.github.io/book/pages/expressing_design_formula.html">you can change that</a>!</p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn1"><p>Note differences in sign between t-test &amp; linear regression: pay attention to which group is ‘reference’</p></li></ol></aside></section>
 <section id="these-are-not-coincidences" class="slide level2">
 <h2>These are not coincidences!</h2>
 <div class="panel-tabset">
@@ -647,7 +647,7 @@ $`coefficient estimate`
 </div>
 </div>
 <aside><ol class="aside-footnotes"><li id="fn2"><p>Note that the t-statistic squared is equal to the ANOVA F statistic</p></li></ol></aside></section>
-<section id="t-test-vs-linear-regression-wheres-the-line3" class="slide level2">
+<section id="t-test-vs-linear-regression-wheres-the-line" class="slide level2">
 <h2><em>t</em>-test vs <em>line</em>ar regression: where’s the <em>line</em><sup>1</sup>?</h2>
 <div class="cell" data-layout-align="center">
 <div class="cell-output-display">
@@ -741,7 +741,7 @@ $`coefficient estimate`
 <h2>Recall: sample mean estimator of population mean</h2>
 <ul>
 <li><p>For each group <span class="math inline">\(j\)</span>, the <strong>population</strong> mean is given by <span class="math inline">\(E[Y_{ij}] = \mu_j\)</span></p></li>
-<li><p>A natural <em>estimator</em> of the population mean <span class="math inline">\(\mu_j\)</span> is the <strong>sample</strong> mean <span class="math inline">\(\hat{\mu}_j = \bar{Y} = \frac{\sum_{i=1}^{n_j}Y_{ij}}{n_j}\)</span></p></li>
+<li><p>A natural <em>estimator</em> of the population mean <span class="math inline">\(\mu_j\)</span> is the <strong>sample</strong> mean <span class="math inline">\(\hat{\mu}_j = \bar{Y_j} = \frac{\sum_{i=1}^{n_j}Y_{ij}}{n_j}\)</span></p></li>
 <li><p>Recall that the <code>t.test</code> function calculates these for us in R</p></li>
 </ul>
 </section>
@@ -1077,14 +1077,14 @@ F-statistic: 0.2794 on 1 and 37 DF,  p-value: 0.6003</code></pre>
 <p><span class="math inline">\(E[Y_{i2}]=\theta+\tau_2 \; \rightarrow \tau_2=E[Y_{i2}]-E[Y_{i1}]=\mu_2-\mu_1\)</span></p>
 <p><span class="math inline">\(E[Y_{i3}]=\theta+\tau_3 \; \rightarrow \tau_3=E[Y_{i3}]-E[Y_{i1}]=\mu_3-\mu_1\)</span></p>
 </section>
-<section id="linear1-regression-can-include-quantitative-qualitative-covariates" class="slide level2">
+<section id="linear-regression-can-include-quantitative-qualitative-covariates" class="slide level2">
 <h2>Linear<sup>1</sup> regression can include <em>quantitative</em> &amp; <em>qualitative</em> covariates</h2>
 <div class="quarto-figure quarto-figure-center">
 <figure>
 <p><img data-src="img/LM_vbles.png"></p>
 </figure>
 </div>
-<aside><ol class="aside-footnotes"><li id="fn5"><p>but <a href="http://genomicsclass.github.io/book/pages/expressing_design_formula.html">you can change that</a>!</p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn5"><p>Here we mean <strong>linear</strong> in the parameters <span class="math inline">\(\boldsymbol{\alpha}\)</span>; <span class="math inline">\(X\)</span> can contain <span class="math inline">\(x^2\)</span>, <span class="math inline">\(log(x)\)</span>, etc</p></li></ol></aside></section>
 <section id="how-it-works-in-practice-using-lm-in-r" class="slide level2">
 <h2>How it works in practice using <code>lm()</code> in R</h2>
 <span class="math display">\[Y = X\alpha + \varepsilon\]</span>
