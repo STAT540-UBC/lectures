@@ -1100,5 +1100,5 @@ ks.test(Nrlgene$Expression[Nrlgene$genotype == "WT"],
 
 3. What is generally more important for results interpretation: the effect size or the p-value?
 
-3. What should you do if methods that are equally appropriate and defensible give very different answers?
+4. What should you do if methods that are equally appropriate and defensible give very different answers?
 
