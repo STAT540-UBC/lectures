@@ -696,6 +696,106 @@ Under $H_0:$ the reduced model explains the same amount variation in the outcome
 $$F = \frac{\frac{RSS_{Red}-RSS_{Full}}{p_{Full}-p_{Red}}}{\frac{RSS_{Full}}{n-p_{Full}}} \sim \text{  } F_{p_{Fill}-p_{Red},\text{ } n-{p_{Full}}}$$
 A significant *F*-test means we reject the null; we have evidence that the full model explains significantly more variation in the outcome than the reduced.
 
+## Collinearity & confounding
+
+* If there are problems in the experimental design, we may not be able to estimate effects of interest
+
+::: {.callout-caution}
+The technical definition of **collinearity** is that a column of the design matrix can be obtained (or *accurately approximated*) as a linear combination of other columns.
+
+You can think of this as one column (or variable) not containing *unique information*
+:::
+
+* This phenomenon can occur if our design is confounded 
+
+* As an example, let's pretend we know that all the E16 and P2 mice are female and the rest are male
+
+## Example: E16/P2 mice are female and the rest are male
+
+:::{.panel-tabset}
+
+# Dataset
+
+```{r}
+Klf9dat_conf <- Klf9dat %>%
+  mutate(sex = ifelse(dev_stage %in% c("E16", "P2"), "female", "male"))
+table(Klf9dat_conf$sex, Klf9dat_conf$dev_stage)
+```
+
+# Design matrix
+
+```{r}
+(mm <- model.matrix( ~ sex + dev_stage, data = Klf9dat_conf))
+```
+# Linear combination
+
+```{r}
+# pull out column corresponding to male sex indicator variable
+mm[,"sexmale"] 
+# construct linear combination from columns corresponding to male timepoint indicator variables
+mm[,"dev_stageP6"] + mm[,"dev_stageP10"] + mm[,"dev_stageP28"]
+```
+
+# `lm` output
+
+`lm` can't estimate all the parameters in this collinear/confounded design.
+
+```{r}
+lm(expression ~ sex + dev_stage, data = Klf9dat_conf) %>%
+  tidy()
+```
+:::
+
+## Hidden confounding 
+
+::::{.columns}
+::: {.column width="30%"}
+
+::: {.callout-caution}
+Hidden **confounders** are variables with associations to both the outcome and predictor variable(s), but are not measured (or not included in the model). 
+
+They can cause spurious correlations, and illustrate why *correlation does not imply causation*.
+:::
+
+:::
+
+::: {.column width="70%"}
+:::{.panel-tabset}
+# Hidden
+
+```{r}
+#| echo: false
+#| fig-width: 8
+#| fig-height: 6
+Klf9
+```
+
+# Revealed
+
+```{r}
+#| echo: false
+#| fig-width: 9.6
+#| fig-height: 6
+ggplot(Klf9dat_conf, aes(x = dev_stage, y = expression, colour = sex)) + 
+  geom_jitter(width = 0, alpha = 0.7) +
+  labs(title = "Klf9") +
+  ylim(5, 11) +
+  xlab("Developmental Stage")
+```
+ 
+
+# Simpson's paradox
+ 
+Extreme example: trend reverses with/without confounder
+
+![](https://raw.githubusercontent.com/simplystats/simplystats.github.io/master/_images/simpsons-paradox.gif){fig-align="center" width=600}
+
+[image source: Simply Statistics](https://simplystatistics.org/posts/2017-08-08-code-for-my-educational-gifs/)
+
+:::
+:::
+::::
+
 ## Linear regression summary
 
 * linear model framework is extremely general 
