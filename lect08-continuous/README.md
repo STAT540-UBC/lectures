@@ -5,5 +5,7 @@
 * [This 2.5 minute audio clip introducing limma](https://www.youtube.com/embed/ZRet1oeGiUU?&end=150) from [Kasper Hansen's course "Bioconductor for Genomic Data Science"](https://kasperdanielhansen.github.io/genbioconductor/):
 
 <p align="center">
-[![](img/limmavideoscreenshot.png)](https://www.youtube.com/embed/ZRet1oeGiUU?&end=150)
+<a href="https://www.youtube.com/embed/ZRet1oeGiUU?&end=150"><img src="img/limmavideoscreenshot.png" alt="limma video screenshot"></a>
 </p>
+
+
