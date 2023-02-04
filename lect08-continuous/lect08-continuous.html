@@ -705,29 +705,6 @@ Keegan Korthauer
 </div>
 </div>
 </section>
-<section id="ols-interactive-demo" class="slide level2">
-<h2><a href="http://setosa.io/ev/ordinary-least-squares-regression/" data-preview-link="true">OLS interactive demo</a></h2>
-<p><a href="http://setosa.io/ev/ordinary-least-squares-regression/" data-preview-link="true">Launch demo</a></p>
-<div class="callout callout-tip callout-captioned callout-style-default">
-<div class="callout-body">
-<div class="callout-caption">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<p><strong>Explore</strong></p>
-</div>
-<div class="callout-content">
-<ol type="1">
-<li><p>In the first plot, drag individual points around and observe what changes in second plot</p></li>
-<li><p>In the second plot, adjust the slope and intercept dials - what happens to the total area of the squares in the second plot when you modify the slope and intercept from the default values?</p>
-<ul>
-<li>Note that you can reset to default values by refreshing the page</li>
-</ul></li>
-</ol>
-</div>
-</div>
-</div>
-</section>
 <section id="ols-estimator-for-simple-linear-regression-1-covariate" class="slide level2">
 <h2>OLS Estimator for Simple Linear Regression (1 covariate)</h2>
 <ul>
@@ -794,6 +771,29 @@ Keegan Korthauer
 
 </div>
 <img data-src="lect08-continuous_files/figure-revealjs/unnamed-chunk-11-1.png" width="960" class="r-stretch quarto-figure-center"></section>
+<section id="ols-interactive-demo" class="slide level2">
+<h2><a href="http://setosa.io/ev/ordinary-least-squares-regression/" data-preview-link="true">OLS interactive demo</a></h2>
+<p><a href="http://setosa.io/ev/ordinary-least-squares-regression/" data-preview-link="true">Launch demo</a></p>
+<div class="callout callout-tip callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Explore</strong></p>
+</div>
+<div class="callout-content">
+<ol type="1">
+<li><p>In the first plot, drag individual points around and observe what changes in second plot</p></li>
+<li><p>In the second plot, adjust the slope and intercept dials - what happens to the total area of the squares in the second plot when you modify the slope and intercept from the default values?</p>
+<ul>
+<li>Note that you can reset to default values by refreshing the page</li>
+</ul></li>
+</ol>
+</div>
+</div>
+</div>
+</section>
 <section id="properties-of-ols-regression" class="slide level2">
 <h2>Properties of OLS regression</h2>
 <p><strong>Regression model</strong>: <span class="math inline">\(\mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}\)</span></p>
@@ -1301,7 +1301,7 @@ Annotation: GPL1261 </code></pre>
 <span id="cb23-8"><a href="#cb23-8"></a>                <span class="at">values_from =</span> estimate)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  4.765   0.052   4.860 </code></pre>
+  4.987   0.058   5.135 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb25"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a>lmfits <span class="sc">%&gt;%</span> <span class="fu">head</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -1327,7 +1327,7 @@ Annotation: GPL1261 </code></pre>
 <span id="cb27-2"><a href="#cb27-2"></a>  <span class="fu">lmFit</span>(eset, <span class="fu">model.matrix</span>(<span class="sc">~</span> age <span class="sc">+</span> genotype, <span class="at">data =</span> <span class="fu">pData</span>(eset))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.110   0.026   0.137 </code></pre>
+  0.106   0.028   0.136 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb29"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1"></a>limmafits<span class="sc">$</span>coefficients <span class="sc">%&gt;%</span> <span class="fu">head</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -1401,7 +1401,7 @@ Annotation: GPL1261 </code></pre>
 </div>
 <ul>
 <li><p>this is done by assuming a <strong>prior distribution</strong> for those quantities</p></li>
-<li><p>Prior distribution for <strong>gene-specific variances</strong> <span class="math inline">\(\sigma^2_g\)</span>: an inverse Chi-square with mean <span class="math inline">\(s_0^2\)</span> and <span class="math inline">\(d_0\)</span> degrees of freedom:</p></li>
+<li><p>Prior distribution for <strong>gene-specific variances</strong> <span class="math inline">\(\sigma^2_g\)</span>: inverse <span class="math inline">\(\chi^2\)</span> with mean <span class="math inline">\(s_0^2\)</span>, <span class="math inline">\(d_0\)</span> df:</p></li>
 </ul>
 <p><span class="math display">\[\frac{1}{\sigma^2_g} \sim \frac{1}{d_0s_0^2} \chi^2_{d_0}\]</span></p>
 <div class="fragment">
@@ -1419,7 +1419,7 @@ Annotation: GPL1261 </code></pre>
 <p><span class="math display">\[\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}\]</span></p>
 <div class="fragment">
 <ul>
-<li>How to think about it: a weighted mean of the prior (indirect evidence) and the observed (direct evidence) gene-specific variances:</li>
+<li>A weighted mean of the <em>prior</em> and the <em>observed</em> gene-specific variances:</li>
 </ul>
 <p><span class="math display">\[\tilde{s}^2_g = \frac{d_0}{d_0 + d}s_0^2 + \frac{d}{d_0 + d}s^2_g\]</span></p>
 </div>
@@ -1453,11 +1453,11 @@ Annotation: GPL1261 </code></pre>
 </section>
 <section id="side-by-side-comparison-of-key-quantities-and-results" class="slide level2">
 <h2>Side-by-side comparison of key quantities and results</h2>
-<table>
+<table style="width:100%;">
 <colgroup>
-<col style="width: 44%">
-<col style="width: 32%">
-<col style="width: 23%">
+<col style="width: 42%">
+<col style="width: 28%">
+<col style="width: 28%">
 </colgroup>
 <thead>
 <tr class="header">
@@ -1468,17 +1468,17 @@ Annotation: GPL1261 </code></pre>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Estimated gene-wise <br>residual variance<sup>1</sup>:</td>
+<td>Estimated gene-wise residual variance<sup>1</sup>:</td>
 <td style="text-align: center;"><span class="math inline">\({s}_g^2 = \frac{1}{n-p} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}\)</span></td>
 <td style="text-align: center;"><span class="math inline">\(\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}\)</span></td>
 </tr>
 <tr class="even">
-<td><em>t</em>-statistic for <br> <span class="math inline">\(H_0: \alpha_{gj} = 0\)</span>:</td>
+<td><em>t</em>-statistic for <span class="math inline">\(H_0: \alpha_{gj} = 0\)</span>:</td>
 <td style="text-align: center;"><span class="math inline">\({t}_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}}\)</span></td>
 <td style="text-align: center;"><span class="math inline">\(\tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}\)</span></td>
 </tr>
 <tr class="odd">
-<td>distribution of the <br><em>t</em>-statistic under <span class="math inline">\(H_0\)</span>:</td>
+<td>Distribution of the <em>t</em>-statistic under <span class="math inline">\(H_0\)</span>:</td>
 <td style="text-align: center;"><span class="math inline">\({t}_{gj} \sim t_{d}\)</span></td>
 <td style="text-align: center;"><span class="math inline">\(\tilde{t}_{gj} \sim t_{d_0+d}\)</span></td>
 </tr>

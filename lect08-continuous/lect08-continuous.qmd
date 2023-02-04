@@ -373,18 +373,6 @@ Tmem176a_C +
 :::
 :::
 
-## [OLS interactive demo](http://setosa.io/ev/ordinary-least-squares-regression/){preview-link="true"}
-
-[Launch demo](http://setosa.io/ev/ordinary-least-squares-regression/){preview-link="true"}
-
-:::{.callout-tip collapse=true}
-## Explore
-1. In the first plot, drag individual points around and observe what changes in second plot
-
-2. In the second plot, adjust the slope and intercept dials - what happens to the total area of the squares in the second plot when you modify the slope and intercept from the default values?
-    * Note that you can reset to default values by refreshing the page
-:::
-
 ## OLS Estimator for Simple Linear Regression (1 covariate)
 
 * Mathematically: $\varepsilon_i$ represents the error: $e_i = y_i - \alpha_0 - \alpha_1x_i,  i = 1, ..., n$
@@ -453,6 +441,19 @@ results <- data.frame(slope = slopes,
 ggplot(results, aes(slope, RSS)) + 
   geom_line()
 ```
+
+
+## [OLS interactive demo](http://setosa.io/ev/ordinary-least-squares-regression/){preview-link="true"}
+
+[Launch demo](http://setosa.io/ev/ordinary-least-squares-regression/){preview-link="true"}
+
+:::{.callout-tip collapse=true}
+## Explore
+1. In the first plot, drag individual points around and observe what changes in second plot
+
+2. In the second plot, adjust the slope and intercept dials - what happens to the total area of the squares in the second plot when you modify the slope and intercept from the default values?
+    * Note that you can reset to default values by refreshing the page
+:::
 
 
 ## Properties of OLS regression 
@@ -946,7 +947,7 @@ Under the limma framework, we are no longer considering genes in isolation. We w
 
 * this is done by assuming a **prior distribution** for those quantities
 
-* Prior distribution for **gene-specific variances** $\sigma^2_g$: an inverse Chi-square with mean $s_0^2$ and $d_0$ degrees of freedom:
+* Prior distribution for **gene-specific variances** $\sigma^2_g$: inverse $\chi^2$ with mean $s_0^2$, $d_0$ df:
 
 $$\frac{1}{\sigma^2_g} \sim \frac{1}{d_0s_0^2} \chi^2_{d_0}$$
 
@@ -965,7 +966,7 @@ $$\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$$
 
 . . .
 
-* How to think about it: a weighted mean of the prior (indirect evidence) and the observed (direct evidence) gene-specific variances:
+* A weighted mean of the *prior* and the *observed* gene-specific variances:
 
 $$\tilde{s}^2_g = \frac{d_0}{d_0 + d}s_0^2 + \frac{d}{d_0 + d}s^2_g$$
 
@@ -1003,10 +1004,10 @@ $$\tilde{t}_{gj} \sim t_{d_0+d}$$
 
 
 |  | OLS  | limma |
-| --------------- | :---------: | :------: |
-| Estimated gene-wise <br>residual variance^[Not shown: estimation formulas for prior parameters $d_0$ and $s_0^2$]: | ${s}_g^2 =  \frac{1}{n-p} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}$ | $\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$ |
-| *t*-statistic for <br> $H_0: \alpha_{gj} = 0$:| ${t}_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}}$ | $\tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$ |
-| distribution of the <br>*t*-statistic under $H_0$: | ${t}_{gj} \sim t_{d}$ | $\tilde{t}_{gj} \sim t_{d_0+d}$ |
+| --------------- | :--------: | :--------: |
+| Estimated gene-wise residual variance^[Not shown: estimation formulas for prior parameters $d_0$ and $s_0^2$]: | ${s}_g^2 =  \frac{1}{n-p} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}$ | $\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$ |
+| *t*-statistic for $H_0: \alpha_{gj} = 0$:| ${t}_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}}$ | $\tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$ |
+| Distribution of the *t*-statistic under $H_0$: | ${t}_{gj} \sim t_{d}$ | $\tilde{t}_{gj} \sim t_{d_0+d}$ |
 
 
 ## Moderated vs traditional tests
