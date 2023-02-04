@@ -1,0 +1,1031 @@
+---
+title: "Continuous models and intro to `limma`"
+title-slide-attributes:
+  data-background-color: "#197aa0"
+  data-background-opacity: "0.9"
+  data-background-image: "https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png"
+  data-background-size: 12%
+  data-background-position: 95% 90%
+author: "Keegan Korthauer"
+date: "7 February 2023"
+date-format: long
+format: 
+  revealjs:
+    chalkboard: true
+    slide-number: c/t
+    width: 1600
+    height: 900
+    logo: "https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png"
+    echo: true
+    theme: [default, ../custom.scss]
+    show-notes: false
+---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(gridExtra)
+library(broom)
+library(latex2exp)
+library(limma)
+theme_set(theme_bw(base_size = 20))
+```
+
+
+
+## Laying the foundation of linear models
+
+![](https://blog.leightonbroadcasting.com/hs-fs/hubfs/Bricks-and-mortar.jpg?width=300&name=Bricks-and-mortar.jpg){fig-align="center"}
+
+* ***t*** **-tests** can be used to test the equality of 2 population means
+
+* **ANOVA** can be used to test the equality of more than 2 population means
+
+* **Linear regression** provides a general framework for modeling the relationship between a response variable and different types of explanatory variables
+
+  * *t*-tests can be used to test the significance of *individual* coefficients
+  
+  * *F*-tests can be used to test the simultaneous significance of *multiple* coefficients (e.g. multiple levels of a single categorical factor, or multiple factors at once)
+  
+  * *F*-tests are used to compare nested models (**overall** effects or **goodness of fit**)
+  
+
+## Learning objectives for today
+
+* Understand how linear regression represents continuous variables
+
+  * Be familiar with the intuition behind how the regression line is estimated (Ordinary Least Squares)
+
+  * Interpret parameters in a multiple linear regression model with continuous and factor variables
+  
+* Explain the motivation behind specialized methods regression models in high-dimensional settings
+  * e.g. Empirical Bayes techniques in `limma`
+
+## What if we treat age as a continuous variable?
+
+```{r}
+#| fig-align: center
+#| fig-width: 14
+#| fig-height: 7
+#| code-fold: true
+#| message: false
+
+library(GEOquery)
+
+# read in our dataset
+eset <- getGEO("GSE4051", getGPL = FALSE)[[1]]
+
+# recode time points
+pData(eset) <- pData(eset) %>%
+  mutate(sample_id = geo_accession) %>%
+  mutate(dev_stage =  case_when(
+    grepl("E16", title) ~ "E16",
+    grepl("P2", title) ~ "P2",
+    grepl("P6", title) ~ "P6",
+    grepl("P10", title) ~ "P10",
+    grepl("4 weeks", title) ~ "P28"
+  )) %>%
+  mutate(genotype = case_when(
+    grepl("Nrl-ko", title) ~ "NrlKO",
+    grepl("wt", title) ~ "WT"
+  ))
+
+# reorder factor levels, add continous age variable
+pData(eset) <- pData(eset) %>%
+  mutate(dev_stage = fct_relevel(dev_stage, "E16", "P2", "P6", "P10", "P28")) %>%
+  mutate(genotype = as.factor(genotype)) %>%
+  mutate(genotype = fct_relevel(genotype, "WT", "NrlKO")) %>%
+  mutate(age = ifelse(dev_stage == "E16", -4,
+                            ifelse(dev_stage == "P2", 2, 
+                                   ifelse(dev_stage == "P6", 6, 
+                                          ifelse(dev_stage == "P10", 10, 28)))))
+
+# function to return tidy data that merges expression matrix and metadata
+toLongerMeta <- function(expset) {
+    stopifnot(class(expset) == "ExpressionSet")
+    
+    expressionMatrix <- lonExpressionressionMatrix <- exprs(expset) %>% 
+    as.data.frame() %>%
+    rownames_to_column("gene") %>%
+    pivot_longer(cols = !gene, 
+                 values_to = "expression",
+                 names_to = "sample_id") %>%
+    left_join(pData(expset) %>% select(sample_id, dev_stage, age, genotype),
+            by = "sample_id")
+  return(expressionMatrix)
+}
+
+# pull out two genes of interest
+twoGenes <- toLongerMeta(eset) %>% 
+  filter(gene %in% c("1456341_a_at", "1441811_x_at")) %>%
+  mutate(gene = ifelse(gene == "1456341_a_at", "Klf9", "Tmem176a")) 
+
+# make some plots - first with age continuous
+Klf9_C <- ggplot(filter(twoGenes, gene == "Klf9"), 
+                  aes(x = age, y = expression)) + 
+             geom_point(alpha = 0.7) +
+             labs(title = "Klf9") +
+             theme(legend.position = "none") +
+             ylim(5, 11) +
+             xlab("age (days)") 
+
+Tmem176a_C <- ggplot(filter(twoGenes, gene == "Tmem176a"), 
+                 aes(x = age, y = expression)) + 
+             geom_point(alpha = 0.7) +
+             labs(title = "Tmem176a") +
+             ylim(5, 11) +
+             xlab("age (days)") 
+
+# next with age categorical
+Klf9 <- ggplot(filter(twoGenes, gene == "Klf9"), 
+                  aes(x = dev_stage, y = expression)) + 
+             geom_jitter(width = 0, alpha = 0.7) +
+             theme(legend.position = "none") +
+             labs(title = "Klf9") +
+             ylim(5, 11) +
+             xlab("Developmental Stage")
+
+Tmem176a <- ggplot(filter(twoGenes, gene == "Tmem176a"), 
+                 aes(x = dev_stage, y = expression)) + 
+             geom_jitter(width = 0, alpha = 0.7) +
+             labs(title = "Tmem176a") +
+             ylim(5, 11) +
+             xlab("Developmental Stage") 
+
+grid.arrange(Klf9 + stat_summary(aes(group=1), fun = mean, geom="line", colour="grey"), 
+             Tmem176a + stat_summary(aes(group=1), fun = mean, geom="line", colour="grey") + ylab(""), 
+             Klf9_C + stat_summary(aes(group=1), fun = mean, geom="line", colour="grey"), 
+             Tmem176a_C + stat_summary(aes(group=1), fun = mean, geom="line", colour="grey") + ylab(""), 
+             nrow = 2)
+```
+
+
+## Linear model with age as continuous covariate
+
+```{r}
+#| fig-align: center
+#| fig-width: 14
+#| fig-height: 4.5
+#| code-fold: true
+grid.arrange(Klf9_C + stat_summary(aes(group=1), fun =mean, geom="line", colour="grey"), 
+             Tmem176a_C + stat_summary(aes(group=1), fun =mean, geom="line", colour="grey") + ylab(""), 
+             nrow = 1)
+```
+
+* Linear looks reasonable for gene Tmem176a, but not so much for Klf9
+
+* For now, assume linear is reasonable
+
+
+## Simple Linear Regression (Matrix form)
+
+$$\large \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$
+
+For 1 continuous/quantitative covariate:
+
+$$\mathbf{Y} = \begin{bmatrix}
+  y_{1} \\
+  y_{2} \\
+  \vdots \\
+  y_{n} \\
+\end{bmatrix}, \hspace{1em}
+\mathbf{X} = \begin{bmatrix}
+  1 & x_{1} \\
+  1 & x_{2} \\
+  \vdots & \vdots \\
+  1 & x_{n} \\
+\end{bmatrix}, \hspace{1em}
+\boldsymbol\alpha = \begin{bmatrix}
+  \alpha_{0} \\
+  \alpha_{1} \\
+\end{bmatrix}, \hspace{1em}
+\boldsymbol\varepsilon=\begin{bmatrix}
+  \varepsilon_{1} \\
+  \varepsilon_{2} \\
+  \vdots \\
+  \varepsilon_{n} \\
+\end{bmatrix}$$
+
+* $\alpha_0=$ the **intercept** (expected value of $y$ when $x$ is equal to zero)
+
+* $\alpha_1=$ the **slope** (expected change in $y$ for every one-unit increase in $x$)
+
+
+## Simple Linear Regression (Matrix form)
+
+$$\large \mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$$
+
+Remember / convince yourself that the matrix algebra yields simple linear equations:
+$$\begin{bmatrix}
+  y_{1} \\
+  y_{2} \\
+  \vdots \\
+  y_{n} \\
+\end{bmatrix}=\begin{bmatrix}
+  1 & x_{1} \\
+  1 & x_{2} \\
+  \vdots & \vdots \\
+  1 & x_{n} \\
+\end{bmatrix}\begin{bmatrix}
+  \alpha_{0} \\
+  \alpha_{1} \\
+\end{bmatrix}+\begin{bmatrix}
+  \varepsilon_{1} \\
+  \varepsilon_{2} \\
+  \vdots \\
+  \varepsilon_{n} \\
+\end{bmatrix}=\begin{bmatrix}
+  1*\alpha_0 + x_{1}\alpha_{1} \\
+  1*\alpha_0 + x_{2}\alpha_{1} \\
+   \vdots \\
+  1*\alpha_0 + x_{n}\alpha_{1} \\
+\end{bmatrix}+\begin{bmatrix}
+  \varepsilon_{1} \\
+  \varepsilon_{2} \\
+  \vdots \\
+  \varepsilon_{n} \\
+\end{bmatrix}$$
+
+$$=\begin{bmatrix}
+  \alpha_0 + x_{1}\alpha_{1} + \varepsilon_{1} \\
+  \alpha_0 + x_{2}\alpha_{1} + \varepsilon_{2}\\
+   \vdots \\
+  \alpha_0 + x_{n}\alpha_{1} + \varepsilon_{n} \\
+\end{bmatrix}$$
+$$\Rightarrow y_i = \alpha_0 + x_i\alpha_1 + \varepsilon_i$$
+
+
+## SLR with continuous age covariate
+
+::: columns
+::: column
+```{r}
+#| echo: false
+Tmem176a_C 
+```
+:::
+
+::: column
+
+```{r}
+Tmem_fit <- filter(twoGenes, gene == "Tmem176a") %>%
+  lm(expression ~ age, data = .)
+tidy(Tmem_fit)
+```
+Interpretation of **intercept**:
+
+$H_0: \alpha_0 = 0$
+tests the null hypothesis that the intercept is zero - usually, not of interest
+:::
+:::
+
+## SLR with continuous age covariate
+
+::: columns
+::: column
+```{r}
+#| echo: false
+Tmem176a_C
+```
+:::
+
+::: column
+
+```{r}
+tidy(Tmem_fit)
+```
+
+Interpretation of **slope**:
+
+$H_0: \alpha_1 = 0$
+tests the null hypothesis that there is no association between gene expression and age - usually of interest
+:::
+:::
+
+## How do we estimate the intercept and slope? 
+
+Why is this the **optimal** line?
+
+```{r}
+tidy(Tmem_fit)
+```
+
+## Which one is the *best* line?
+
+```{r}
+#| echo: false
+#| fig-width: 8
+#| fig-height: 6
+#| fig-align: center
+set.seed(795)
+int <- tidy(Tmem_fit)$estimate[1]
+slp <- tidy(Tmem_fit)$estimate[2]
+a  <- rnorm(1, sd = 0.6)
+b  <- rnorm(1, sd = 0.6)
+c  <- rnorm(1, sd = 0.6)
+d  <- rnorm(1, sd = 0.6)
+
+Tmem176a_C +
+  geom_abline(intercept = int + a, 
+              slope = slp - a/14, colour = "red", cex=1) +
+  geom_abline(intercept = int + b, 
+              slope = slp - b/17, colour = "green", cex=1) +
+  geom_abline(intercept = int + c, 
+              slope = slp - c/19, colour = "purple", cex=1) +
+  geom_abline(intercept = int + d, 
+              slope = slp - d/15, colour = "orange", cex=1) +
+  geom_abline(intercept = int, 
+              slope = slp, colour = "blue", cex=1)
+```
+
+
+## Ordinary Least Squares
+
+::: columns
+::: column
+```{r}
+#| echo: false
+#| fig-align: center
+#| fig-width: 7
+#| fig-height: 6
+d = twoGenes %>% 
+  filter(gene == "Tmem176a") %>% 
+  mutate(predicted = predict(Tmem_fit)) %>%  # Save the predicted values
+  mutate(residuals = residuals(Tmem_fit))   # Save the residual values
+
+Tmem176a_C +
+  geom_abline(intercept = int, slope = slp, colour = "blue", 
+               cex=1, linetype = 2) +
+  geom_segment(data=d[7,], aes(xend = age, yend = predicted), colour="red", cex=1.1, 
+               arrow = arrow(ends="both", length = unit(0.1, "in"), type = "open")) +
+  annotate("text", label="Residual", x=-1.75,y=d[7,]$expression-0.4, colour = "red", cex=8)
+  
+```
+:::
+
+
+::: column
+* **Ordinary Least Squares (OLS)** regression: parameter estimates minimize the sum of squared errors
+
+* **Error**: vertical $(y)$ distance between the true regression line (unobserved) and the real observation 
+
+* **Residual**: vertical $(y)$ distance between the fitted regression line and the real observation (estimated error)
+:::
+:::
+
+## [OLS interactive demo](http://setosa.io/ev/ordinary-least-squares-regression/){preview-link="true"}
+
+[Launch demo](http://setosa.io/ev/ordinary-least-squares-regression/){preview-link="true"}
+
+:::{.callout-tip collapse=true}
+## Explore
+1. In the first plot, drag individual points around and observe what changes in second plot
+
+2. In the second plot, adjust the slope and intercept dials - what happens to the total area of the squares in the second plot when you modify the slope and intercept from the default values?
+    * Note that you can reset to default values by refreshing the page
+:::
+
+## OLS Estimator for Simple Linear Regression (1 covariate)
+
+* Mathematically: $\varepsilon_i$ represents the error: $e_i = y_i - \alpha_0 - \alpha_1x_i,  i = 1, ..., n$
+
+* We want to find the line (i.e. an intercept and slope) such that the **sum of squared errors** is minimized: 
+$$S(\alpha_0, \alpha_1)= \sum_{i=1}^n (y_i - \alpha_0 - \alpha_1 x_i)^2$$
+    
+    * $S(\alpha_0, \alpha_1)$ is called an *objective function*
+    
+    * the sum of squared errors is also referred to as **Residual Sum of Squares (RSS)**
+    
+* How to obtain estimates $(\hat{\alpha}_0, \hat{\alpha}_1)$ ? Let's look at a more general case
+
+
+## OLS for Multiple Linear Regression (p covariates)
+
+$$S(\alpha_0, \alpha_1, \alpha_2, ..., \alpha_p) = \sum_{i=1}^n (y_i - \alpha_0 - \alpha_1 x_{1i} - \alpha_2 x_{2i} - ... - \alpha_p x_{pi})^2$$
+$$=(\mathbf{y}-\mathbf{X}\boldsymbol\alpha)^T(\mathbf{y}-\mathbf{X}\boldsymbol\alpha)$$
+
+* We need to find values of $\boldsymbol\alpha=(\alpha_0, \alpha_1, ..., \alpha_p)$ that minimize the sum of squares $S$
+
+. . .
+
+* Take partial derivatives with respect to each coeff, set to zero, solve system of equations:
+
+::: columns
+::: column
+$$\small \frac{\partial S}{\partial\alpha_0}=\begin{bmatrix}
+  \frac{\partial S}{\partial\alpha_0} \\
+  \frac{\partial S}{\partial\alpha_1} \\
+  \vdots\\
+  \frac{\partial S}{\partial\alpha_p} \\
+\end{bmatrix}=\begin{bmatrix}
+  0 \\
+  0 \\
+  \vdots\\
+  0 \\
+\end{bmatrix}$$
+:::
+
+::: column
+![](https://xaktly.com/Images/Mathematics/TheDerivative/DerivativeOfXSquared.png)
+:::
+:::
+
+## Sums of squares for Tmem176a
+
+Fixing the intercept at `r Tmem_fit$coefficients[1]`, let's plot the RSS values for a range of possible slope values.
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+rss <- function(intercept, slope, x, y, data){
+  resid <- pull(data, x) - (intercept + slope*pull(data, y))
+  return(sum(resid^2))
+}
+
+slopes = seq(-0.2, 0.2, len = 100)
+results <- data.frame(slope = slopes,
+                      RSS = sapply(slopes, 
+                                   rss, 
+                                   intercept = Tmem_fit$coefficients[1],
+                                   x = "age", 
+                                   y = "expression",
+                                   data = filter(twoGenes, gene == "Tmem176a")))
+ggplot(results, aes(slope, RSS)) + 
+  geom_line()
+```
+
+
+## Properties of OLS regression 
+
+**Regression model**: $\mathbf{Y = X \boldsymbol\alpha + \boldsymbol\varepsilon}$
+
+**OLS estimator**: $\hat{\boldsymbol\alpha} =(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}$
+
+**Fitted/predicted values**: $\hat{\mathbf{y}} = \mathbf{X} \hat{\boldsymbol\alpha} = \mathbf{X} (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y} = \mathbf{H}\mathbf{y}$
+
+where $\mathbf{H}=\mathbf{X} (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T$ is called the "hat matrix"
+
+. . .
+
+:::{.callout-note}
+## Assumptions of OLS Regression
+1. $\boldsymbol\varepsilon$ have mean zero
+
+2. $\boldsymbol\varepsilon$ are iid (implies constant variance)
+
+3. *(only required for hypothesis testing in small sample settings)* $\boldsymbol\varepsilon$ are Normally distributed
+:::
+
+:::{.callout-tip collapse=true}
+## Connection to other estimators
+
+If $\boldsymbol\varepsilon$ are iid **Normal**, then OLS estimator is also MLE (Maximum Likelihood Estimator)
+:::
+
+## Properties of OLS regression (cont'd)
+
+**Residuals**: (note NOT the same as errors $\boldsymbol\varepsilon$) $$\hat{\boldsymbol\varepsilon} = \mathbf{y} - \hat{\mathbf{y}} = \mathbf{y} -  \mathbf{X} \hat{\boldsymbol\alpha}$$ 
+
+**Estimated error variance**: $$\hat{\sigma}^2 =  \frac{1}{n-p} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}$$
+
+**Estimated covariance matrix of** $\hat{\boldsymbol\alpha}$: $$\hat{Var}(\hat{\boldsymbol\alpha}) = \hat{\sigma}^2(\mathbf{X}^T\mathbf{X})^{-1}$$
+
+**Estimated standard errors for estimated regression coefficients**: 
+$\hat{se}(\hat{\alpha}_j)$, obtained by taking the square root of the diagonal elements of $\hat{Var}(\hat{\boldsymbol\alpha})$
+
+
+## Inference in Regression (normal iid errors)
+
+How to test $H_0: \alpha_j = 0$?
+
+With a **_t_-test**! 
+
+Under $H_0$, 
+
+$$\frac{\hat{\alpha}_j}{\hat{se}(\hat{\alpha}_j)} \sim t_{n-p}$$
+
+So a *p*-value is obtained by computing a tail probability for the observed value of $\hat{\alpha}_j$ from a $t_{n-p}$ distribution
+
+
+## Inference - what if we don't assume Normal errors?
+
+. . . 
+
+How to test $H_0: \alpha_j = 0$?
+
+Assuming large enough sample size, with a **_t_-test**! 
+
+Under $H_0$, <font color="red"> asymptotically (by CLT)</font>
+
+$$\frac{\hat{\alpha}_j}{\hat{se}(\hat{\alpha}_j)} \sim t_{n-p}$$
+
+So *with a large enough sample size* a *p*-value for this hypothesis test is obtained by computing a tail probability for the observed value of $\hat{\alpha}_j$ from a $t_{n-p}$ distribution
+
+## Diagnostics plots
+
+::: columns
+::: {.column width="35%"}
+Do our assumptions hold?
+
+* Constant variance
+* iid errors
+* Normality of errors
+:::
+
+::: {.column width="65%"}
+```{r}
+#| fig-height: 7.9
+# requires package 'ggResidpanel'
+ggResidpanel::resid_panel(Tmem_fit)
+```
+:::
+:::
+
+## *Linear* regression 
+
+* The nature of the regression function $y=f(x|\boldsymbol\alpha)$ is one of the defining characteristics of a regression model
+
+* If $f$ is not linear in $\boldsymbol\alpha \Rightarrow$ **nonlinear model**
+
+  * For example, consider nonlinear parametric regression: $$ y_i = \frac{1}{1 + e^{\alpha_0 + \alpha_1 x_i}} + \varepsilon_i$$
+    
+
+* If $f$ is linear in $\boldsymbol\alpha \Rightarrow$ **linear model** 
+  * We just examined simple linear regression (a linear model): $y_i = \alpha_0 + \alpha_1x_i + \varepsilon_i$
+
+  * What we could do instead: polynomial regression (also a linear model) $$y_i = \alpha_0 + \alpha_1x_i + \alpha_2x_i^2 + \varepsilon_i$$
+
+
+## Polynomial regression 
+
+::: {.panel-tabset}
+
+# `lm` output
+
+```{r}
+oneGene <- toLongerMeta(eset) %>% 
+  filter(gene %in% c("1427275_at")) %>%
+  mutate(gene = "Smc4")
+lm(expression ~ age + I(age^2), data = oneGene) %>% tidy()
+```
+
+# Plot
+
+```{r}
+#| code-fold: true
+#| fig-align: center
+#| fig-width: 8
+#| fig-height: 6
+#| message: false
+Smc4 <- ggplot(oneGene, aes(x = age, y = expression)) + 
+  geom_point(alpha = 0.7) +
+  labs(title = "Smc4") +
+  theme(legend.position = "none") +
+  ylim(6, 11) +
+  xlab("age (days)") + 
+  stat_smooth(method="lm", se=FALSE, fill=NA, 
+              formula=y ~ poly(x, 2),colour="blue")
+
+Smc4
+```
+:::
+
+:::{.callout-important collapse=true}
+Note that **this is still a linear model**, because it is linear in the $\alpha_j$ 
+:::
+
+
+## Putting it all together (continuous + categorical variables)
+
+```{r}
+#| code-fold: true
+#| fig-width: 9
+#| fig-height: 5.5
+#| fig-align: center
+#| message: false
+Tmem176a_B <- ggplot(filter(twoGenes, gene=="Tmem176a"), 
+                  aes(x = age, y = expression, colour = genotype)) + 
+             geom_point(alpha = 0.7) +
+             labs(title = "Tmem176a") +
+             ylim(5, 10) +
+             xlab("age (days)") + 
+             stat_smooth(method="lm", se=FALSE)
+Tmem176a_B 
+```
+
+
+## Interaction between continuous and categorical variables
+
+```{r}
+lm(expression ~ age*genotype, data = filter(twoGenes, gene=="Tmem176a")) %>% 
+  tidy()
+```
+
+`(Intercept)`: Intercept of WT line
+
+`age`: slope of WT (reference) line
+
+`genotypeNrlKO`: difference in intercepts (KO vs WT)
+
+`age:genotypeNrlKO`: difference in slopes (KO vs WT)
+
+
+## Reminder about the Intercept
+
+```{r}
+#| echo: false
+#| fig-align: center
+#| message: false
+Tmem176a_B + geom_vline(xintercept = 0, linetype = 2, colour = "red")
+```
+
+:::{.callout-note}
+Intercept terms refer to the estimates when the continuous covariate is equal to zero. This is not usually very interesting on its own
+:::
+
+## Interaction between continuous and categorical variables
+
+$$y_{ij} = \alpha_{0} + \tau_{KO}x_{ij, KO} + \tau_{Age} x_{ij, Age} + \tau_{KO:Age} x_{ij, KO}x_{ij, Age}$$
+
+where
+
+* $j \in \{ WT, NrlKO\}$, $i = 1,2,...,n_j$
+* $x_{ij, KO}$ is the indicator variable for WT vs KO ( $x_{ij, KO}=1$ for $j=NrlKO$ and 0 for $j=WT$ ) 
+* $x_{ij, Age}$ is the continuous age covariate
+
+Interpretation of parameters:
+
+* $\alpha_0$ is the expected expression *in WT* for age = 0
+* The "intercept" for the knockouts is: $\alpha_0 + \tau_{KO}$
+* $\tau_{Age}$ is the expected increase in expression *in WT* for every 1 day increase in age 
+* The slope for the knockouts is: $\tau_{Age} + \tau_{KO:Age}$
+
+## Nested models
+
+As always, you can assess the relevance of several terms at once (e.g. everything involving genotype) with an **_F_-test**:
+
+```{r}
+Klf9dat <- filter(twoGenes, gene=="Klf9")
+anova(lm(expression ~ age*genotype, data = Klf9dat),
+      lm(expression ~ age, data = Klf9dat))
+```
+
+. . .
+
+:::{.callout-note collapse=true}
+## Conclusion
+We don't have evidence that genotype affects the intercept or the slope
+:::
+
+## *F*-tests in regression
+
+| Model | Example | # params (df) | RSS |
+| ----- | ------- | ------------- | ---- |
+| Reduced | expression ~ age | $p_{Red}=2$ | $RSS_{Red}$ |
+| Full | expression ~ age * genotype | $p_{Full}=4$ | $RSS_{Full}$|
+
+**Full:**
+$y_{ij} = \alpha_{0} + \tau_{KO}x_{ij, KO} + \tau_{Age} x_{ij, Age} + \tau_{KO:Age} x_{ij, KO}x_{ij, Age}$
+
+**Reduced:**
+$y_{ij} = \alpha_{0} + \tau_{Age} x_{ij, Age}$
+
+Under $H_0:$ the reduced model explains the same amount variation in the outcome as the full,
+
+$$F = \frac{\frac{RSS_{Red}-RSS_{Full}}{p_{Full}-p_{Red}}}{\frac{RSS_{Full}}{n-p_{Full}}} \sim \text{  } F_{p_{Fill}-p_{Red},\text{ } n-{p_{Full}}}$$
+A significant *F*-test means we reject the null; we have evidence that the full model explains significantly more variation in the outcome than the reduced.
+
+## Linear regression summary
+
+* linear model framework is extremely general 
+
+* one extreme (simple): two-sample common variance *t*-test
+
+* another extreme (flexible): a polynomial, potentially different for each level of some factor
+
+    * dichotomous predictor? 👍
+    
+    * categorical predictor? 👍
+    
+    * quantitative predictor? 👍
+    
+    * various combinations of the above? 👍
+    
+* Don't be afraid to build models with more than 1 covariate
+
+* later, we'll talk about extensions to discrete outcomes (e.g. dichotomous or counts) via *generalized linear models*
+
+
+## What about the other 45 thousand probesets??
+
+```{r}
+eset
+```
+
+
+## Linear regression of many genes
+
+$$\Large \mathbf{Y}_g = \mathbf{X}_g \boldsymbol\alpha_g + \boldsymbol\varepsilon_g$$
+
+* The g in the subscript reminds us that we'll be fitting a model like this *for each gene g* that we have measured for all samples
+
+* Most of the time, the design matrices $\mathbf{X}_g$ are, in fact, the same for all $g$. This means we can just use $\mathbf{X}$
+
+* Note this means the residual degrees of freedom are also the same for all $g$ 
+$$d_g = d = n - \text{dimension of } \boldsymbol\alpha = n-p$$
+
+
+## Linear regression of many genes (cont'd)
+
+* Data model: $\large\mathbf{Y}_g = \mathbf{X} \boldsymbol\alpha_g + \boldsymbol\varepsilon_g$
+
+* Unknown error variance: $\large Var(\boldsymbol\varepsilon_g) = \sigma^2_g$
+
+* Estimated error variance: $\large\hat{\sigma}^2_g = s^2_g = \frac{1}{n-p}\hat{\boldsymbol\varepsilon_g}^T\hat{\boldsymbol\varepsilon_g}$
+
+* Estimated variance of parameter estimates: $\large\hat{Var}(\hat{\boldsymbol\alpha_g}) =  s^2_g (\mathbf{X}^T\mathbf{X})^{-1} =  s^2_g \mathbf{V}$
+
+  * $\bf{V}$ is the "unscaled covariance" matrix, and is the same for all genes! 
+
+  * Estimated standard errors for estimated regression coefficients: 
+$\large\hat{se}(\hat{\alpha}_{jg})$ obtained by taking the square root of the $j^{th}$ diagonal element of $\hat{Var}(\hat{\boldsymbol\alpha}_g)$, which is $s_g\sqrt{v_{jj}}$
+
+
+## What's the big deal?
+
+So far, nothing is new - these are the "regular" *t* statistics for gene *g* and parameter *j*:
+
+$$t_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_{d} \text{ under } H_0$$
+
+But there are *so* many of them!! 😲
+
+
+## Observed (i.e. empirical) issues with the "standard" *t*-test approach for assessing differential expression 
+
+::: columns
+:::{.column width="70%"}
+![](img/Volcano_eg.jpg){fig-align="center" width=800}
+:::
+:::{.column width="30%"}
+:::{.callout-important}
+Some genes with very small p-values (i.e. large -log10 p-values) are not *biologically meaningful* (small effect size, e.g. fold change)
+:::
+:::
+:::
+
+## How do we end up with small p-values but subtle effects?
+
+$$\large t_{gj} = \frac{\hat{\alpha}_{gj}}{\hat{se}(\hat{\alpha}_{gj})} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_d \text{ under } H_0$$
+
+. . .
+
+* Small variance estimate $s_g$ leads to large *t* statistic $\rightarrow$ small *p*-value
+
+. . .
+
+* Recall: estimates of sample variance from small sample sizes tend to under-estimate the true variance!
+
+. . .
+
+* This has led to the development of specialized methodology for assessing genome-wide differential expression 
+
+
+## Empirical Bayesian techniques: `limma`
+
+::: columns
+::: column
+![](img/limma_paper.png)
+[Smyth 2004](http://www.statsci.org/smyth/pubs/ebayes.pdf)
+:::
+
+::: column
+![](img/limma_bioc.png)
+:::
+:::
+
+## Why use `limma` instead of regular *t*-tests?
+
+:::{.columns}
+:::{.column width="25%"}
+![](https://raw.githubusercontent.com/Bioconductor/BiocStickers/master/limma/limma.png)
+:::
+
+
+:::{.column width="75%"}
+* **Borrows information** from all genes to get a better estimate of the variance (especially in smaller sample size settings)
+
+* Efficiently fits many regression models **without replicating unnecessary calculations**!
+
+* Arranges output in a convenient way to ease further analysis, visualization, and interpretation
+:::
+:::
+
+## How does Empirical Bayes work?
+
+::: columns
+::: column
+* **Empirical**: observed
+
+* **Bayesian**: incorporate 'prior' information
+
+* Intuition: estimate prior information from data; *shrink* (nudge) all estimates toward the consensus
+:::
+
+::: column
+
+**Shrinkage = borrowing information across all genes**
+
+![](img/shrink.jpg){width="100%"}
+:::
+:::
+
+
+## Genome-wide OLS fits
+
+
+* Gene by gene:
+
+  * `lm(y ~ x, data = gene)` for each gene
+  
+  * For example, using `dplyr::group_modify` and `broom::tidy`
+ 
+. . .
+
+* All genes at once, using `limma`: 
+
+  * `lmFit(myDat, desMat)`
+  
+  * `myDat` matrix-like object with expression values for all genes
+  
+  * `desMat` is a specially formatted design matrix (more on this later)
+  
+  * Or, even better, `lmFit(eset, desMat)` where `eset` is an [`ExpressionSet`](https://kasperdanielhansen.github.io/genbioconductor/html/ExpressionSet.html) object
+  
+
+## 'Industrial scale' model fitting is good, because computations involving just the design matrix $\mathbf{X}$ are not repeated tens of thousands of times unnecessarily: 
+
+* **OLS estimator**: $$\hat{\boldsymbol\alpha}_g =(\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}_g$$
+
+* **Fitted/predicted values**: $$\hat{\mathbf{y}}_g = \mathbf{X} (\mathbf{X}^T\mathbf{X})^{-1}\mathbf{X}^T\mathbf{y}_g = \mathbf{H}\mathbf{y}_g$$ 
+
+
+## OLS of first 2000 genes, using `lm` gene by gene
+
+::: columns
+::: column
+```{r}
+allGenes <- toLongerMeta(eset) 
+allGenes %>% head(10)
+```
+::: 
+
+::: column
+```{r}
+system.time(lmfits <- allGenes %>%
+    filter(gene %in% unique(allGenes$gene)[1:2000]) %>%
+    group_by(gene) %>% 
+    group_modify(~ tidy(lm(expression ~ age + genotype, 
+                           data = .x))) %>%
+    select(gene, term, estimate) %>%
+    pivot_wider(names_from = term, 
+                values_from = estimate)) 
+lmfits %>% head() 
+```
+:::
+:::
+
+
+## OLS of **all** genes at once, using `limma`:
+
+```{r}
+system.time( limmafits <- 
+  lmFit(eset, model.matrix(~ age + genotype, data = pData(eset))))
+limmafits$coefficients %>% head()
+```
+
+. . .
+
+So far, no shrinkage.
+
+
+:::{.callout-tip}
+Avoiding repetitive calculations involving $\mathbf{X}$ leads to ~35X faster computation in this example
+:::
+
+
+
+## How can we better estimate the SE?
+
+$$\large t_{gj} = \frac{\hat{\alpha}_{gj}}{\hat{se}(\hat{\alpha}_{gj})} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_d \text{ under } H_0$$
+
+:::{.callout-important}
+Under-estimated variance leads to overly large t statistic, which leads to artificially small p-value
+:::
+
+## Modeling in `limma` 
+
+limma assumes that for each gene $g$
+
+$$\hat{\alpha}_{gj} \,|\,\alpha_{gj}, \sigma_g^2 \sim N(\alpha_{gj}, \sigma_g^2 v_{jj})$$
+$$s^2_g \,|\, \sigma_g^2 \sim \frac{\sigma_g^2}{d}\chi^2_d$$ 
+which are the same as the usual assumptions about ordinary $t$-statistics:
+
+
+$$\large t_{gj} = \frac{\hat{\alpha}_{gj}}{\hat{se}(\hat{\alpha}_{gj})} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}} \sim t_d \text{ under } H_0$$
+
+So far, nothing new...
+
+## Modeling in `limma` - shrinkage
+
+
+* limma imposes a hierarchical model for how the gene-wise $\alpha_{gj}$ and $\sigma^2_g$ vary **across genes**
+
+:::{.callout-important}
+Under the limma framework, we are no longer considering genes in isolation. We will leverage information across genes to obtain improved estimates.
+:::
+
+* this is done by assuming a **prior distribution** for those quantities
+
+* Prior distribution for **gene-specific variances** $\sigma^2_g$: an inverse Chi-square with mean $s_0^2$ and $d_0$ degrees of freedom:
+
+$$\frac{1}{\sigma^2_g} \sim \frac{1}{d_0s_0^2} \chi^2_{d_0}$$
+
+. . .
+
+* this should feel a bit funny compared to previous lectures - $\sigma^2_g$ is no longer a **fixed** quantity! (i.e. this is **Bayesian**)
+
+
+## How does this help us better estimate the variance?
+
+* The **posterior distribution** is an updated version of the observed likelihood based on incorporating the prior information
+
+* The posterior mean for gene-specific variance:
+
+$$\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$$
+
+. . .
+
+* How to think about it: a weighted mean of the prior (indirect evidence) and the observed (direct evidence) gene-specific variances:
+
+$$\tilde{s}^2_g = \frac{d_0}{d_0 + d}s_0^2 + \frac{d}{d_0 + d}s^2_g$$
+
+. . .
+
+* More simply: "shrinking" the observed gene-specific variance towards the "typical" variance implied by the prior
+
+
+## Moderated *t* statistic
+
+* plug in this posterior mean estimate to obtain a 'moderated' *t* statistic:
+
+
+$$\large \tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$$
+
+* Under limma's assumptions, we know the null distribution for $\tilde{t}_{gj}$ under $H_0$:
+$$\tilde{t}_{gj} \sim t_{d_0+d}$$
+
+* parameters from the prior $d_0$ and $s_0^2$ are estimated from the data 
+
+. . .
+
+::: columns
+:::{.column width="80%"}
+
+* This is how limma is a **hybrid** of frequentist (*t*-statistic) and Bayesian (hierarchical model) approaches (i.e. empirical Bayes)
+
+:::
+:::{.column width="20%"}
+![](img/hybrid.jpg)
+:::
+:::
+
+## Side-by-side comparison of key quantities and results
+
+
+|  | OLS  | limma |
+| --------------- | :---------: | :------: |
+| Estimated gene-wise <br>residual variance^[Not shown: estimation formulas for prior parameters $d_0$ and $s_0^2$]: | ${s}_g^2 =  \frac{1}{n-p} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}$ | $\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$ |
+| *t*-statistic for <br> $H_0: \alpha_{gj} = 0$:| ${t}_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}}$ | $\tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$ |
+| distribution of the <br>*t*-statistic under $H_0$: | ${t}_{gj} \sim t_{d}$ | $\tilde{t}_{gj} \sim t_{d_0+d}$ |
+
+
+## Moderated vs traditional tests
+
+
+* **moderated variances** will be *"shrunk" toward the typical gene-wise variance*, relative to to raw sample residual variances
+
+. . .
+
+* **degrees of freedom** for null distribution *increase* relative to default $(d \text{ vs } d_0 + d)$
+  * $\rightarrow$ makes it closer to a standard normal 
+  * $\rightarrow$ makes tail probabilities (p-values) smaller 
+  * $\rightarrow$ easier to reject the null
+
+. . .
+
+* overall, when all is well, limma will deliver statistical results that are **more stable** and **more powerful**
+
+
+## Preview: `limma` workflow
+
+![](img/limma_flow.png){fig-align="center" width="68%"}
