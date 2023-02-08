@@ -70,11 +70,11 @@ $$\frac{1}{\sigma^2_g} \sim \frac{1}{d_0s_0^2} \chi^2_{d_0}$$
 |------------------------------|-----------------------------------------|
 | `model.matrix`         | Takes in your data frame and makes a design matrix                                                                            |
 | `limma::lmFit`         | Fits the linear model to each gene separately -- replace gene with "feature" depending on your data ('industrial scale' `lm`) |
-| `limma::makeContrasts` | Create the contrast matrix $C$ that you desire                                                                                |
-| `limma::contrast.fit`  | Apply a contrast to your estimates                                                                                            |
 | `limma::eBayes`        | Use output of linear regression to compute moderated *t* statistics                                                           |
 | `limma::topTable`      | Query your results; sort your p-values; sort genes; Adjust for multiple comparisons                                           |
 | `limma::decideTests`   | Identify which genes are significantly differentially expressed for each contrast                                             |
+| `limma::makeContrasts` | Create the contrast matrix $C$ that you desire                                                                                |
+| `limma::contrast.fit`  | Apply a contrast to your estimates                                                                                            |
 
 ## Getting help
 
@@ -308,7 +308,7 @@ summary(ebFit <- eBayes(gFit))
 
 ## Components of the empirical Bayes estimators
 
-<center>
+<small>
 
 |      math       |                        plain english                         |      `limma`       |       numerical result       | also in `lm`? |
 |:---------:|:-------------------:|:-----------:|:-----------:|:-----------:|
@@ -316,11 +316,14 @@ summary(ebFit <- eBayes(gFit))
 |       $d$       |             residual degrees of freedom $(n-p)$              | `gFit$df.residual` |        $39-4=35$[^1]         | $\checkmark$  |
 |     $s_0^2$     |          mean of inverse $\chi^2$ prior for $s_g^2$          |  `ebFit$s2.prior`  | `r signif(ebFit$s2.prior,2)` |               |
 |      $d_0$      |               degrees of freedom for the prior               |  `ebFit$df.prior`  | `r signif(ebFit$df.prior,3)` |               |
-| $\tilde{s}_g^2$ | posterior mean of $s_g^2$ (moderated resid. var.) |  `ebFit$s2.post`   |         45K numbers          |               |
+| $\tilde{s}_g^2$ | posterior mean of $s_g^2$ (moderated resid. var.)            |  `ebFit$s2.post`   |         45K numbers          |               |
+| $\tilde{t}_g$   | moderated t statistics                                       |  `ebFit$t`         | 45K$\times$p matrix          |               |
+
+</small>
 
 [^1]: limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35
 
-## `topTable()` extracts output in a convenient format^[this list is truncated - see `?topTable` for a full listing]!
+## `topTable()` extracts output in a convenient format!
 
 ```{r}
 #| eval: false
@@ -328,53 +331,15 @@ topTable(fit, coef=NULL, number=10, genelist=fit$genes, adjust.method="BH",
          sort.by="B", resort.by=NULL, p.value=1, lfc=0, confint=FALSE)
 ```
 
-```{=html}
-<small>
-<table summary="R argblock">
-<tr valign="top"><td><code>fit</code></td>
-<td>
-<p>list containing a linear model fit produced by <code>lmFit</code>, <code>lm.series</code>, <code>gls.series</code> or <code>mrlm</code>.
-For <code>topTable</code>, <code>fit</code> should be an object of class <code>MArrayLM</code> as produced by <code>lmFit</code> and <code>eBayes</code>.</p>
-</td></tr>
-<tr valign="top"><td><code>coef</code></td>
-<td>
-<p>column number or column name specifying which coefficient or contrast of the linear model is of interest. For <code>topTable</code>, can also be a vector of column subscripts, in which case the gene ranking is by F-statistic for that set of contrasts.</p>
-</td></tr>
-<tr valign="top"><td><code>number</code></td>
-<td>
-<p>maximum number of genes to list</p>
-</td></tr>
-<tr valign="top"><td><code>adjust.method</code></td>
-<td>
-<p>method used to adjust the p-values for multiple testing.  Options, in increasing conservatism, include <code>"none"</code>, <code>"BH"</code>, <code>"BY"</code> and <code>"holm"</code>.
-See <code><a href="../../stats/html/p.adjust.html">p.adjust</a></code> for the complete list of options. A <code>NULL</code> value will result in the default adjustment method, which is <code>"BH"</code>.</p>
-</td></tr>
-<tr valign="top"><td><code>sort.by</code></td>
-<td>
-<p>character string specifying statistic to rank genes by.
-Possible values for <code>topTable</code> and <code>toptable</code> are <code>"logFC"</code>, <code>"AveExpr"</code>, <code>"t"</code>, <code>"P"</code>, <code>"p"</code>, <code>"B"</code> or <code>"none"</code>.
-(Permitted synonyms are <code>"M"</code> for <code>"logFC"</code>, <code>"A"</code> or <code>"Amean"</code> for <code>"AveExpr"</code>, <code>"T"</code> for <code>"t"</code> and <code>"p"</code> for <code>"P"</code>.)
-Possibilities for <code>topTableF</code> are <code>"F"</code> or <code>"none"</code>.
-Possibilities for <code>topTreat</code> are as for <code>topTable</code> except for <code>"B"</code>.</p>
-</td></tr>
-</table>
-</small>
-```
+* Refer to the help page (`?topTable`) for full details of each argument
 
-## Summary of `topTable` function
-
-* `coef` is the argument where you specify the coefficient(s) you want to test for equality with zero (default is NULL; must be specified)
-
-* `number` lets you control size of hit list (default is 10)
-
-* `p.value` lets you specify a minimum adjusted p-value cutoff (default is 1)
-
-* `lfc` lets you specify a minimum observed effect size - log2 fold change (default is 0)
-
-* `sort.by` and `resort.by` give control over the ordering (default is by "B": log-odds that the gene is differentially expressed)
-
-* `adjust.method` specifies how/if to adjust p-values for multiple testing (default is BH)
-
+* Summary of key `topTable` arguments:
+    * `coef` is the argument where you specify the coefficient(s) you want to test for equality with zero (default is NULL; must be specified)
+    * `number` lets you control size of hit list (default is 10)
+    * `p.value` lets you specify a minimum adjusted p-value cutoff (default is 1)
+    * `lfc` lets you specify a minimum observed effect size - log2 fold change (default is 0)
+    * `sort.by` and `resort.by` give control over the ordering (default is by "B": log-odds that the gene is differentially expressed)
+    * `adjust.method` specifies how/if to adjust p-values for multiple testing (default is BH)
 
 ## `topTable` in action: `genotypeNrlKO`
 
@@ -1039,7 +1004,7 @@ ggplot(df, aes(y = l_fdr.q, x = l_fdr.bh)) +
 
 ![](img/practicalguide.png)
 
-[Korthauer*, Kimes* et al. 2019](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1716-1)
+[Korthauer\*, Kimes\* et al. 2019](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1716-1)
 
 :::
 ::: column

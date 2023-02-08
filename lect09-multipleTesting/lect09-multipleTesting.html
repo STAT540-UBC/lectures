@@ -459,14 +459,6 @@ Keegan Korthauer
 <td>Fits the linear model to each gene separately – replace gene with “feature” depending on your data (‘industrial scale’ <code>lm</code>)</td>
 </tr>
 <tr class="odd">
-<td><code>limma::makeContrasts</code></td>
-<td>Create the contrast matrix <span class="math inline">\(C\)</span> that you desire</td>
-</tr>
-<tr class="even">
-<td><code>limma::contrast.fit</code></td>
-<td>Apply a contrast to your estimates</td>
-</tr>
-<tr class="odd">
 <td><code>limma::eBayes</code></td>
 <td>Use output of linear regression to compute moderated <em>t</em> statistics</td>
 </tr>
@@ -477,6 +469,14 @@ Keegan Korthauer
 <tr class="odd">
 <td><code>limma::decideTests</code></td>
 <td>Identify which genes are significantly differentially expressed for each contrast</td>
+</tr>
+<tr class="even">
+<td><code>limma::makeContrasts</code></td>
+<td>Create the contrast matrix <span class="math inline">\(C\)</span> that you desire</td>
+</tr>
+<tr class="odd">
+<td><code>limma::contrast.fit</code></td>
+<td>Apply a contrast to your estimates</td>
 </tr>
 </tbody>
 </table>
@@ -862,7 +862,7 @@ attr(,"contrasts")$genotype
 <span id="cb14-2"><a href="#cb14-2"></a>                          <span class="fu">model.matrix</span>(<span class="sc">~</span> genotype<span class="sc">*</span>age, <span class="at">data =</span> <span class="fu">pData</span>(eset))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.116   0.028   0.144 </code></pre>
+  0.113   0.026   0.138 </code></pre>
 </div>
 </div>
 <div class="callout callout-important callout-captioned callout-style-default">
@@ -995,7 +995,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 </section>
 <section id="components-of-the-empirical-bayes-estimators" class="slide level2">
 <h2>Components of the empirical Bayes estimators</h2>
-<center>
+<p><small></small></p><small>
 <table style="width:100%;">
 <colgroup>
 <col style="width: 15%">
@@ -1049,56 +1049,34 @@ F.p.value         45101 -none- numeric  </code></pre>
 <td style="text-align: center;">45K numbers</td>
 <td style="text-align: center;"></td>
 </tr>
+<tr class="even">
+<td style="text-align: center;"><span class="math inline">\(\tilde{t}_g\)</span></td>
+<td style="text-align: center;">moderated t statistics</td>
+<td style="text-align: center;"><code>ebFit$t</code></td>
+<td style="text-align: center;">45K<span class="math inline">\(\times\)</span>p matrix</td>
+<td style="text-align: center;"></td>
+</tr>
 </tbody>
 </table>
-</center><aside><ol class="aside-footnotes"><li id="fn1"><p>limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35</p></li></ol></aside></section>
+</small><p><small></small></p>
+<aside><ol class="aside-footnotes"><li id="fn1"><p>limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35</p></li></ol></aside></section>
 <section id="toptable-extracts-output-in-a-convenient-format" class="slide level2">
-<h2><code>topTable()</code> extracts output in a convenient format<sup>1</sup>!</h2>
+<h2><code>topTable()</code> extracts output in a convenient format!</h2>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a><span class="fu">topTable</span>(fit, <span class="at">coef=</span><span class="cn">NULL</span>, <span class="at">number=</span><span class="dv">10</span>, <span class="at">genelist=</span>fit<span class="sc">$</span>genes, <span class="at">adjust.method=</span><span class="st">"BH"</span>,</span>
 <span id="cb27-2"><a href="#cb27-2"></a>         <span class="at">sort.by=</span><span class="st">"B"</span>, <span class="at">resort.by=</span><span class="cn">NULL</span>, <span class="at">p.value=</span><span class="dv">1</span>, <span class="at">lfc=</span><span class="dv">0</span>, <span class="at">confint=</span><span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-
-<small>
-<table summary="R argblock">
-<tbody><tr valign="top"><td><code>fit</code></td>
-<td>
-<p>list containing a linear model fit produced by <code>lmFit</code>, <code>lm.series</code>, <code>gls.series</code> or <code>mrlm</code>.
-For <code>topTable</code>, <code>fit</code> should be an object of class <code>MArrayLM</code> as produced by <code>lmFit</code> and <code>eBayes</code>.</p>
-</td></tr>
-<tr valign="top"><td><code>coef</code></td>
-<td>
-<p>column number or column name specifying which coefficient or contrast of the linear model is of interest. For <code>topTable</code>, can also be a vector of column subscripts, in which case the gene ranking is by F-statistic for that set of contrasts.</p>
-</td></tr>
-<tr valign="top"><td><code>number</code></td>
-<td>
-<p>maximum number of genes to list</p>
-</td></tr>
-<tr valign="top"><td><code>adjust.method</code></td>
-<td>
-<p>method used to adjust the p-values for multiple testing.  Options, in increasing conservatism, include <code>"none"</code>, <code>"BH"</code>, <code>"BY"</code> and <code>"holm"</code>.
-See <code><a href="../../stats/html/p.adjust.html">p.adjust</a></code> for the complete list of options. A <code>NULL</code> value will result in the default adjustment method, which is <code>"BH"</code>.</p>
-</td></tr>
-<tr valign="top"><td><code>sort.by</code></td>
-<td>
-<p>character string specifying statistic to rank genes by.
-Possible values for <code>topTable</code> and <code>toptable</code> are <code>"logFC"</code>, <code>"AveExpr"</code>, <code>"t"</code>, <code>"P"</code>, <code>"p"</code>, <code>"B"</code> or <code>"none"</code>.
-(Permitted synonyms are <code>"M"</code> for <code>"logFC"</code>, <code>"A"</code> or <code>"Amean"</code> for <code>"AveExpr"</code>, <code>"T"</code> for <code>"t"</code> and <code>"p"</code> for <code>"P"</code>.)
-Possibilities for <code>topTableF</code> are <code>"F"</code> or <code>"none"</code>.
-Possibilities for <code>topTreat</code> are as for <code>topTable</code> except for <code>"B"</code>.</p>
-</td></tr>
-</tbody></table>
-</small>
-<aside><ol class="aside-footnotes"><li id="fn2"><p>this list is truncated - see <code>?topTable</code> for a full listing</p></li></ol></aside></section>
-<section id="summary-of-toptable-function" class="slide level2">
-<h2>Summary of <code>topTable</code> function</h2>
 <ul>
-<li><p><code>coef</code> is the argument where you specify the coefficient(s) you want to test for equality with zero (default is NULL; must be specified)</p></li>
-<li><p><code>number</code> lets you control size of hit list (default is 10)</p></li>
-<li><p><code>p.value</code> lets you specify a minimum adjusted p-value cutoff (default is 1)</p></li>
-<li><p><code>lfc</code> lets you specify a minimum observed effect size - log2 fold change (default is 0)</p></li>
-<li><p><code>sort.by</code> and <code>resort.by</code> give control over the ordering (default is by “B”: log-odds that the gene is differentially expressed)</p></li>
-<li><p><code>adjust.method</code> specifies how/if to adjust p-values for multiple testing (default is BH)</p></li>
+<li><p>Refer to the help page (<code>?topTable</code>) for full details of each argument</p></li>
+<li><p>Summary of key <code>topTable</code> arguments:</p>
+<ul>
+<li><code>coef</code> is the argument where you specify the coefficient(s) you want to test for equality with zero (default is NULL; must be specified)</li>
+<li><code>number</code> lets you control size of hit list (default is 10)</li>
+<li><code>p.value</code> lets you specify a minimum adjusted p-value cutoff (default is 1)</li>
+<li><code>lfc</code> lets you specify a minimum observed effect size - log2 fold change (default is 0)</li>
+<li><code>sort.by</code> and <code>resort.by</code> give control over the ordering (default is by “B”: log-odds that the gene is differentially expressed)</li>
+<li><code>adjust.method</code> specifies how/if to adjust p-values for multiple testing (default is BH)</li>
+</ul></li>
 </ul>
 </section>
 <section id="toptable-in-action-genotypenrlko" class="slide level2">
@@ -2120,7 +2098,7 @@ Possibilities for <code>topTreat</code> are as for <code>topTable</code> except 
 <div class="columns">
 <div class="column">
 <p><img data-src="img/practicalguide.png"></p>
-<p><a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1716-1">Korthauer<em>, Kimes</em> et al.&nbsp;2019</a></p>
+<p><a href="https://genomebiology.biomedcentral.com/articles/10.1186/s13059-019-1716-1">Korthauer*, Kimes* et al.&nbsp;2019</a></p>
 </div><div class="column">
 <p><img data-src="img/practicalguidefig.png"></p>
 </div>
