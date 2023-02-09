@@ -812,7 +812,7 @@ $$\text{FWER } = P(V\ge1) $$
 ::: {.r-stack}
 :::{.fragment .fade-in-then-out}
 | Rank $(j)$ | P-value |
-|:----------:|---------|
+|:---:|:---:|
 |     1      | 0.0008  |
 |     2      | 0.009   |
 |     3      | 0.127   |
@@ -828,8 +828,8 @@ $\text{}$
 :::
 
 :::{.fragment .fade-in-then-out}
-| Rank $(j)$ | P-value | (j/m)\*q |
-|:----------:|---------|----------|
+| Rank $(j)$ | P-value | BH-threshold: jq/m |
+|:---:|:-----:|:--------:|
 |     1      | 0.0008  | 0.005    |
 |     2      | 0.009   | 0.010    |
 |     3      | 0.127   | 0.015    |
@@ -844,9 +844,27 @@ $\text{}$
 $\text{}$
 :::
 
+
 :::{.fragment .fade-in-then-out}
-| Rank $(j)$ | P-value | (j/m)\*q | Reject $H_0$? |
-|:----------:|---------|----------|:-------------:|
+| Rank $(j)$ | P-value | BH-threshold: jq/m |  BH-adjusted p-value: $min_{i\le j}(mp_{(j)}/j)$ |
+|:---:|:------:|:----------:|:----------:|
+|     1      | 0.0008  | 0.005    | 0.0080 |
+|     2      | 0.009   | 0.010    | 0.0450 |
+|     3      | 0.127   | 0.015    | 0.4233 |
+|     4      | 0.205   | 0.020    | 0.5125 |
+|     5      | 0.396   | 0.025    | 0.7500 |
+|     6      | 0.450   | 0.030    | 0.7500 |
+|     7      | 0.641   | 0.035    | 0.9157 |
+|     8      | 0.781   | 0.040    | 0.9763 |
+|     9      | 0.900   | 0.045    | 0.9930 |
+|     10     | 0.993   | 0.050    | 0.9930 |
+
+$\text{}$
+:::
+
+:::{.fragment .fade-in-then-out}
+| Rank $(j)$ | P-value | BH-threshold: jq/m | Reject $H_0$? |
+|:----:|:---------:|:----------:|:-------------:|
 |     1      | 0.0008  | 0.005    | $\checkmark$  |
 |     2      | 0.009   | 0.010    | $\checkmark$  |
 |     3      | 0.127   | 0.015    |               |
@@ -862,8 +880,8 @@ $\text{}$
 :::
 
 :::{.fragment .fade-in}
-| Rank $(j)$ | P-val | (j/m)\*q | Reject $H_0$? | $FWER < 0.05$? |
-|:---:|---|---|:----:|:---:|
+| Rank $(j)$ | P-val | BH-thr: jq/m | Reject $H_0$? | $FWER < 0.05$? |
+|:------:|---|:------------:|:---------:|:------:|
 |     1      | 0.0008  | 0.005    | $\checkmark$  | $\checkmark$ |
 |     2      | 0.009   | 0.010    | $\checkmark$  |    |
 |     3      | 0.127   | 0.015    |               |    |
@@ -928,19 +946,19 @@ p.adjust(pvals, method = "BH") %>% head()
 
 -   q-value:
 
-$$\hat{q}(p_i) = \min_i \Big( \frac{\hat{\pi}_0m}{rank(p_i)}p_i,  \, 1\Big)$$
+$$\hat{q}(p_i) = \min_{i\le j} \Big( \frac{\hat{\pi}_0m}{j}p_{(j)}\Big)$$
 
 -   q-value and BH-adjusted p-values are equivalent when $\pi_0=1$
 
-$$\hat{p}_{BH}(p_i) = \min_i \Big(\frac{m}{rank(p_i)}p_i, \, 1\Big)$$
+$$\hat{p}_{BH}(p_i) = \min_{i\le j} \Big(\frac{m}{j}p_{(j)}\Big)$$
 
 (BH conservatively assumes that $\pi_0=1$)
 
 
 ## BH vs q-value in toy example
 
-| Rank $(j)$ | P-value | $\hat{p}_{BH}(p_i)$ | $\hat{q}(p_i)$ |
-|:----------:|---------|---------------------|:--------------:|
+| Rank $(j)$ | P-value | $\hat{p}_{BH}(p_i)$ | $\hat{q}(p_i)$^[$\hat{\pi}_0=1$ in this case] |
+|:----------:|---------|:--------------:|:--------------:|
 |     1      | 0.0008  | 0.045               |     0.045      |
 |     2      | 0.009   | 0.045               |     0.045      |
 |     3      | 0.127   | 0.423               |     0.423      |
@@ -951,6 +969,7 @@ $$\hat{p}_{BH}(p_i) = \min_i \Big(\frac{m}{rank(p_i)}p_i, \, 1\Big)$$
 |     8      | 0.781   | 0.976               |     0.976      |
 |     9      | 0.900   | 0.993               |     0.993      |
 |     10     | 0.993   | 0.993               |     0.993      |
+
 
 ## BH vs q-value in effect of `genotypeNrlKO:age`
 

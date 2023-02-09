@@ -862,7 +862,7 @@ attr(,"contrasts")$genotype
 <span id="cb14-2"><a href="#cb14-2"></a>                          <span class="fu">model.matrix</span>(<span class="sc">~</span> genotype<span class="sc">*</span>age, <span class="at">data =</span> <span class="fu">pData</span>(eset))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.113   0.026   0.138 </code></pre>
+  0.111   0.031   0.144 </code></pre>
 </div>
 </div>
 <div class="callout callout-important callout-captioned callout-style-default">
@@ -1615,49 +1615,49 @@ F.p.value         45101 -none- numeric  </code></pre>
 <thead>
 <tr class="header">
 <th style="text-align: center;">Rank <span class="math inline">\((j)\)</span></th>
-<th>P-value</th>
+<th style="text-align: center;">P-value</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">1</td>
-<td>0.0008</td>
+<td style="text-align: center;">0.0008</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">2</td>
-<td>0.009</td>
+<td style="text-align: center;">0.009</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">3</td>
-<td>0.127</td>
+<td style="text-align: center;">0.127</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">4</td>
-<td>0.205</td>
+<td style="text-align: center;">0.205</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">5</td>
-<td>0.396</td>
+<td style="text-align: center;">0.396</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">6</td>
-<td>0.450</td>
+<td style="text-align: center;">0.450</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">7</td>
-<td>0.641</td>
+<td style="text-align: center;">0.641</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">8</td>
-<td>0.781</td>
+<td style="text-align: center;">0.781</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">9</td>
-<td>0.900</td>
+<td style="text-align: center;">0.900</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">10</td>
-<td>0.993</td>
+<td style="text-align: center;">0.993</td>
 </tr>
 </tbody>
 </table>
@@ -1668,60 +1668,141 @@ F.p.value         45101 -none- numeric  </code></pre>
 <thead>
 <tr class="header">
 <th style="text-align: center;">Rank <span class="math inline">\((j)\)</span></th>
-<th>P-value</th>
-<th>(j/m)*q</th>
+<th style="text-align: center;">P-value</th>
+<th style="text-align: center;">BH-threshold: jq/m</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">1</td>
-<td>0.0008</td>
-<td>0.005</td>
+<td style="text-align: center;">0.0008</td>
+<td style="text-align: center;">0.005</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">2</td>
-<td>0.009</td>
-<td>0.010</td>
+<td style="text-align: center;">0.009</td>
+<td style="text-align: center;">0.010</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">3</td>
-<td>0.127</td>
-<td>0.015</td>
+<td style="text-align: center;">0.127</td>
+<td style="text-align: center;">0.015</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">4</td>
-<td>0.205</td>
-<td>0.020</td>
+<td style="text-align: center;">0.205</td>
+<td style="text-align: center;">0.020</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">5</td>
-<td>0.396</td>
-<td>0.025</td>
+<td style="text-align: center;">0.396</td>
+<td style="text-align: center;">0.025</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">6</td>
-<td>0.450</td>
-<td>0.030</td>
+<td style="text-align: center;">0.450</td>
+<td style="text-align: center;">0.030</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">7</td>
-<td>0.641</td>
-<td>0.035</td>
+<td style="text-align: center;">0.641</td>
+<td style="text-align: center;">0.035</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">8</td>
-<td>0.781</td>
-<td>0.040</td>
+<td style="text-align: center;">0.781</td>
+<td style="text-align: center;">0.040</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">9</td>
-<td>0.900</td>
-<td>0.045</td>
+<td style="text-align: center;">0.900</td>
+<td style="text-align: center;">0.045</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">10</td>
-<td>0.993</td>
-<td>0.050</td>
+<td style="text-align: center;">0.993</td>
+<td style="text-align: center;">0.050</td>
+</tr>
+</tbody>
+</table>
+<p><span class="math inline">\(\text{}\)</span></p>
+</div>
+<div class="fragment fade-in-then-out">
+<table>
+<colgroup>
+<col style="width: 13%">
+<col style="width: 21%">
+<col style="width: 32%">
+<col style="width: 32%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Rank <span class="math inline">\((j)\)</span></th>
+<th style="text-align: center;">P-value</th>
+<th style="text-align: center;">BH-threshold: jq/m</th>
+<th style="text-align: center;">BH-adjusted p-value: <span class="math inline">\(min_{i\le j}(mp_{(j)}/j)\)</span></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">1</td>
+<td style="text-align: center;">0.0008</td>
+<td style="text-align: center;">0.005</td>
+<td style="text-align: center;">0.0080</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">0.009</td>
+<td style="text-align: center;">0.010</td>
+<td style="text-align: center;">0.0450</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">3</td>
+<td style="text-align: center;">0.127</td>
+<td style="text-align: center;">0.015</td>
+<td style="text-align: center;">0.4233</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">4</td>
+<td style="text-align: center;">0.205</td>
+<td style="text-align: center;">0.020</td>
+<td style="text-align: center;">0.5125</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">0.396</td>
+<td style="text-align: center;">0.025</td>
+<td style="text-align: center;">0.7500</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">6</td>
+<td style="text-align: center;">0.450</td>
+<td style="text-align: center;">0.030</td>
+<td style="text-align: center;">0.7500</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">7</td>
+<td style="text-align: center;">0.641</td>
+<td style="text-align: center;">0.035</td>
+<td style="text-align: center;">0.9157</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">0.781</td>
+<td style="text-align: center;">0.040</td>
+<td style="text-align: center;">0.9763</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">9</td>
+<td style="text-align: center;">0.900</td>
+<td style="text-align: center;">0.045</td>
+<td style="text-align: center;">0.9930</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">10</td>
+<td style="text-align: center;">0.993</td>
+<td style="text-align: center;">0.050</td>
+<td style="text-align: center;">0.9930</td>
 </tr>
 </tbody>
 </table>
@@ -1732,70 +1813,70 @@ F.p.value         45101 -none- numeric  </code></pre>
 <thead>
 <tr class="header">
 <th style="text-align: center;">Rank <span class="math inline">\((j)\)</span></th>
-<th>P-value</th>
-<th>(j/m)*q</th>
+<th style="text-align: center;">P-value</th>
+<th style="text-align: center;">BH-threshold: jq/m</th>
 <th style="text-align: center;">Reject <span class="math inline">\(H_0\)</span>?</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">1</td>
-<td>0.0008</td>
-<td>0.005</td>
+<td style="text-align: center;">0.0008</td>
+<td style="text-align: center;">0.005</td>
 <td style="text-align: center;"><span class="math inline">\(\checkmark\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">2</td>
-<td>0.009</td>
-<td>0.010</td>
+<td style="text-align: center;">0.009</td>
+<td style="text-align: center;">0.010</td>
 <td style="text-align: center;"><span class="math inline">\(\checkmark\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">3</td>
-<td>0.127</td>
-<td>0.015</td>
+<td style="text-align: center;">0.127</td>
+<td style="text-align: center;">0.015</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">4</td>
-<td>0.205</td>
-<td>0.020</td>
+<td style="text-align: center;">0.205</td>
+<td style="text-align: center;">0.020</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">5</td>
-<td>0.396</td>
-<td>0.025</td>
+<td style="text-align: center;">0.396</td>
+<td style="text-align: center;">0.025</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">6</td>
-<td>0.450</td>
-<td>0.030</td>
+<td style="text-align: center;">0.450</td>
+<td style="text-align: center;">0.030</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">7</td>
-<td>0.641</td>
-<td>0.035</td>
+<td style="text-align: center;">0.641</td>
+<td style="text-align: center;">0.035</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">8</td>
-<td>0.781</td>
-<td>0.040</td>
+<td style="text-align: center;">0.781</td>
+<td style="text-align: center;">0.040</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">9</td>
-<td>0.900</td>
-<td>0.045</td>
+<td style="text-align: center;">0.900</td>
+<td style="text-align: center;">0.045</td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">10</td>
-<td>0.993</td>
-<td>0.050</td>
+<td style="text-align: center;">0.993</td>
+<td style="text-align: center;">0.050</td>
 <td style="text-align: center;"><span class="math inline">\(\text{ }\)</span></td>
 </tr>
 </tbody>
@@ -1808,7 +1889,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <tr class="header">
 <th style="text-align: center;">Rank <span class="math inline">\((j)\)</span></th>
 <th>P-val</th>
-<th>(j/m)*q</th>
+<th style="text-align: center;">BH-thr: jq/m</th>
 <th style="text-align: center;">Reject <span class="math inline">\(H_0\)</span>?</th>
 <th style="text-align: center;"><span class="math inline">\(FWER &lt; 0.05\)</span>?</th>
 </tr>
@@ -1817,70 +1898,70 @@ F.p.value         45101 -none- numeric  </code></pre>
 <tr class="odd">
 <td style="text-align: center;">1</td>
 <td>0.0008</td>
-<td>0.005</td>
+<td style="text-align: center;">0.005</td>
 <td style="text-align: center;"><span class="math inline">\(\checkmark\)</span></td>
 <td style="text-align: center;"><span class="math inline">\(\checkmark\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">2</td>
 <td>0.009</td>
-<td>0.010</td>
+<td style="text-align: center;">0.010</td>
 <td style="text-align: center;"><span class="math inline">\(\checkmark\)</span></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">3</td>
 <td>0.127</td>
-<td>0.015</td>
+<td style="text-align: center;">0.015</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">4</td>
 <td>0.205</td>
-<td>0.020</td>
+<td style="text-align: center;">0.020</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">5</td>
 <td>0.396</td>
-<td>0.025</td>
+<td style="text-align: center;">0.025</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">6</td>
 <td>0.450</td>
-<td>0.030</td>
+<td style="text-align: center;">0.030</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">7</td>
 <td>0.641</td>
-<td>0.035</td>
+<td style="text-align: center;">0.035</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">8</td>
 <td>0.781</td>
-<td>0.040</td>
+<td style="text-align: center;">0.040</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">9</td>
 <td>0.900</td>
-<td>0.045</td>
+<td style="text-align: center;">0.045</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">10</td>
 <td>0.993</td>
-<td>0.050</td>
+<td style="text-align: center;">0.050</td>
 <td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 </tr>
@@ -1953,88 +2034,94 @@ F.p.value         45101 -none- numeric  </code></pre>
 </ul></li>
 <li><p>q-value:</p></li>
 </ul>
-<p><span class="math display">\[\hat{q}(p_i) = \min_i \Big( \frac{\hat{\pi}_0m}{rank(p_i)}p_i,  \, 1\Big)\]</span></p>
+<p><span class="math display">\[\hat{q}(p_i) = \min_{i\le j} \Big( \frac{\hat{\pi}_0m}{j}p_{(j)}\Big)\]</span></p>
 <ul>
 <li>q-value and BH-adjusted p-values are equivalent when <span class="math inline">\(\pi_0=1\)</span></li>
 </ul>
-<p><span class="math display">\[\hat{p}_{BH}(p_i) = \min_i \Big(\frac{m}{rank(p_i)}p_i, \, 1\Big)\]</span></p>
+<p><span class="math display">\[\hat{p}_{BH}(p_i) = \min_{i\le j} \Big(\frac{m}{j}p_{(j)}\Big)\]</span></p>
 <p>(BH conservatively assumes that <span class="math inline">\(\pi_0=1\)</span>)</p>
 </section>
 <section id="bh-vs-q-value-in-toy-example" class="slide level2">
 <h2>BH vs q-value in toy example</h2>
 <table>
+<colgroup>
+<col style="width: 22%">
+<col style="width: 16%">
+<col style="width: 30%">
+<col style="width: 30%">
+</colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: center;">Rank <span class="math inline">\((j)\)</span></th>
 <th>P-value</th>
-<th><span class="math inline">\(\hat{p}_{BH}(p_i)\)</span></th>
-<th style="text-align: center;"><span class="math inline">\(\hat{q}(p_i)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(\hat{p}_{BH}(p_i)\)</span></th>
+<th style="text-align: center;"><span class="math inline">\(\hat{q}(p_i)\)</span><sup>1</sup></th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">1</td>
 <td>0.0008</td>
-<td>0.045</td>
+<td style="text-align: center;">0.045</td>
 <td style="text-align: center;">0.045</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">2</td>
 <td>0.009</td>
-<td>0.045</td>
+<td style="text-align: center;">0.045</td>
 <td style="text-align: center;">0.045</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">3</td>
 <td>0.127</td>
-<td>0.423</td>
+<td style="text-align: center;">0.423</td>
 <td style="text-align: center;">0.423</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">4</td>
 <td>0.205</td>
-<td>0.513</td>
+<td style="text-align: center;">0.513</td>
 <td style="text-align: center;">0.513</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">5</td>
 <td>0.396</td>
-<td>0.750</td>
+<td style="text-align: center;">0.750</td>
 <td style="text-align: center;">0.750</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">6</td>
 <td>0.450</td>
-<td>0.750</td>
+<td style="text-align: center;">0.750</td>
 <td style="text-align: center;">0.750</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">7</td>
 <td>0.641</td>
-<td>0.916</td>
+<td style="text-align: center;">0.916</td>
 <td style="text-align: center;">0.916</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">8</td>
 <td>0.781</td>
-<td>0.976</td>
+<td style="text-align: center;">0.976</td>
 <td style="text-align: center;">0.976</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">9</td>
 <td>0.900</td>
-<td>0.993</td>
+<td style="text-align: center;">0.993</td>
 <td style="text-align: center;">0.993</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">10</td>
 <td>0.993</td>
-<td>0.993</td>
+<td style="text-align: center;">0.993</td>
 <td style="text-align: center;">0.993</td>
 </tr>
 </tbody>
 </table>
-</section>
+<aside><ol class="aside-footnotes"><li id="fn2"><p><span class="math inline">\(\hat{\pi}_0=1\)</span> in this case</p></li></ol></aside></section>
 <section id="bh-vs-q-value-in-effect-of-genotypenrlkoage" class="slide level2">
 <h2>BH vs q-value in effect of <code>genotypeNrlKO:age</code></h2>
 <div class="panel-tabset">
