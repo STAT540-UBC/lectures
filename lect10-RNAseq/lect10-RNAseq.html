@@ -1884,16 +1884,17 @@ attr(,"contrasts")$DPC
 <div class="column">
 <p><strong>edgeR</strong></p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1"></a>dge <span class="ot">&lt;-</span> <span class="fu">DGEList</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts)</span>
-<span id="cb36-2"><a href="#cb36-2"></a>dge <span class="ot">&lt;-</span> <span class="fu">calcNormFactors</span>(dge)</span>
-<span id="cb36-3"><a href="#cb36-3"></a>dge <span class="ot">&lt;-</span> <span class="fu">estimateDisp</span>(dge, </span>
-<span id="cb36-4"><a href="#cb36-4"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
-<span id="cb36-5"><a href="#cb36-5"></a>  <span class="at">data =</span> <span class="fu">colData</span>(sumexp)), </span>
-<span id="cb36-6"><a href="#cb36-6"></a>  <span class="at">robust =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb36-7"><a href="#cb36-7"></a></span>
-<span id="cb36-8"><a href="#cb36-8"></a>edgeR_fit <span class="ot">&lt;-</span> <span class="fu">glmQLFit</span>(dge, </span>
-<span id="cb36-9"><a href="#cb36-9"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
-<span id="cb36-10"><a href="#cb36-10"></a>  <span class="at">data =</span> <span class="fu">colData</span>(sumexp)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1"></a>dge <span class="ot">&lt;-</span> <span class="fu">DGEList</span>(<span class="at">counts =</span> <span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts,</span>
+<span id="cb36-2"><a href="#cb36-2"></a>               <span class="at">samples =</span> <span class="fu">colData</span>(sumexp))</span>
+<span id="cb36-3"><a href="#cb36-3"></a>dge <span class="ot">&lt;-</span> <span class="fu">calcNormFactors</span>(dge)</span>
+<span id="cb36-4"><a href="#cb36-4"></a>dge <span class="ot">&lt;-</span> <span class="fu">estimateDisp</span>(dge, </span>
+<span id="cb36-5"><a href="#cb36-5"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
+<span id="cb36-6"><a href="#cb36-6"></a>                        <span class="at">data =</span> sumexp<span class="sc">$</span>samples), </span>
+<span id="cb36-7"><a href="#cb36-7"></a>  <span class="at">robust =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb36-8"><a href="#cb36-8"></a></span>
+<span id="cb36-9"><a href="#cb36-9"></a>edgeR_fit <span class="ot">&lt;-</span> <span class="fu">glmQLFit</span>(dge, </span>
+<span id="cb36-10"><a href="#cb36-10"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
+<span id="cb36-11"><a href="#cb36-11"></a>                        <span class="at">data =</span> sumexp<span class="sc">$</span>samples))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </div><div class="column">
 <p><strong>DESeq2</strong></p>

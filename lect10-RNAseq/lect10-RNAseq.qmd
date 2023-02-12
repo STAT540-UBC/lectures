@@ -1319,16 +1319,17 @@ source: [Statistical Analysis of Next Generation Sequencing Data, by Chen et al.
 
 ```{r}
 #| eval: false
-dge <- DGEList(assays(sumexp)$counts)
+dge <- DGEList(counts = assays(sumexp)$counts,
+               samples = colData(sumexp))
 dge <- calcNormFactors(dge)
 dge <- estimateDisp(dge, 
   design = model.matrix(~ Sex + Group + DPC, 
-  data = colData(sumexp)), 
+                        data = sumexp$samples), 
   robust = TRUE)
 
 edgeR_fit <- glmQLFit(dge, 
   design = model.matrix(~ Sex + Group + DPC, 
-  data = colData(sumexp)))
+                        data = sumexp$samples))
 ```
 :::
 ::: column
