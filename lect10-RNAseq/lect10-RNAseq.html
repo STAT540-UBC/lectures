@@ -1,0 +1,2374 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<script src="lect10-RNAseq_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lect10-RNAseq_files/libs/quarto-html/tabby.min.js"></script>
+<script src="lect10-RNAseq_files/libs/quarto-html/popper.min.js"></script>
+<script src="lect10-RNAseq_files/libs/quarto-html/tippy.umd.min.js"></script>
+<link href="lect10-RNAseq_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lect10-RNAseq_files/libs/quarto-html/quarto-html.min.css" rel="stylesheet" data-mode="light">
+<link href="lect10-RNAseq_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
+  <meta name="generator" content="quarto-1.2.313">
+
+  <meta name="author" content="Keegan Korthauer">
+  <meta name="dcterms.date" content="2023-02-14">
+  <title>Statistical Inference for RNA-seq</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+  <link rel="stylesheet" href="lect10-RNAseq_files/libs/revealjs/dist/reset.css">
+  <link rel="stylesheet" href="lect10-RNAseq_files/libs/revealjs/dist/reveal.css">
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      { color: #003b4f; background-color: #f1f3f5; }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span { color: #003b4f; } /* Normal */
+    code span.al { color: #ad0000; } /* Alert */
+    code span.an { color: #5e5e5e; } /* Annotation */
+    code span.at { color: #657422; } /* Attribute */
+    code span.bn { color: #ad0000; } /* BaseN */
+    code span.bu { } /* BuiltIn */
+    code span.cf { color: #003b4f; } /* ControlFlow */
+    code span.ch { color: #20794d; } /* Char */
+    code span.cn { color: #8f5902; } /* Constant */
+    code span.co { color: #5e5e5e; } /* Comment */
+    code span.cv { color: #5e5e5e; font-style: italic; } /* CommentVar */
+    code span.do { color: #5e5e5e; font-style: italic; } /* Documentation */
+    code span.dt { color: #ad0000; } /* DataType */
+    code span.dv { color: #ad0000; } /* DecVal */
+    code span.er { color: #ad0000; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #ad0000; } /* Float */
+    code span.fu { color: #4758ab; } /* Function */
+    code span.im { color: #00769e; } /* Import */
+    code span.in { color: #5e5e5e; } /* Information */
+    code span.kw { color: #003b4f; } /* Keyword */
+    code span.op { color: #5e5e5e; } /* Operator */
+    code span.ot { color: #003b4f; } /* Other */
+    code span.pp { color: #ad0000; } /* Preprocessor */
+    code span.sc { color: #5e5e5e; } /* SpecialChar */
+    code span.ss { color: #20794d; } /* SpecialString */
+    code span.st { color: #20794d; } /* String */
+    code span.va { color: #111111; } /* Variable */
+    code span.vs { color: #20794d; } /* VerbatimString */
+    code span.wa { color: #5e5e5e; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="lect10-RNAseq_files/libs/revealjs/dist/theme/quarto.css" id="theme">
+  <link href="lect10-RNAseq_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.css" rel="stylesheet">
+  <link href="lect10-RNAseq_files/libs/revealjs/plugin/reveal-menu/menu.css" rel="stylesheet">
+  <link href="lect10-RNAseq_files/libs/revealjs/plugin/reveal-menu/quarto-menu.css" rel="stylesheet">
+  <link href="lect10-RNAseq_files/libs/revealjs/plugin/reveal-chalkboard/font-awesome/css/all.css" rel="stylesheet">
+  <link href="lect10-RNAseq_files/libs/revealjs/plugin/reveal-chalkboard/style.css" rel="stylesheet">
+  <link href="lect10-RNAseq_files/libs/revealjs/plugin/quarto-support/footer.css" rel="stylesheet">
+  <style type="text/css">
+
+  .callout {
+    margin-top: 1em;
+    margin-bottom: 1em;  
+    border-radius: .25rem;
+  }
+
+  .callout.callout-style-simple { 
+    padding: 0em 0.5em;
+    border-left: solid #acacac .3rem;
+    border-right: solid 1px silver;
+    border-top: solid 1px silver;
+    border-bottom: solid 1px silver;
+    display: flex;
+  }
+
+  .callout.callout-style-default {
+    border-left: solid #acacac .3rem;
+    border-right: solid 1px silver;
+    border-top: solid 1px silver;
+    border-bottom: solid 1px silver;
+  }
+
+  .callout .callout-body-container {
+    flex-grow: 1;
+  }
+
+  .callout.callout-style-simple .callout-body {
+    font-size: 1rem;
+    font-weight: 400;
+  }
+
+  .callout.callout-style-default .callout-body {
+    font-size: 0.9rem;
+    font-weight: 400;
+  }
+
+  .callout.callout-captioned.callout-style-simple .callout-body {
+    margin-top: 0.2em;
+  }
+
+  .callout:not(.callout-captioned) .callout-body {
+      display: flex;
+  }
+
+  .callout:not(.no-icon).callout-captioned.callout-style-simple .callout-content {
+    padding-left: 1.6em;
+  }
+
+  .callout.callout-captioned .callout-header {
+    padding-top: 0.2em;
+    margin-bottom: -0.2em;
+  }
+
+  .callout.callout-captioned .callout-caption  p {
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+    
+  .callout.callout-captioned.callout-style-simple .callout-content  p {
+    margin-top: 0;
+  }
+
+  .callout.callout-captioned.callout-style-default .callout-content  p {
+    margin-top: 0.7em;
+  }
+
+  .callout.callout-style-simple div.callout-caption {
+    border-bottom: none;
+    font-size: .9rem;
+    font-weight: 600;
+    opacity: 75%;
+  }
+
+  .callout.callout-style-default  div.callout-caption {
+    border-bottom: none;
+    font-weight: 600;
+    opacity: 85%;
+    font-size: 0.9rem;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+  }
+
+  .callout.callout-style-default div.callout-content {
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+  }
+
+  .callout.callout-style-simple .callout-icon::before {
+    height: 1rem;
+    width: 1rem;
+    display: inline-block;
+    content: "";
+    background-repeat: no-repeat;
+    background-size: 1rem 1rem;
+  }
+
+  .callout.callout-style-default .callout-icon::before {
+    height: 0.9rem;
+    width: 0.9rem;
+    display: inline-block;
+    content: "";
+    background-repeat: no-repeat;
+    background-size: 0.9rem 0.9rem;
+  }
+
+  .callout-caption {
+    display: flex
+  }
+    
+  .callout-icon::before {
+    margin-top: 1rem;
+    padding-right: .5rem;
+  }
+
+  .callout.no-icon::before {
+    display: none !important;
+  }
+
+  .callout.callout-captioned .callout-body > .callout-content > :last-child {
+    margin-bottom: 0.5rem;
+  }
+
+  .callout.callout-captioned .callout-icon::before {
+    margin-top: .5rem;
+    padding-right: .5rem;
+  }
+
+  .callout:not(.callout-captioned) .callout-icon::before {
+    margin-top: 1rem;
+    padding-right: .5rem;
+  }
+
+  /* Callout Types */
+
+  div.callout-note {
+    border-left-color: #4582ec !important;
+  }
+
+  div.callout-note .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAEU0lEQVRYCcVXTWhcVRQ+586kSUMMxkyaElstCto2SIhitS5Ek8xUKV2poatCcVHtUlFQk8mbaaziwpWgglJwVaquitBOfhQXFlqlzSJpFSpIYyXNjBNiTCck7x2/8/LeNDOZxDuEkgOXe++553zfefee+/OYLOXFk3+1LLrRdiO81yNqZ6K9cG0P3MeFaMIQjXssE8Z1JzLO9ls20MBZX7oG8w9GxB0goaPrW5aNMp1yOZIa7Wv6o2ykpLtmAPs/vrG14Z+6d4jpbSKuhdcSyq9wGMPXjonwmESXrriLzFGOdDBLB8Y6MNYBu0dRokSygMA/mrun8MGFN3behm6VVAwg4WR3i6FvYK1T7MHo9BK7ydH+1uurECoouk5MPRyVSBrBHMYwVobG2aOXM07sWrn5qgB60rc6mcwIDJtQrnrEr44kmy+UO9r0u9O5/YbkS9juQckLed3DyW2XV/qWBBB3ptvI8EUY3I9p/67OW+g967TNr3Sotn3IuVlfMLVnsBwH4fsnebJvyGm5GeIUA3jljERmrv49SizPYuq+z7c2H/jlGC+Ghhupn/hcapqmcudB9jwJ/3jvnvu6vu5lVzF1fXyZuZZ7U8nRmVzytvT+H3kilYvH09mLWrQdwFSsFEsxFVs5fK7A0g8gMZjbif4ACpKbjv7gNGaD8bUrlk8x+KRflttr22JEMRUbTUwwDQScyzPgedQHZT0xnx7ujw2jfVfExwYHwOsDTjLdJ2ebmeQIlJ7neo41s/DrsL3kl+W2lWvAga0tR3zueGr6GL78M3ifH0rGXrBC2aAR8uYcIA5gwV8zIE8onoh8u0Fca/ciF7j1uOzEnqcIm59sEXoGc0+z6+H45V1CvAvHcD7THztu669cnp+L0okAeIc6zjbM/24LgGM1gZk7jnRu1aQWoU9sfUOuhrmtaPIO3YY1KLLWZaEO5TKUbMY5zx8W9UJ6elpLwKXbsaZ4EFl7B4bMtDv0iRipKoDQT2sNQI9b1utXFdYisi+wzZ/ri/1m7QfDgEuvgUUEIJPq3DhX/5DWNqIXDOweC2wvIR90Oq3lDpdMIgD2r0dXvGdsEW5H6x6HLRJYU7C69VefO1x8Gde1ZFSJLfWS1jbCnhtOPxmpfv2LXOA2Xk2tvnwKKPFuZ/oRmwBwqRQDcKNeVQkYcOjtWVBuM/JuYw5b6isojIkYxyYAFn5K7ZBF10fea52y8QltAg6jnMqNHFBmGkQ1j+U43HMi2xMar1Nv0zGsf1s8nUsmUtPOOrbFIR8bHFDMB5zL13Gmr/kGlCkUzedTzzmzsaJXhYawnA3UmARpiYj5ooJZiUoxFRtK3X6pgNPv+IZVPcnwbOl6f+aBaO1CNvPW9n9LmCp01nuSaTRF2YxHqZ8DYQT6WsXT+RD6eUztwYLZ8rM+rcPxamv1VQzFUkzFXvkiVrySGQgJNvXHJAxiU3/NwiC03rSf05VBaPtu/Z7/B8Yn/w7eguloAAAAAElFTkSuQmCC');
+  }
+
+  div.callout-note.callout-style-default .callout-caption {
+    background-color: #dae6fb
+  }
+
+  div.callout-important {
+    border-left-color: #d9534f !important;
+  }
+
+  div.callout-important .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAEKklEQVRYCcVXTWhcVRS+575MJym48A+hSRFr00ySRQhURRfd2HYjk2SSTokuBCkU2o0LoSKKraKIBTcuFCoidGFD08nkBzdREbpQ1EDNIv8qSGMFUboImMSZd4/f9zJv8ibJMC8xJQfO3HPPPef7zrvvvnvviIkpC9nsw0UttFunbUhpFzFtarSd6WJkStVMw5xyVqYTvkwfzuf/5FgtkVoB0729j1rjXwThS7Vio+Mo6DNnvLfahoZ+i/o32lULuJ3NNiz7q6+pyAUkJaFF6JwaM2lUJlV0MlnQn5aTRbEu0SEqHUa0A4AdiGuB1kFXRfVyg5d87+Dg4DL6m2TLAub60ilj7A1Ec4odSAc8X95sHh7+ZRPCFo6Fnp7HfU/fBng/hi10CjCnWnJjsxvDNxWw0NfV6Rv5GgP3I3jGWXumdTD/3cbEOP2ZbOZp69yniG3FQ9z1jD7bnBu9Fc2tKGC2q+uAJOQHBDRiZX1x36o7fWBs7J9ownbtO+n0/qWkvW7UPIfc37WgT6ZGR++EOJyeQDSb9UB+DZ1G6DdLDzyS+b/kBCYGsYgJbSQHuThGKRcw5xdeQf8YdNHsc6ePXrlSYMBuSIAFTGAtQo+VuALo4BX83N190NWZWbynBjhOHsmNfFWLeL6v+ynsA58zDvvAC8j5PkbOcXCMg2PZFk3q8MjI7WAG/Dp9AwP7jdGBOOQkAvlFUB+irtm16I1Zw9YBcpGTGXYmk3kQIC/Cds55l+iMI3jqhjAuaoe+am2Jw5GT3Nbz3CkE12NavmzN5+erJW7046n/CH1RO/RVa8lBLozXk9uqykkGAyRXLWlLv5jyp4RFsG5vGVzpDLnIjTWgnRy2Rr+tDKvRc7Y8AyZq10jj8DqXdnIRNtFZb+t/ZRtXcDiVnzpqx8mPcDWxgARUqx0W1QB9MeUZiNrV4qP+Ehc+BpNgATsTX8ozYKL2NtFYAHc84fG7ndxUPr+AR/iQSns7uSUufAymwDOb2+NjK27lEFocm/EE2WpyIy/Hi66MWuMKJn8RvxIcj87IM5Vh9663ziW36kR0HNenXuxmfaD8JC7tfKbrhFr7LiZCrMjrzTeGx+PmkosrkNzW94ObzwocJ7A1HokLolY+AvkTiD/q1H0cN48c5EL8Crkttsa/AXQVDmutfyku0E7jShx49XqV3MFK8IryDhYVbj7Sj2P2eBxwcXoe8T8idsKKPRcnZw1b+slFTubwUwhktrfnAt7J++jwQtLZcm3sr9LQrjRzz6cfMv9aLvgmnAGvpoaGLxM4mAEaLV7iAzQ3oU0IvD5x9ix3yF2RAAuYAOO2f7PEFWCXZ4C9Pb2UsgDeVnFSpbFK7/IWu7TPTvBqzbGdCHOJQSxiEjt6IyZmxQyEJHv6xyQsYk//moVFsN2zP6fRImjfq7/n/wFDguUQFNEwugAAAABJRU5ErkJggg==');
+  }
+
+  div.callout-important.callout-style-default .callout-caption {
+    background-color: #f7dddc
+  }
+
+  div.callout-warning {
+    border-left-color: #f0ad4e !important;
+  }
+
+  div.callout-warning .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAAETklEQVRYCeVWW2gcVRg+58yaTUnizqbipZeX4uWhBEniBaoUX1Ioze52t7sRq6APio9V9MEaoWlVsFasRq0gltaAPuxms8lu0gcviE/FFOstVbSIxgcv6SU7EZqmdc7v9+9mJtNks51NTUH84ed889/PP+cmxP+d5FIbMJmNbpREu4WUkiTtCicKny0l1pIKmBzovF2S+hIJHX8iEu3hZJ5lNZGqyRrGSIQpq15AzF28jgpeY6yk6GVdrfFqdrD6Iw+QlB8g0YS2g7dyQmXM/IDhBhT0UCiRf59lfqmmDvzRt6kByV/m4JjtzuaujMUM2c5Z2d6JdKrRb3K2q6mA+oYVz8JnDdKPmmNthzkAk/lN63sYPgevrguc72aZX/L9C6x09GYyxBgCX4NlvyGUHOKELlm5rXeR1kchuChJt4SSwyddZRXgvwMGvYo4QSlk3/zkHD8UHxwVJA6zjZZqP8v8kK8OWLnIZtLyCAJagYC4rTGW/9Pqj92N/c+LUaAj27movwbi19tk/whRCIE7Q9vyI6yvRpftAKVTdUjOW40X3h5OXsKCdmFcx0xlLJoSuQngnrJe7Kcjm4OMq9FlC7CMmScQANuNvjfP3PjGXDBaUQmbp296S5L4DrpbrHN1T87ZVEZVCzg1FF0Ft+dKrlLukI+/c9ENo+TvlTDbYFvuKPtQ9+l052rXrgKoWkDAFnvh0wTOmYn8R5f4k/jN/fZiCM1tQx9jQQ4ANhqG4hiL0qIFTGViG9DKB7GYzgubnpofgYRwO+DFjh0Zin2m4b/97EDkXkc+f6xYAPX0KK2I/7fUQuwzuwo/L3AkcjugPNixC8cHf0FyPjWlItmLxWw4Ou9YsQCr5fijMGoD/zpdRy95HRysyXA74MWOnscpO4j2y3HAVisw85hX5+AFBRSHt4ShfLFkIMXTqyKFc46xdzQM6XbAi702a7sy04J0+feReMFKp5q9esYLCqAZYw/k14E/xcLLsFElaornTuJB0svMuJINy8xkIYuL+xPAlWRceH6+HX7THJ0djLUom46zREu7tTkxwmf/FdOZ/sh6Q8qvEAiHpm4PJ4a/doJe0gH1t+aHRgCzOvBvJedEK5OFE5jpm4AGP2a8Dxe3gGJ/pAutug9Gp6he92CsSsWBaEcxGx0FHytmIpuqGkOpldqNYQK8cSoXvd+xLxXADw0kf6UkJNFtdo5MOgaLjiQOQHcn+A6h5NuL2s0qsC2LOM75PcF3yr5STuBSAcGG+meA14K/CI21HcS4LBT6tv0QAh8Dr5l93AhZzG5ZJ4VxAqdZUEl9z7WJ4aN+svMvwHHL21UKTd1mqvChH7/Za5xzXBBKrUcB0TQ+Ulgkfbi/H/YT5EptrGzsEK7tR1B7ln9BBwckYfMiuSqklSznIuoIIOM42MQO+QnduCoFCI0bpkzjCjddHPN/F+2Yu+sd9bKNpVwHhbS3LluK/0zgfwD0xYI5dXuzlQAAAABJRU5ErkJggg==');
+  }
+
+  div.callout-warning.callout-style-default .callout-caption {
+    background-color: #fcefdc
+  }
+
+  div.callout-tip {
+    border-left-color: #02b875 !important;
+  }
+
+  div.callout-tip .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAADr0lEQVRYCe1XTWgTQRj9ZjZV8a9SPIkKgj8I1bMHsUWrqYLVg4Ue6v9BwZOxSYsIerFao7UiUryIqJcqgtpimhbBXoSCVxUFe9CTiogUrUp2Pt+3aUI2u5vdNh4dmMzOzHvvezuz8xNFM0mjnbXaNu1MvFWRXkXEyE6aYOYJpdW4IXuA4r0fo8qqSMDBU0v1HJUgVieAXxzCsdE/YJTdFcVIZQNMyhruOMJKXYFoLfIfIvVIMWdsrd+Rpd86ZmyzzjJmLStqRn0v8lzkb4rVIXvnpScOJuAn2ACC65FkPzEdEy4TPWRLJ2h7z4cArXzzaOdKlbOvKKX25Wl00jSnrwVxAg3o4dRxhO13RBSdNvH0xSARv3adTXbBdTf64IWO2vH0LT+cv4GR1DJt+DUItaQogeBX/chhbTBxEiZ6gftlDNXTrvT7co4ub5A6gp9HIcHvzTa46OS5fBeP87Qm0fQkr4FsYgVQ7Qg+ZayaDg9jhg1GkWj8RG6lkeSacrrHgDaxdoBiZPg+NXV/KifMuB6//JmYH4CntVEHy/keA6x4h4CU5oFy8GzrBS18cLJMXcljAKB6INjWsRcuZBWVaS3GDrqB7rdapVIeA+isQ57Eev9eCqzqOa81CY05VLd6SamW2wA2H3SiTbnbSxmzfp7WtKZkqy4mdyAlGx7ennghYf8voqp9cLSgKdqNfa6RdRsAAkPwRuJZNbpByn+RrJi1RXTwdi8RQF6ymDwGMAtZ6TVE+4uoKh+MYkcLsT0Hk8eAienbiGdjJHZTpmNjlbFJNKDVAp2fJlYju6IreQxQ08UJDNYdoLSl6AadO+fFuCQqVMB1NJwPm69T04Wv5WhfcWyfXQB+wXRs1pt+nCknRa0LVzSA/2B+a9+zQJadb7IyyV24YAxKp2Jqs3emZTuNnKxsah+uabKbMk7CbTgJx/zIgQYErIeTKRQ9yD9wxVof5YolPHqaWo7TD6tJlh7jQnK5z2n3+fGdggIOx2kaa2YI9QWarc5Ce1ipNWMKeSG4DysFF52KBmTNMmn5HqCFkwy34rDg05gDwgH3bBi+sgFhN/e8QvRn8kbamCOhgrZ9GJhFDgfcMHzFb6BAtjKpFhzTjwv1KCVuxHvCbsSiEz4CANnj84cwHdFXAbAOJ4LTSAawGWFn5tDhLMYz6nWeU2wJfIhmIJBefcd/A5FWQWGgrWzyORZ3Q6HuV+Jf0Bj+BTX69fm1zWgK7By1YTXchFDORywnfQ7GpzOo6S+qECrsx2ifVQAAAABJRU5ErkJggg==');
+  }
+
+  div.callout-tip.callout-style-default .callout-caption {
+    background-color: #ccf1e3
+  }
+
+  div.callout-caution {
+    border-left-color: #fd7e14 !important;
+  }
+
+  div.callout-caution .callout-icon::before {
+    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAIKADAAQAAAABAAAAIAAAAACshmLzAAACV0lEQVRYCdVWzWoUQRCuqp2ICBLJXgITZL1EfQDBW/bkzUMUD7klD+ATSHBEfAIfQO+iXsWDxJsHL96EHAwhgzlkg8nBg25XWb0zIb0zs9muYYWkoKeru+vn664fBqElyZNuyh167NXJ8Ut8McjbmEraKHkd7uAnAFku+VWdb3reSmRV8PKSLfZ0Gjn3a6Xlcq9YGb6tADjn+lUfTXtVmaZ1KwBIvFI11rRXlWlatwIAAv2asaa9mlB9wwygiDX26qaw1yYPzFXg2N1GgG0FMF8Oj+VIx7E/03lHx8UhvYyNZLN7BwSPgekXXLribw7w5/c8EF+DBK5idvDVYtEEwMeYefjjLAdEyQ3M9nfOkgnPTEkYU+sxMq0BxNR6jExrAI31H1rzvLEfRIdgcv1XEdj6QTQAS2wtstEALLG1yEZ3QhH6oDX7ExBSFEkFINXH98NTrme5IOaaA7kIfiu2L8A3qhH9zRbukdCqdsA98TdElyeMe5BI8Rs2xHRIsoTSSVFfCFCWGPn9XHb4cdobRIWABNf0add9jakDjQJpJ1bTXOJXnnRXHRf+dNL1ZV1MBRCXhMbaHqGI1JkKIL7+i8uffuP6wVQAzO7+qVEbF6NbS0LJureYcWXUUhH66nLR5rYmva+2tjRFtojkM2aD76HEGAD3tPtKM309FJg5j/K682ywcWJ3PASCcycH/22u+Bh7Aa0ehM2Fu4z0SAE81HF9RkB21c5bEn4Dzw+/qNOyXr3DCTQDMBOdhi4nAgiFDGCinIa2owCEChUwD8qzd03PG+qdW/4fDzjUMcE1ZpIAAAAASUVORK5CYII=');
+  }
+
+  div.callout-caution.callout-style-default .callout-caption {
+    background-color: #ffe5d0
+  }
+
+  </style>
+  <style type="text/css">
+    .reveal div.sourceCode {
+      margin: 0;
+      overflow: auto;
+    }
+    .reveal div.hanging-indent {
+      margin-left: 1em;
+      text-indent: -1em;
+    }
+    .reveal .slide:not(.center) {
+      height: 100%;
+    }
+    .reveal .slide.scrollable {
+      overflow-y: auto;
+    }
+    .reveal .footnotes {
+      height: 100%;
+      overflow-y: auto;
+    }
+    .reveal .slide .absolute {
+      position: absolute;
+      display: block;
+    }
+    .reveal .footnotes ol {
+      counter-reset: ol;
+      list-style-type: none; 
+      margin-left: 0;
+    }
+    .reveal .footnotes ol li:before {
+      counter-increment: ol;
+      content: counter(ol) ". "; 
+    }
+    .reveal .footnotes ol li > p:first-child {
+      display: inline-block;
+    }
+    .reveal .slide ul,
+    .reveal .slide ol {
+      margin-bottom: 0.5em;
+    }
+    .reveal .slide ul li,
+    .reveal .slide ol li {
+      margin-top: 0.4em;
+      margin-bottom: 0.2em;
+    }
+    .reveal .slide ul[role="tablist"] li {
+      margin-bottom: 0;
+    }
+    .reveal .slide ul li > *:first-child,
+    .reveal .slide ol li > *:first-child {
+      margin-block-start: 0;
+    }
+    .reveal .slide ul li > *:last-child,
+    .reveal .slide ol li > *:last-child {
+      margin-block-end: 0;
+    }
+    .reveal .slide .columns:nth-child(3) {
+      margin-block-start: 0.8em;
+    }
+    .reveal blockquote {
+      box-shadow: none;
+    }
+    .reveal .tippy-content>* {
+      margin-top: 0.2em;
+      margin-bottom: 0.7em;
+    }
+    .reveal .tippy-content>*:last-child {
+      margin-bottom: 0.2em;
+    }
+    .reveal .slide > img.stretch.quarto-figure-center,
+    .reveal .slide > img.r-stretch.quarto-figure-center {
+      display: block;
+      margin-left: auto;
+      margin-right: auto; 
+    }
+    .reveal .slide > img.stretch.quarto-figure-left,
+    .reveal .slide > img.r-stretch.quarto-figure-left  {
+      display: block;
+      margin-left: 0;
+      margin-right: auto; 
+    }
+    .reveal .slide > img.stretch.quarto-figure-right,
+    .reveal .slide > img.r-stretch.quarto-figure-right  {
+      display: block;
+      margin-left: auto;
+      margin-right: 0; 
+    }
+  </style>
+</head>
+<body class="quarto-light">
+  <div class="reveal">
+    <div class="slides">
+
+<section id="title-slide" data-background-color="#197aa0" data-background-image="https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png" data-background-opacity="0.9" data-background-position="95% 90%" data-background-size="12%" class="quarto-title-block center">
+  <h1 class="title">Statistical Inference for RNA-seq</h1>
+
+<div class="quarto-title-authors">
+<div class="quarto-title-author">
+<div class="quarto-title-author-name">
+Keegan Korthauer 
+</div>
+</div>
+</div>
+
+  <p class="date">February 14, 2023</p>
+</section>
+<section id="learning-objectives" class="slide level2">
+<h2>Learning objectives</h2>
+<ul>
+<li><p>Understand <em>why</em> and <em>when</em> between- and within-sample normalization are needed</p></li>
+<li><p>Apply common between- and within-sample normalization approaches to RNA-seq counts</p></li>
+<li><p>Understand why the <em>count nature</em> of RNA-seq data requires modification to the Differential Expression approaches applied to microarray data (e.g.&nbsp;<code>limma</code>)</p></li>
+<li><p>Apply models such as <strong>limma-trend, limma-voom, <code>DESeq2</code> and <code>edgeR</code></strong> for inference of Differential Expression</p></li>
+</ul>
+</section>
+<section id="a-chd8-rna-seq-experiment" class="slide level2">
+<h2>A CHD8 RNA-seq experiment</h2>
+<ul>
+<li><p><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6008102/">Gompers et al.&nbsp;(Nature Neuroscience 2017)</a> analyzed 26 Chd8 mutant and 18 WT mice</p>
+<ul>
+<li>Tested for differential expression across ~12K genes accounting for sex, developmental stage and sequencing batch</li>
+</ul></li>
+<li><p>We’ll use this dataset throughout this lecture to illustrate RNA-seq analysis</p></li>
+</ul>
+<div id="fig" class="quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img data-src="img/GompersDesign.png"></p>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p><img data-src="img/GompersHeatmap.png" style="width:4.5in"></p>
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: center;">
+<p>Figures from Gompers et al.&nbsp;(2017) paper</p>
+</div>
+</div>
+</div>
+</section>
+<section id="summarizedexperiment-object" class="slide level2">
+<h2><code>SummarizedExperiment</code> object</h2>
+<div class="columns">
+<div class="column">
+<p><a href="https://bioconductor.org/packages/release/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html"><code>SummarizedExperiment</code></a>: A special object format that is designed to contain data &amp; metadata</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="co"># load libraries </span></span>
+<span id="cb1-2"><a href="#cb1-2"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb1-3"><a href="#cb1-3"></a><span class="fu">library</span>(limma)</span>
+<span id="cb1-4"><a href="#cb1-4"></a><span class="fu">library</span>(DESeq2)</span>
+<span id="cb1-5"><a href="#cb1-5"></a><span class="fu">library</span>(edgeR)</span>
+<span id="cb1-6"><a href="#cb1-6"></a><span class="fu">library</span>(pheatmap)</span>
+<span id="cb1-7"><a href="#cb1-7"></a><span class="fu">library</span>(qvalue)</span>
+<span id="cb1-8"><a href="#cb1-8"></a><span class="fu">library</span>(GGally)</span>
+<span id="cb1-9"><a href="#cb1-9"></a><span class="fu">library</span>(UpSetR)</span>
+<span id="cb1-10"><a href="#cb1-10"></a><span class="fu">library</span>(ComplexHeatmap)</span>
+<span id="cb1-11"><a href="#cb1-11"></a><span class="fu">library</span>(TxDb.Mmusculus.UCSC.mm10.knownGene)</span>
+<span id="cb1-12"><a href="#cb1-12"></a><span class="fu">library</span>(org.Mm.eg.db)</span>
+<span id="cb1-13"><a href="#cb1-13"></a><span class="fu">library</span>(gridExtra)</span>
+<span id="cb1-14"><a href="#cb1-14"></a></span>
+<span id="cb1-15"><a href="#cb1-15"></a><span class="co"># Set plotting settings</span></span>
+<span id="cb1-16"><a href="#cb1-16"></a>bcols<span class="ot">&lt;-</span><span class="fu">colorRampPalette</span>(<span class="fu">c</span>(<span class="st">"#000000"</span> ,<span class="st">"#800000"</span> ,<span class="st">"#FF8000"</span> ,<span class="st">"#FFFF00"</span>, <span class="st">"#FFFFFF"</span>))(<span class="dv">20</span>)</span>
+<span id="cb1-17"><a href="#cb1-17"></a><span class="fu">theme_update</span>(<span class="at">panel.grid.major =</span> <span class="fu">element_blank</span>(), <span class="at">panel.grid.minor =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb1-18"><a href="#cb1-18"></a></span>
+<span id="cb1-19"><a href="#cb1-19"></a><span class="co"># read in corrected metadata file</span></span>
+<span id="cb1-20"><a href="#cb1-20"></a>m <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"data/nn.4592-S4.fixed.csv"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-21"><a href="#cb1-21"></a>   <span class="fu">mutate</span>(<span class="at">Sample =</span> Sample.ID) <span class="sc">%&gt;%</span></span>
+<span id="cb1-22"><a href="#cb1-22"></a>   <span class="fu">column_to_rownames</span>(<span class="at">var =</span> <span class="st">"Sample.ID"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-23"><a href="#cb1-23"></a>   dplyr<span class="sc">::</span><span class="fu">select</span>(<span class="sc">-</span>Number)</span>
+<span id="cb1-24"><a href="#cb1-24"></a></span>
+<span id="cb1-25"><a href="#cb1-25"></a><span class="co"># rename variables and recode factor levels </span></span>
+<span id="cb1-26"><a href="#cb1-26"></a><span class="co"># for convenience</span></span>
+<span id="cb1-27"><a href="#cb1-27"></a>m <span class="ot">&lt;-</span> m <span class="sc">%&gt;%</span> </span>
+<span id="cb1-28"><a href="#cb1-28"></a>   dplyr<span class="sc">::</span><span class="fu">rename</span>(<span class="at">DPC =</span> <span class="st">`</span><span class="at">Stage..DPC.</span><span class="st">`</span>,</span>
+<span id="cb1-29"><a href="#cb1-29"></a>                 <span class="at">Sex =</span> <span class="st">`</span><span class="at">Sex..1.male.</span><span class="st">`</span>,</span>
+<span id="cb1-30"><a href="#cb1-30"></a>                 <span class="at">Group =</span> <span class="st">`</span><span class="at">Group..1.WT.</span><span class="st">`</span>,</span>
+<span id="cb1-31"><a href="#cb1-31"></a>                 <span class="at">SeqRun =</span> <span class="st">`</span><span class="at">SeqRun</span><span class="st">`</span>,</span>
+<span id="cb1-32"><a href="#cb1-32"></a>                 <span class="at">MappedReads =</span> <span class="st">`</span><span class="at">Mapped.Reads</span><span class="st">`</span>,</span>
+<span id="cb1-33"><a href="#cb1-33"></a>                 <span class="at">FeatureCounts =</span> <span class="st">`</span><span class="at">Feature.Counts</span><span class="st">`</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb1-34"><a href="#cb1-34"></a>   <span class="fu">mutate</span>(<span class="at">Sex =</span> <span class="fu">factor</span>(Sex, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"M"</span>, <span class="st">"F"</span>)),</span>
+<span id="cb1-35"><a href="#cb1-35"></a>          <span class="at">Group =</span> <span class="fu">factor</span>(Group, <span class="at">labels =</span> <span class="fu">c</span>(<span class="st">"WT"</span>, <span class="st">"Mu"</span>)),</span>
+<span id="cb1-36"><a href="#cb1-36"></a>          <span class="at">SeqRun =</span> <span class="fu">factor</span>(SeqRun),</span>
+<span id="cb1-37"><a href="#cb1-37"></a>          <span class="at">DPC =</span> <span class="fu">factor</span>(DPC))</span>
+<span id="cb1-38"><a href="#cb1-38"></a></span>
+<span id="cb1-39"><a href="#cb1-39"></a><span class="co"># read in count matrix</span></span>
+<span id="cb1-40"><a href="#cb1-40"></a>counts <span class="ot">&lt;-</span> <span class="fu">read.table</span>(<span class="st">"data/Gompers_NN_CountMatrix.txt"</span>, </span>
+<span id="cb1-41"><a href="#cb1-41"></a>                     <span class="at">header =</span> <span class="cn">TRUE</span>, <span class="at">row.names =</span> <span class="dv">1</span>) <span class="sc">%&gt;%</span> </span>
+<span id="cb1-42"><a href="#cb1-42"></a>  <span class="fu">filter</span>(<span class="fu">rowSums</span>(.) <span class="sc">&gt;</span> <span class="dv">0</span>)</span>
+<span id="cb1-43"><a href="#cb1-43"></a></span>
+<span id="cb1-44"><a href="#cb1-44"></a><span class="co"># place data into SummarizedExperiment object</span></span>
+<span id="cb1-45"><a href="#cb1-45"></a>sumexp <span class="ot">&lt;-</span> <span class="fu">SummarizedExperiment</span>(<span class="at">assays =</span> <span class="fu">SimpleList</span>(<span class="at">counts =</span> <span class="fu">as.matrix</span>(counts)), </span>
+<span id="cb1-46"><a href="#cb1-46"></a>                               <span class="at">colData =</span> <span class="fu">DataFrame</span>(m))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a>sumexp</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>class: SummarizedExperiment 
+dim: 20962 44 
+metadata(0):
+assays(1): counts
+rownames(20962): 0610005C13Rik 0610007P14Rik ... Zzef1 Zzz3
+rowData names(0):
+colnames(44): Sample_ANAN001A Sample_ANAN001B ... Chd8.adult.S29
+  Chd8.adult.S31
+colData names(7): DPC Sex ... FeatureCounts Sample</code></pre>
+</div>
+</div>
+</div><div class="column">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="img/summarizedexperiment.png"></p>
+<p></p><figcaption>Anatomy of a SummarizedExperiment object</figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="a-look-inside-our-summarizedexperiment-object" class="slide level2">
+<h2>A look inside our <code>SummarizedExperiment</code> object</h2>
+<div class="panel-tabset">
+<ul id="tabset-1" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-1-1">Counts</a></li><li><a href="#tabset-1-2">Metadata</a></li></ul>
+<div class="tab-content">
+<div id="tabset-1-1">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a><span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts <span class="sc">%&gt;%</span> <span class="fu">head</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>              Sample_ANAN001A Sample_ANAN001B Sample_ANAN001C Sample_ANAN001D
+0610005C13Rik              20              24              20               8
+0610007P14Rik            1714            1796            1970            1996
+0610009B22Rik             578             866             790             858
+0610009L18Rik              50              82              38              64
+0610009O20Rik            2580            2964            2942            3084
+0610010B08Rik               0              10               0               2
+              Sample_ANAN001E Sample_ANAN001F Sample_ANAN001G Sample_ANAN001H
+0610005C13Rik               6              18              17              20
+0610007P14Rik            1864            1626            2103            1422
+0610009B22Rik             786             662             710             502
+0610009L18Rik              70              28              51              44
+0610009O20Rik            2848            2640            3210            2160
+0610010B08Rik               0               0               3               0
+              Chd8.e14.S12 Chd8.e14.S13 Chd8.e14.S14 Chd8.e14.S16 Chd8.e14.S17
+0610005C13Rik           16           18           19            8           11
+0610007P14Rik          722          974          633          974          914
+0610009B22Rik          369          477          402          497          530
+0610009L18Rik           41           75           51           57           54
+0610009O20Rik         1122         1352          917         1281         1241
+0610010B08Rik            0            0            0            0            0
+              Chd8.e14.S18 Chd8.e14.S19 Chd8.e14.S20 Chd8.e14.S21
+0610005C13Rik            6            6            5            6
+0610007P14Rik          908          797          547          908
+0610009B22Rik          472          458          282          493
+0610009L18Rik           59           62           24           51
+0610009O20Rik         1086         1005          723         1289
+0610010B08Rik            0            0            0            0
+              Chd8.e17.5.1_S158 Chd8.e17.5.2_S159 Chd8.e17.5.4_S161
+0610005C13Rik                16                 8                 8
+0610007P14Rik              1060               698              1060
+0610009B22Rik               283               251               359
+0610009L18Rik                25                33                30
+0610009O20Rik              1006               519               808
+0610010B08Rik                 0                 0                 0
+              Chd8.e17.5.5_S162 Chd8.e17.5.6_S163 Chd8.e17.5.1_S1
+0610005C13Rik                10                 9              32
+0610007P14Rik               779              1142            2530
+0610009B22Rik               258               302             566
+0610009L18Rik                29                42              77
+0610009O20Rik               842               880            2187
+0610010B08Rik                 4                 0               0
+              Chd8.e17.5.2_S2 Chd8.e17.5.3_S3 Chd8.e17.5.4_S4 Chd8.e17.5.5_S5
+0610005C13Rik              18              13              13               9
+0610007P14Rik            2048            1789            2081            2790
+0610009B22Rik             425             358             384             473
+0610009L18Rik              68              51              31              59
+0610009O20Rik            1738            1331            1627            2089
+0610010B08Rik               0               0               0               0
+              Chd8.P0.S1 Chd8.P0.S10 Chd8.P0.S11 Chd8.P0.S2 Chd8.P0.S3
+0610005C13Rik         14           9           7          7          5
+0610007P14Rik        793         914         793       1007        849
+0610009B22Rik        148         175         167        176        166
+0610009L18Rik         40          18          28         34         40
+0610009O20Rik        962         731         926        840        893
+0610010B08Rik          0           0           0          0          1
+              Chd8.P0.S4 Chd8.P0.S5 Chd8.P0.S6 Chd8.P0.S7 Chd8.P0.S8 Chd8.P0.S9
+0610005C13Rik          2          3          8          9         10          5
+0610007P14Rik       1053        982        747        947       1004        719
+0610009B22Rik        220        202        157        201        227        154
+0610009L18Rik         41         43         35         39         24         27
+0610009O20Rik        912        856        896        942       1156        710
+0610010B08Rik          0          0          0          0          0          0
+              Chd8.adult.S23 Chd8.adult.S24 Chd8.adult.S25 Chd8.adult.S28
+0610005C13Rik             14              5              6              5
+0610007P14Rik           1554            961            945            976
+0610009B22Rik            398            405            333            447
+0610009L18Rik             78             65             37             60
+0610009O20Rik           1690           1204           1191           1153
+0610010B08Rik              0              0              0              0
+              Chd8.adult.S29 Chd8.adult.S31
+0610005C13Rik              3             16
+0610007P14Rik            907            794
+0610009B22Rik            302            372
+0610009L18Rik             62             70
+0610009O20Rik           1174           1007
+0610010B08Rik              0              0</code></pre>
+</div>
+</div>
+</div>
+<div id="tabset-1-2">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1"></a><span class="fu">colData</span>(sumexp) <span class="sc">%&gt;%</span> <span class="fu">head</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>DataFrame with 6 rows and 7 columns
+                     DPC      Sex    Group   SeqRun MappedReads FeatureCounts
+                &lt;factor&gt; &lt;factor&gt; &lt;factor&gt; &lt;factor&gt;   &lt;integer&gt;     &lt;integer&gt;
+Sample_ANAN001A     12.5        F       Mu        A    42452222      37655856
+Sample_ANAN001B     12.5        M       WT        A    54503162      47106938
+Sample_ANAN001C     12.5        M       WT        A    44978512      40448118
+Sample_ANAN001D     12.5        F       Mu        A    50099336      44993589
+Sample_ANAN001E     12.5        F       Mu        A    47163546      41840678
+Sample_ANAN001F     12.5        F       WT        A    43893480      39483622
+                         Sample
+                    &lt;character&gt;
+Sample_ANAN001A Sample_ANAN001A
+Sample_ANAN001B Sample_ANAN001B
+Sample_ANAN001C Sample_ANAN001C
+Sample_ANAN001D Sample_ANAN001D
+Sample_ANAN001E Sample_ANAN001E
+Sample_ANAN001F Sample_ANAN001F</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="now-we-have-count-data" class="slide level2">
+<h2>Now we have <strong>count</strong> data<sup>1</sup></h2>
+<ul>
+<li><p>In the Nrl microarray experiment we worked with <strong>continuous</strong> microarray values</p></li>
+<li><p>Now we will work with the raw RNA-seq <strong>counts</strong> (discrete)</p></li>
+<li><p>These counts represent the number of reads mapping to each feature (gene or transcript) - here we have gene counts</p></li>
+<li><p>Seminar 6 explored how to obtain read counts from alignment (BAM or SAM) files</p></li>
+</ul>
+<aside><ol class="aside-footnotes"><li id="fn1"><p>Note that only RPKM values were provided in <a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE99331">GEO</a>; raw counts obtained directly from authors</p></li></ol></aside></section>
+<section id="recall-where-these-counts-came-from" class="slide level2">
+<h2>Recall where these counts came from</h2>
+
+<img data-src="img/seqRecap.png" class="r-stretch"></section>
+<section id="eda-summary" class="slide level2">
+<h2>EDA summary</h2>
+<div class="columns">
+<div class="column" style="width:40;">
+<ul>
+<li>Experimental design variables:
+<ul>
+<li><strong>Group</strong> (Genotype: Chd8 mutant vs WT)</li>
+<li><strong>Sex</strong> (M vs F, 2 level factor)<sup>1</sup></li>
+<li><strong>DPC</strong> (days post conception, 5 level factor)</li>
+<li><strong>Batch</strong> (sequencing run)</li>
+</ul></li>
+<li>Notable findings:
+<ul>
+<li><strong>Batch</strong> and <strong>DPC</strong> are major sources of variation</li>
+<li><strong>Batch</strong> and <strong>DPC</strong> are confounded</li>
+<li>One sample is a potential minor outlier</li>
+</ul></li>
+</ul>
+</div><div class="column" style="width:60;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1"></a>corr <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">cor</span>(<span class="fu">log2</span>(<span class="fu">cpm</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts<span class="sc">+</span><span class="dv">1</span>))), </span>
+<span id="cb8-2"><a href="#cb8-2"></a>                 <span class="at">row.names =</span> <span class="fu">colnames</span>(sumexp)) <span class="sc">%&gt;%</span> </span>
+<span id="cb8-3"><a href="#cb8-3"></a>  <span class="fu">as.matrix</span>()</span>
+<span id="cb8-4"><a href="#cb8-4"></a></span>
+<span id="cb8-5"><a href="#cb8-5"></a><span class="fu">set.seed</span>(<span class="dv">12</span>)</span>
+<span id="cb8-6"><a href="#cb8-6"></a><span class="fu">Heatmap</span>(corr, </span>
+<span id="cb8-7"><a href="#cb8-7"></a>        <span class="at">col =</span> bcols, </span>
+<span id="cb8-8"><a href="#cb8-8"></a>        <span class="at">name =</span> <span class="st">"corr"</span>,</span>
+<span id="cb8-9"><a href="#cb8-9"></a>        <span class="at">cluster_rows =</span> <span class="cn">FALSE</span>, <span class="at">cluster_columns =</span> <span class="cn">FALSE</span>, </span>
+<span id="cb8-10"><a href="#cb8-10"></a>        <span class="at">top_annotation =</span> <span class="fu">HeatmapAnnotation</span>(<span class="at">Group =</span> m<span class="sc">$</span>Group,</span>
+<span id="cb8-11"><a href="#cb8-11"></a>                                           <span class="at">Sex =</span> m<span class="sc">$</span>Sex,</span>
+<span id="cb8-12"><a href="#cb8-12"></a>                                           <span class="at">Batch =</span> m<span class="sc">$</span>SeqRun, </span>
+<span id="cb8-13"><a href="#cb8-13"></a>                                           <span class="at">DPC =</span> <span class="fu">factor</span>(m<span class="sc">$</span>DPC)), </span>
+<span id="cb8-14"><a href="#cb8-14"></a>        <span class="at">row_names_gp =</span> <span class="fu">gpar</span>(<span class="at">fontsize =</span> <span class="dv">8</span>), </span>
+<span id="cb8-15"><a href="#cb8-15"></a>        <span class="at">column_names_gp =</span> <span class="fu">gpar</span>(<span class="at">fontsize =</span> <span class="dv">8</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-6-1.png" width="960"></p>
+</div>
+</div>
+</div>
+</div>
+<aside><ol class="aside-footnotes"><li id="fn2"><p>Note that sex was mislabeled for some samples in the GEO entry (we are using a corrected version obtained from the authors)</p></li></ol></aside></section>
+<section id="eda-confounding" class="slide level2">
+<h2>EDA: confounding</h2>
+<p><strong>Batch</strong> (sequencing run) and <strong>DPC</strong> (days post conception) are confounded</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1"></a><span class="fu">table</span>(sumexp<span class="sc">$</span>SeqRun, </span>
+<span id="cb9-2"><a href="#cb9-2"></a>      sumexp<span class="sc">$</span>DPC)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>   
+    12.5 14.5 17.5 21 77
+  A    8    0    0  0  0
+  B    0    9    0  0  0
+  C    0    0    5  0  0
+  D    0    0    5  0  0
+  E    0    0    0 11  0
+  H    0    0    0  0  6</code></pre>
+</div>
+</div>
+</section>
+<section id="differential-expression-analysis-on-chd8-data" class="slide level2">
+<h2>Differential expression analysis on Chd8 data</h2>
+<ul>
+<li><p>Main variable of interest: <strong>Group</strong> (Genotype: Chd8 mutant vs WT)</p></li>
+<li><p>We’d like to fit a model for each gene so we can test for Group effect, and adjust for:</p>
+<ul>
+<li><strong>Sex</strong> (M vs F, 2 level factor)</li>
+<li><strong>DPC</strong> (days post conception, 5 level factor)</li>
+</ul></li>
+</ul>
+<div class="fragment">
+<ul>
+<li>Using what we learned in previous lectures, we can formulate this model as</li>
+</ul>
+<p><span class="math display">\[Y_{i} = \theta + \tau_{Mut} x_{i,Mut} + \tau_{F} x_{i,F} + \tau_{D14.5} x_{i,D14.5} + \tau_{D17.5} x_{i,D17.5} + \tau_{D21} x_{i,D21} + \tau_{D77} x_{i,D77} + \epsilon_i\]</span></p>
+</div>
+<div class="fragment">
+<p><span class="math display">\[x_{i,Mut} = \bigg\{\begin{array}{l}
+1\text{ if } i \text{ is Mutant} \\
+0 \text{ otherwise}\\
+\end{array}, \hspace{1em} x_{i,F} = \bigg\{\begin{array}{l}
+1\text{ if } i \text{ is Female} \\
+0 \text{ otherwise}\\
+\end{array}, \hspace{1em}x_{i,D\#} = \bigg\{\begin{array}{l}
+1\text{ if } i \text{ is DPC#} \\
+0 \text{ otherwise}\\
+\end{array}\]</span></p>
+<p>where <span class="math inline">\(D\# \in \{D14.5, D17.5, D21, D77\}\)</span></p>
+</div>
+</section>
+<section id="differential-expression-analysis-on-chd8-data-1" class="slide level2">
+<h2>Differential expression analysis on Chd8 data</h2>
+<ul>
+<li><p>Our model has no interaction term (though we could add one if we wish)</p></li>
+<li><p><span class="math inline">\(p=7\)</span> parameters to estimate in our model: <span class="math inline">\(\theta, \tau_{Mut}, \tau_{F}, \tau_{D14.5}, \tau_{D17.5}, \tau_{D21}, \text{ and } \tau_{D77}\)</span></p></li>
+<li><p><span class="math inline">\(n=44\)</span> samples total, so our model has <span class="math inline">\(n-p=44-7=37\)</span> degrees of freedom</p></li>
+<li><p>What is the null hypothesis for the test of differential expression between Chd8 Mut and WT using our model?</p></li>
+</ul>
+<div class="fragment">
+<ul>
+<li>Recall that since this is an additive model, the parameters represent <strong>main effects</strong> (not conditional)</li>
+</ul>
+<aside class="notes">
+<p><span class="math inline">\(H_0: \tau_{Mut}=0\)</span></p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</div>
+</section>
+<section id="design-matrix-in-r" class="slide level2">
+<h2>Design matrix in R</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a>modm <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp))</span>
+<span id="cb11-2"><a href="#cb11-2"></a>modm</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                  (Intercept) SexF GroupMu DPC14.5 DPC17.5 DPC21 DPC77
+Sample_ANAN001A             1    1       1       0       0     0     0
+Sample_ANAN001B             1    0       0       0       0     0     0
+Sample_ANAN001C             1    0       0       0       0     0     0
+Sample_ANAN001D             1    1       1       0       0     0     0
+Sample_ANAN001E             1    1       1       0       0     0     0
+Sample_ANAN001F             1    1       0       0       0     0     0
+Sample_ANAN001G             1    1       1       0       0     0     0
+Sample_ANAN001H             1    1       0       0       0     0     0
+Chd8.e14.S12                1    0       0       1       0     0     0
+Chd8.e14.S13                1    1       0       1       0     0     0
+Chd8.e14.S14                1    0       1       1       0     0     0
+Chd8.e14.S16                1    1       1       1       0     0     0
+Chd8.e14.S17                1    1       0       1       0     0     0
+Chd8.e14.S18                1    1       1       1       0     0     0
+Chd8.e14.S19                1    1       1       1       0     0     0
+Chd8.e14.S20                1    0       1       1       0     0     0
+Chd8.e14.S21                1    0       1       1       0     0     0
+Chd8.e17.5.1_S158           1    0       1       0       1     0     0
+Chd8.e17.5.2_S159           1    0       0       0       1     0     0
+Chd8.e17.5.4_S161           1    1       0       0       1     0     0
+Chd8.e17.5.5_S162           1    0       1       0       1     0     0
+Chd8.e17.5.6_S163           1    0       1       0       1     0     0
+Chd8.e17.5.1_S1             1    1       1       0       1     0     0
+Chd8.e17.5.2_S2             1    0       1       0       1     0     0
+Chd8.e17.5.3_S3             1    1       1       0       1     0     0
+Chd8.e17.5.4_S4             1    1       0       0       1     0     0
+Chd8.e17.5.5_S5             1    1       1       0       1     0     0
+Chd8.P0.S1                  1    1       1       0       0     1     0
+Chd8.P0.S10                 1    1       0       0       0     1     0
+Chd8.P0.S11                 1    1       0       0       0     1     0
+Chd8.P0.S2                  1    1       1       0       0     1     0
+Chd8.P0.S3                  1    1       1       0       0     1     0
+Chd8.P0.S4                  1    1       1       0       0     1     0
+Chd8.P0.S5                  1    1       0       0       0     1     0
+Chd8.P0.S6                  1    0       1       0       0     1     0
+Chd8.P0.S7                  1    0       1       0       0     1     0
+Chd8.P0.S8                  1    1       0       0       0     1     0
+Chd8.P0.S9                  1    1       0       0       0     1     0
+Chd8.adult.S23              1    0       0       0       0     0     1
+Chd8.adult.S24              1    0       1       0       0     0     1
+Chd8.adult.S25              1    0       1       0       0     0     1
+Chd8.adult.S28              1    0       1       0       0     0     1
+Chd8.adult.S29              1    0       0       0       0     0     1
+Chd8.adult.S31              1    1       0       0       0     0     1
+attr(,"assign")
+[1] 0 1 2 3 3 3 3
+attr(,"contrasts")
+attr(,"contrasts")$Sex
+[1] "contr.treatment"
+
+attr(,"contrasts")$Group
+[1] "contr.treatment"
+
+attr(,"contrasts")$DPC
+[1] "contr.treatment"</code></pre>
+</div>
+</div>
+</section>
+<section id="are-we-ready-to-fit-the-model" class="slide level2">
+<h2>Are we ready to fit the model?</h2>
+<p>Might start with the <code>limma</code> approach on the raw counts, but…</p>
+<div class="fragment">
+<p><strong>Not so fast</strong> - we have to consider additional sources of variation!</p>
+</div>
+</section>
+<section id="library-size-sequencing-depth" class="slide level2">
+<h2>Library size (sequencing depth)</h2>
+<ul>
+<li><p><strong>Library size</strong>: Total number of read counts per sample</p></li>
+<li><p>Ideally this would be the same for all samples, but it isn’t</p></li>
+<li><p>Number of reads per sample depends on factors like how many samples were multiplexed and how evenly, cluster density, RNA quality, etc.</p></li>
+</ul>
+<div class="columns">
+<div class="column">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1"></a><span class="fu">hist</span>(<span class="fu">colSums</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts)<span class="sc">/</span><span class="fl">1e6</span>, <span class="at">main =</span> <span class="cn">NULL</span>, </span>
+<span id="cb13-2"><a href="#cb13-2"></a>     <span class="at">xlab =</span> <span class="st">"library size (million total counts)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-8-1.png" width="960"></p>
+</div>
+</div>
+</div><div class="column">
+<p><img data-src="img/clusterdensity.png"></p>
+</div>
+</div>
+</section>
+<section id="why-does-library-size-matter" class="slide level2">
+<h2>Why does library size matter?</h2>
+<div class="callout callout-important callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Read depth variation is a potential source of confounding!</strong></p>
+</div>
+<div class="callout-content">
+<ul>
+<li><p>We typically want to compare gene counts <strong>between</strong> samples</p></li>
+<li><p><strong>Intuition</strong>: if we sequence one group of samples 2X as much, gene counts in that sample look ~2X as large even if there’s no DE!</p></li>
+</ul>
+</div>
+</div>
+</div>
+<div class="fragment">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="img/seqdepth.png"></p>
+</figure>
+</div>
+</div>
+<div class="fragment">
+<ul>
+<li>You may come across (older) literature where data was down-sampled to make library sizes the same (<strong>not recommended</strong>)</li>
+</ul>
+</div>
+</section>
+<section id="within-sample-comparisons" class="slide level2">
+<h2>Within-sample comparisons</h2>
+<ul>
+<li><p>Other factors of variation come into play if we also want to compare counts between genes within sample (less common)</p></li>
+<li><p>At the same expression level, longer genes/transcripts have more read counts</p></li>
+</ul>
+
+<img data-src="img/genelength.png" class="r-stretch quarto-figure-center"></section>
+<section id="how-can-we-make-fair-between--and-within-sample-comparisons" class="slide level2">
+<h2>How can we make fair between- and within-sample comparisons?</h2>
+<ul>
+<li><p><strong>Normalized expression units</strong>: expression values adjusted for factors like library size, gene length</p>
+<ul>
+<li>e.g.RPKM/FPKM, TPM, CPM</li>
+<li>useful for visualization / clustering</li>
+</ul></li>
+<li><p><strong>Normalization factors</strong>: scalar values representing relative library size of each sample</p>
+<ul>
+<li>e.g.&nbsp;TMM, DESeq size factors</li>
+<li>useful to include in models of raw counts to adjust for library size</li>
+</ul></li>
+</ul>
+<div class="fragment">
+<ul>
+<li><p>For analysis (e.g.&nbsp;DE) it is ideal to start with <strong>raw counts</strong></p>
+<ul>
+<li>raw counts required for many methods</li>
+<li>can always compute normalized values from raw counts (but not vice versa)</li>
+</ul></li>
+</ul>
+</div>
+</section>
+<section id="normalized-expression-units" class="slide level2">
+<h2>Normalized expression units</h2>
+<ul>
+<li><strong>RPKM/FPKM</strong>: reads/fragments per kb of exon per million mapped reads</li>
+</ul>
+<div class="columns">
+<div class="column">
+<p><img data-src="img/rpkm.png"></p>
+</div><div class="column">
+<p><span class="math inline">\(R_{ij} = 28\)</span> reads in gene <span class="math inline">\(j\)</span>, sample <span class="math inline">\(i\)</span></p>
+<p><span class="math inline">\(\Sigma_j R_{ij} = 11\)</span> million reads in sample i</p>
+<p><span class="math inline">\(RPKM_{ij} = \frac{R_{ij}}{\frac{L_j}{10^3}\frac{\Sigma_j R_{ij}}{10^6}} = \frac{28}{\frac{2000}{10^3}\frac{1.1\times10^7}{10^6}} = 1.27\)</span></p>
+</div>
+</div>
+<ul>
+<li>FPKM is the more appropriate term for paired-end data</li>
+</ul>
+</section>
+<section id="normalized-expression-units-continued" class="slide level2">
+<h2>Normalized expression units, continued</h2>
+<ul>
+<li><strong>TPM</strong>: Transcripts per million <span class="math display">\[TPM_{ij} = \frac{R_{ij}}{L_j}\frac{10^6}{\Sigma_j R_{ij}/L_j} = \frac{FPKM_{ij}}{\Sigma_j FPKM_{ij}/10^6}\]</span></li>
+</ul>
+<div class="fragment">
+<ul>
+<li><strong>CPM</strong>: Counts per million <span class="math display">\[CPM_{ij} = \frac{R_{ij}}{\Sigma_j R_{ij}/10^6}\]</span></li>
+</ul>
+</div>
+<div class="fragment">
+<ul>
+<li><p>See this useful <a href="https://haroldpimentel.wordpress.com/2014/05/08/what-the-fpkm-a-review-rna-seq-expression-units/">blog post</a> on relationship between these units</p></li>
+<li><p>Which of these measures are between-sample normalization measures? Within-sample? Both?</p></li>
+</ul>
+</div>
+</section>
+<section id="how-much-does-gene-length-vary" class="slide level2">
+<h2>How much does “gene length” vary?</h2>
+<ul>
+<li><p>Really we mean “total effective length of transcript used in assigning reads to genes”</p></li>
+<li><p>If all genes are same lengths, FPKM won’t do anything interesting</p></li>
+<li><p>In mouse, “gene length” varies mostly between ~2.5Kb - 4.3Kb; your organism may vary</p></li>
+</ul>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1"></a>exns <span class="ot">&lt;-</span> <span class="fu">exonsBy</span>(TxDb.Mmusculus.UCSC.mm10.knownGene, <span class="at">by =</span> <span class="st">"gene"</span>)</span>
+<span id="cb14-2"><a href="#cb14-2"></a>z <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">width</span>(exns), sum)</span>
+<span id="cb14-3"><a href="#cb14-3"></a></span>
+<span id="cb14-4"><a href="#cb14-4"></a><span class="fu">plot</span>(<span class="fu">density</span>(<span class="fu">log10</span>(z)), </span>
+<span id="cb14-5"><a href="#cb14-5"></a>     <span class="st">"Mouse gene lengths, unfiltered"</span>, </span>
+<span id="cb14-6"><a href="#cb14-6"></a>     <span class="at">xlab =</span> <span class="st">"log10 gene length (bp)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-9-1.png" width="960" class="r-stretch quarto-figure-center"></section>
+<section id="how-does-gene-length-relate-to-counts" class="slide level2">
+<h2>How does gene length relate to counts?</h2>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1"></a>mapping <span class="ot">&lt;-</span> <span class="fu">select</span>(org.Mm.eg.db, <span class="at">keys =</span> <span class="fu">rownames</span>(sumexp), <span class="at">columns =</span> <span class="fu">c</span>(<span class="st">"SYMBOL"</span>, <span class="st">"ENTREZID"</span>), <span class="at">keytype=</span><span class="st">"SYMBOL"</span>)</span>
+<span id="cb15-2"><a href="#cb15-2"></a>x <span class="ot">&lt;-</span> <span class="fu">match</span>(mapping<span class="sc">$</span>ENTREZID, <span class="fu">names</span>(z))</span>
+<span id="cb15-3"><a href="#cb15-3"></a></span>
+<span id="cb15-4"><a href="#cb15-4"></a>lns <span class="ot">&lt;-</span> z[x]</span>
+<span id="cb15-5"><a href="#cb15-5"></a></span>
+<span id="cb15-6"><a href="#cb15-6"></a><span class="fu">rowData</span>(sumexp)<span class="sc">$</span>basepairs <span class="ot">&lt;-</span> lns</span>
+<span id="cb15-7"><a href="#cb15-7"></a></span>
+<span id="cb15-8"><a href="#cb15-8"></a><span class="fu">data.frame</span>(<span class="at">count =</span> <span class="fu">log10</span>(<span class="fu">rowMeans</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts)),</span>
+<span id="cb15-9"><a href="#cb15-9"></a>           <span class="at">length =</span> <span class="fu">log10</span>(lns)) <span class="sc">%&gt;%</span></span>
+<span id="cb15-10"><a href="#cb15-10"></a>  <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb15-11"><a href="#cb15-11"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> length, <span class="at">y =</span> count)) <span class="sc">+</span></span>
+<span id="cb15-12"><a href="#cb15-12"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb15-13"><a href="#cb15-13"></a>  <span class="fu">ylab</span>(<span class="st">"log10(mean count)"</span>) <span class="sc">+</span></span>
+<span id="cb15-14"><a href="#cb15-14"></a>  <span class="fu">xlab</span>(<span class="st">"log10(gene length)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-10-1.png" width="960" class="r-stretch quarto-figure-center"><ul>
+<li><p>If all genes were expressed at same level (same # molecules/cell), expect a 1:1 relation</p></li>
+<li><p>Of course they are not, so the effect of length is less obvious</p></li>
+<li><p>Rank correlation between length and mean expression in our example data is 0.573</p></li>
+</ul>
+</section>
+<section id="fpkm-vs-tpm" class="slide level2">
+<h2>FPKM vs TPM</h2>
+<div class="columns">
+<div class="column" style="width:30%;">
+<p>These metrics both enable comparison of expression levels of different genes within sample.<br></p>
+<p>Any doubt about “gene length” will be propagated to both measures.</p>
+</div><div class="column" style="width:70%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1"></a><span class="fu">data.frame</span>(<span class="at">fpkm =</span> <span class="fu">log2</span>(<span class="fu">fpkm</span>(<span class="fu">DESeqDataSet</span>(sumexp, <span class="sc">~</span><span class="dv">1</span>), <span class="at">robust =</span> <span class="cn">FALSE</span>)[,<span class="dv">1</span>]<span class="sc">+</span><span class="dv">1</span>)) <span class="sc">%&gt;%</span> </span>
+<span id="cb16-2"><a href="#cb16-2"></a>  <span class="fu">mutate</span>(<span class="at">tpm =</span> <span class="fu">log2</span>(<span class="dv">2</span><span class="sc">^</span>fpkm <span class="sc">/</span> <span class="fu">sum</span>(<span class="dv">2</span><span class="sc">^</span>fpkm, <span class="at">na.rm =</span> <span class="cn">TRUE</span>) <span class="sc">*</span> <span class="dv">10</span><span class="sc">^</span><span class="dv">6</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb16-3"><a href="#cb16-3"></a>  <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb16-4"><a href="#cb16-4"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> fpkm, <span class="at">y =</span> tpm)) <span class="sc">+</span></span>
+<span id="cb16-5"><a href="#cb16-5"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6"></a>  <span class="fu">ylab</span>(<span class="st">"log2(FPKM + 1)"</span>) <span class="sc">+</span></span>
+<span id="cb16-7"><a href="#cb16-7"></a>  <span class="fu">xlab</span>(<span class="st">"log2(TPM + 1)"</span>) <span class="sc">+</span></span>
+<span id="cb16-8"><a href="#cb16-8"></a>  <span class="fu">ggtitle</span>(<span class="st">"Sample 1"</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-11-1.png" width="672"></p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="fpkm-vs-cpm" class="slide level2">
+<h2>FPKM vs CPM</h2>
+<div class="columns">
+<div class="column" style="width:30%;">
+<p>If we’re comparing samples to each other, there’s no important difference between FPKM/TPM and CPM so long as we assume “effective gene length” is constant across samples</p>
+</div><div class="column" style="width:70%;">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1"></a><span class="fu">data.frame</span>(<span class="at">fpkm =</span> <span class="fu">log2</span>(<span class="fu">fpkm</span>(<span class="fu">DESeqDataSet</span>(sumexp, <span class="sc">~</span><span class="dv">1</span>), <span class="at">robust =</span> <span class="cn">FALSE</span>)[,<span class="dv">1</span>]<span class="sc">+</span><span class="dv">1</span>), </span>
+<span id="cb17-2"><a href="#cb17-2"></a>           <span class="at">cpm =</span> <span class="fu">log2</span>(<span class="fu">cpm</span>(counts, <span class="at">log =</span> <span class="cn">FALSE</span>, <span class="at">normalized.lib.sizes =</span> <span class="cn">FALSE</span>)[,<span class="dv">1</span>]<span class="sc">+</span><span class="dv">1</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb17-3"><a href="#cb17-3"></a>  <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb17-4"><a href="#cb17-4"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> fpkm, <span class="at">y =</span> cpm)) <span class="sc">+</span></span>
+<span id="cb17-5"><a href="#cb17-5"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb17-6"><a href="#cb17-6"></a>  <span class="fu">ylab</span>(<span class="st">"log2(FPKM + 1)"</span>) <span class="sc">+</span></span>
+<span id="cb17-7"><a href="#cb17-7"></a>  <span class="fu">xlab</span>(<span class="st">"log2(CPM + 1)"</span>) <span class="sc">+</span></span>
+<span id="cb17-8"><a href="#cb17-8"></a>  <span class="fu">ggtitle</span>(<span class="st">"Sample 1"</span>) <span class="sc">+</span></span>
+<span id="cb17-9"><a href="#cb17-9"></a>  <span class="fu">geom_abline</span>(<span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">slope =</span> <span class="dv">1</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-12-1.png" width="672"></p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="between-sample-normalization" class="slide level2">
+<h2>Between-sample normalization</h2>
+<ul>
+<li><p>Computing FPKM, CPM or TPM largely corrects for differences in library size</p></li>
+<li><p>However, there is a complication: “Sequence space”</p>
+<ul>
+<li>Finite number of reads implies that observing reads for one gene decreases ability to observe reads for other genes</li>
+<li>This is a fundamental difference from microarrays, where each spot is essentially independent</li>
+</ul></li>
+<li><p>This isn’t a major problem unless there are large differences in composition between samples, but should be inspected</p>
+<ul>
+<li>Normalization factors are generally robust to this</li>
+</ul></li>
+</ul>
+</section>
+<section id="effect-of-sequence-space" class="slide level2">
+<h2>Effect of sequence space</h2>
+
+<img data-src="img/seqspace.png" class="r-stretch quarto-figure-center"><div class="fragment">
+<ul>
+<li><p>By CPM or FPKM, red &amp; blue appear down-regulated in sample B (only green is DE)</p></li>
+<li><p>Adjusting expression levels in Sample B by a factor of 3 would be needed</p></li>
+</ul>
+<p>See <a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2010-11-3-r25">Robinson and Oshlack (2010)</a></p>
+</div>
+</section>
+<section id="sequence-space-in-our-example-data" class="slide level2">
+<h2>Sequence space in our example data</h2>
+<ul>
+<li><p>Rn45s gene has <span class="math inline">\(&gt;100,000\)</span> mean reads per sample <span class="math inline">\((&gt;5\%\)</span> of reads in some samples)</p></li>
+<li><p>~5% of the genes take up ~50% of reads, but this is consistent across samples</p></li>
+<li><p>Side note: Rn45s is potentially a contaminant - a ribosomal RNA that should have been removed during sample prep, which involved poly-A selection</p></li>
+</ul>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a>soaker <span class="ot">&lt;-</span> <span class="fu">which.max</span>(<span class="fu">rowMeans</span>(counts))</span>
+<span id="cb18-2"><a href="#cb18-2"></a>p1 <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">count =</span> <span class="fu">as.numeric</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts[soaker,]),</span>
+<span id="cb18-3"><a href="#cb18-3"></a>           <span class="at">total =</span> <span class="fu">colSums</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts)) <span class="sc">%&gt;%</span></span>
+<span id="cb18-4"><a href="#cb18-4"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> count, <span class="at">y =</span> total)) <span class="sc">+</span></span>
+<span id="cb18-5"><a href="#cb18-5"></a>    <span class="fu">geom_point</span>() <span class="sc">+</span> </span>
+<span id="cb18-6"><a href="#cb18-6"></a>    <span class="fu">xlab</span>(<span class="st">"Rn45s raw read count"</span>) <span class="sc">+</span></span>
+<span id="cb18-7"><a href="#cb18-7"></a>    <span class="fu">ylab</span>(<span class="st">"Total reads in sample"</span>)</span>
+<span id="cb18-8"><a href="#cb18-8"></a></span>
+<span id="cb18-9"><a href="#cb18-9"></a></span>
+<span id="cb18-10"><a href="#cb18-10"></a>cpgcum <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="fu">apply</span>(counts, <span class="dv">2</span>, <span class="cf">function</span>(x) <span class="fu">cumsum</span>(<span class="fu">sort</span>(x))<span class="sc">/</span><span class="fu">sum</span>(x)), </span>
+<span id="cb18-11"><a href="#cb18-11"></a>                     <span class="at">index =</span> (<span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(counts)[<span class="dv">1</span>])<span class="sc">/</span><span class="fu">dim</span>(counts)[<span class="dv">1</span>]) <span class="sc">%&gt;%</span></span>
+<span id="cb18-12"><a href="#cb18-12"></a>  <span class="fu">pivot_longer</span>(<span class="at">names_to =</span> <span class="st">"Sample"</span>, <span class="at">values_to =</span> <span class="st">"CumulativeFracCounts"</span>, </span>
+<span id="cb18-13"><a href="#cb18-13"></a>               <span class="at">cols =</span> <span class="sc">-</span>index)</span>
+<span id="cb18-14"><a href="#cb18-14"></a>p2 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(cpgcum, <span class="fu">aes</span>(<span class="at">x =</span> index, <span class="at">y =</span> CumulativeFracCounts, <span class="at">group =</span> Sample)) <span class="sc">+</span> </span>
+<span id="cb18-15"><a href="#cb18-15"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fl">0.5</span>, <span class="at">color=</span><span class="st">"grey"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span> </span>
+<span id="cb18-16"><a href="#cb18-16"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> <span class="fu">c</span>(<span class="fl">0.95</span>), <span class="at">color=</span><span class="st">"grey"</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span> </span>
+<span id="cb18-17"><a href="#cb18-17"></a>  <span class="fu">geom_line</span>(<span class="at">show.legend =</span> <span class="cn">FALSE</span>, <span class="fu">aes</span>(<span class="at">color =</span> Sample), <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb18-18"><a href="#cb18-18"></a>  <span class="fu">xlab</span>(<span class="st">"Proportion of genes"</span>) <span class="sc">+</span></span>
+<span id="cb18-19"><a href="#cb18-19"></a>  <span class="fu">ylab</span>(<span class="st">"Cumulative proportion of total counts"</span>)</span>
+<span id="cb18-20"><a href="#cb18-20"></a></span>
+<span id="cb18-21"><a href="#cb18-21"></a><span class="fu">grid.arrange</span>(p1, p2, <span class="at">nrow =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-13-1.png" width="1344" class="r-stretch quarto-figure-center"><aside class="notes">
+<p>This isn’t too bad – in some data sets one gene is 20% of the data…</p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="normalization-factors" class="slide level2">
+<h2>Normalization factors</h2>
+<div class="columns">
+<div class="column">
+<ul>
+<li><p>Estimate effective library size, accounting for “sequence space”</p></li>
+<li><p>Not used as a direct data adjustment, but included in a statistical model</p></li>
+<li><p>Example: <strong>TMM</strong> – “trimmed means of M-values”</p>
+<ul>
+<li>M-values: per-gene ratios of counts among samples</li>
+<li>Trimmed: extreme values are ignored</li>
+<li>Values adjusted to have product = 1</li>
+<li>Assumes that no more than half of genes are DE</li>
+<li>Calculate with <code>edgeR::calcNormFactors</code></li>
+</ul></li>
+</ul>
+</div><div class="column">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a>dge <span class="ot">&lt;-</span> <span class="fu">DGEList</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts)</span>
+<span id="cb19-2"><a href="#cb19-2"></a>dge <span class="ot">&lt;-</span> <span class="fu">calcNormFactors</span>(dge)</span>
+<span id="cb19-3"><a href="#cb19-3"></a><span class="fu">hist</span>(dge<span class="sc">$</span>samples<span class="sc">$</span>norm.factors, <span class="at">breaks =</span> <span class="dv">9</span>, <span class="at">main =</span> <span class="st">""</span>, <span class="at">xlab =</span> <span class="st">"TMM normalization factor"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-14-1.png" width="960"></p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="preprocessing-filtering-lowly-expressed-genes" class="slide level2">
+<h2>Preprocessing: filtering lowly expressed genes</h2>
+<ul>
+<li><p>Common step which can be beneficial for a few reasons:</p>
+<ul>
+<li><p>Genes with very low mean expression across samples may be uninteresting</p></li>
+<li><p>Fitting models on a smaller number of genes can be faster</p></li>
+<li><p>May obtain a more ‘well-behaved’ association between mean and variance, which might affect some methods (e.g.&nbsp;Voom)</p></li>
+</ul></li>
+<li><p>No universal threshold; original study: keep genes with <span class="math inline">\(\ge 2\)</span> samples that have CPM <span class="math inline">\(&gt;10\)</span></p></li>
+</ul>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a><span class="fu">assays</span>(sumexp)<span class="sc">$</span>cpm <span class="ot">&lt;-</span> <span class="fu">cpm</span>(counts, <span class="at">log =</span> <span class="cn">FALSE</span>, <span class="at">normalized.lib.sizes =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb20-2"><a href="#cb20-2"></a>keep <span class="ot">&lt;-</span> <span class="fu">which</span>(<span class="fu">rowSums</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>cpm <span class="sc">&gt;</span> <span class="dv">10</span>) <span class="sc">&gt;=</span> <span class="dv">2</span>)</span>
+<span id="cb20-3"><a href="#cb20-3"></a><span class="fu">length</span>(keep)  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 12158</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1"></a>sumexp <span class="ot">&lt;-</span> sumexp[keep,]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<aside class="notes">
+<p>No universal threshold: depends on library size of dataset, and possibly mean-variance trend</p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
+</section>
+<section id="differential-expression-why-we-need-new-methods" class="slide level2">
+<h2>Differential expression: Why we need new methods</h2>
+<ul>
+<li><p><strong>Goal</strong>: accurate p-values for our hypothesis tests</p>
+<ul>
+<li><p>Accurate: “Uniform under the null”</p></li>
+<li><p>Properties relied upon for inference from <span class="math inline">\(t\)</span>-statistics may not hold for count data</p></li>
+</ul></li>
+<li><p>Perhaps most important: <strong>Heteroskedasticity</strong> and <strong>Overdispersion</strong></p>
+<ul>
+<li>Strong mean-variance relationship expected with count data
+<ul>
+<li>violation of constant variance assumption of linear models</li>
+<li>over- or under- shrinkage of genes, depending on variance levels</li>
+</ul></li>
+<li>Biological variance over and above binomial sampling variance</li>
+</ul></li>
+</ul>
+</section>
+<section id="properties-of-expression-data-counts" class="slide level2">
+<h2>Properties of expression data: counts</h2>
+<div class="callout callout-important callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Important</strong></p>
+</div>
+<div class="callout-content">
+<p>We are focused on the distribution of expression values for a gene across technical or biological replicates - for this discussion we care less about comparing two genes within a sample</p>
+</div>
+</div>
+</div>
+<div class="columns">
+<div class="column">
+<p><strong>Microarray</strong>:</p>
+<ul>
+<li>Signal is fundamentally counts (deep down: photon detection)</li>
+<li>But values are averaged across pixels and counts are high</li>
+<li>Never really have zero: background</li>
+<li>“Continuous-like”</li>
+</ul>
+</div><div class="column">
+<p><strong>Sequencing</strong>:</p>
+<ul>
+<li>Unit of measurement is the read; no such thing as 0.2 read</li>
+<li>Counts of reads start at 0</li>
+<li>As counts get high, the distinction with microarrays should decrease</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="statistics-of-counts-binomial" class="slide level2">
+<h2>Statistics of counts: Binomial</h2>
+<ul>
+<li><p>Number of reads observed for gene <span class="math inline">\(g\)</span> in a given sample is a random variable</p></li>
+<li><p>Say RNA for gene <span class="math inline">\(g\)</span> is present “in the cell” at about 1 out of every 1,000,000 molecules</p>
+<ul>
+<li>Abundance <span class="math inline">\(a_g=1/1,000,000 = 1\times10^{-6}\)</span> (“probability of success”)</li>
+</ul></li>
+<li><p>If we randomly pick <span class="math inline">\(R_i = \Sigma_gR_{ig} = 1,000,000\)</span> molecules (“reads” = “trials”), how many gene <span class="math inline">\(g\)</span> RNAs will we see? <span class="math inline">\(E(R_{ig} | R_i) = \,\, ?\)</span></p></li>
+</ul>
+<div class="fragment">
+<ul>
+<li><p>But could get 0, 2, 3, 4, … etc just by chance: this is a <strong>Binomial</strong> distribution</p>
+<ul>
+<li>probability distribution of the number of successes in <span class="math inline">\(n\)</span> trials, each with probability of success <span class="math inline">\(p\)</span> is <span class="math inline">\((Binomial(n,p))\)</span></li>
+<li>mean = <span class="math inline">\(np\)</span></li>
+<li>our example: <span class="math inline">\(R_{ig} \sim Binomial(R_i, a_g)\)</span> where <span class="math inline">\(n=R_i\)</span> and <span class="math inline">\(p=a_g\)</span></li>
+</ul></li>
+</ul>
+</div>
+</section>
+<section id="statistics-of-counts-poisson" class="slide level2">
+<h2>Statistics of counts: Poisson</h2>
+<ul>
+<li>Poisson distribution counts discrete occurrences along a continuous interval of time/space
+<ul>
+<li>parameterized by a rate parameter <span class="math inline">\(\lambda\)</span></li>
+<li>key difference from Binomial: number of events can be infinitely large</li>
+</ul></li>
+<li>For count data, the variance is a function of the mean (<em>very</em> different from a normal)
+<ul>
+<li>Binomial: mean <span class="math inline">\(= np\)</span>, variance <span class="math inline">\(=np(1-p)\)</span></li>
+<li>Poisson: mean = variance = <span class="math inline">\(\lambda\)</span></li>
+</ul></li>
+</ul>
+</section>
+<section id="statistics-of-counts-approximations" class="slide level2">
+<h2>Statistics of counts: approximations</h2>
+<ul>
+<li><strong>Binomial approximation of Poisson</strong>: for large <span class="math inline">\(n\)</span> and small <span class="math inline">\(np\)</span> (rule of thumb: <span class="math inline">\(n\)</span> &gt; 20 &amp; <span class="math inline">\(np\)</span> &lt; 5)
+<ul>
+<li>Approximately <span class="math inline">\(R_{ig} \sim Poisson(R_ia_g)\)</span></li>
+</ul></li>
+<li><strong>Binomial approximation of Normal</strong>: For large <span class="math inline">\(np\)</span> (rule of thumb: <span class="math inline">\(np\)</span> &amp; <span class="math inline">\(n(1-p)\)</span> &gt; 5)
+<ul>
+<li>Approximately <span class="math inline">\(R_{ig} \sim Normal(R_ia_g, \, R_ia_g(1-a_g))\)</span></li>
+</ul></li>
+</ul>
+<div class="fragment">
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>))</span>
+<span id="cb23-2"><a href="#cb23-2"></a><span class="fu">set.seed</span>(<span class="dv">230</span>)</span>
+<span id="cb23-3"><a href="#cb23-3"></a><span class="fu">hist</span>(<span class="fu">rbinom</span>(<span class="fl">1e5</span>, <span class="fl">1e6</span>, <span class="fl">1e-6</span>), <span class="at">main =</span> <span class="st">"10K draws from Binomial(1e6, 1e-6)"</span>, <span class="at">breaks =</span> <span class="dv">10</span>, <span class="at">xlab=</span><span class="st">""</span>)</span>
+<span id="cb23-4"><a href="#cb23-4"></a><span class="fu">set.seed</span>(<span class="dv">230</span>)</span>
+<span id="cb23-5"><a href="#cb23-5"></a><span class="fu">hist</span>(<span class="fu">rpois</span>(<span class="fl">1e5</span>, <span class="at">lambda =</span> <span class="dv">1</span>), <span class="at">main =</span> <span class="st">"10K draws from Pois(1)"</span>, <span class="at">breaks =</span> <span class="dv">10</span>, <span class="at">xlab=</span><span class="st">""</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-16-1.png" width="1152"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="overdispersion" class="slide level2">
+<h2>Overdispersion</h2>
+<p>Poisson OK for technical replicates, but <strong>does not capture biological variability</strong></p>
+
+<img data-src="img/overdisp.png" class="r-stretch quarto-figure-center"></section>
+<section id="impact-of-heteroskedasticity" class="slide level2">
+<h2>Impact of heteroskedasticity</h2>
+<div class="columns">
+<div class="column">
+<ul>
+<li><p>OLS: assume all errors have the same variance (within gene)</p></li>
+<li><p>If not true, higher variance observations get more weight in minimization of error than they should (since less precise)</p>
+<ul>
+<li><p>Standard errors of parameter estimates will be poor estimates</p></li>
+<li><p>Recall: <span class="math inline">\(t = \frac{\hat{\beta}}{se(\hat{\beta})}\)</span></p></li>
+<li><p>…So p-values will also be wrong - in case of positive relationship, too small</p></li>
+</ul></li>
+</ul>
+</div><div class="column">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1"></a>praw <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">mean =</span> <span class="fu">log10</span>(<span class="fu">rowMeans</span>(<span class="fu">as.matrix</span>(counts) <span class="sc">+</span> <span class="dv">1</span>)),</span>
+<span id="cb24-2"><a href="#cb24-2"></a>                   <span class="at">var =</span> <span class="fu">log10</span>(<span class="fu">rowVars</span>(<span class="fu">as.matrix</span>(counts) <span class="sc">+</span> <span class="dv">1</span>))) <span class="sc">%&gt;%</span></span>
+<span id="cb24-3"><a href="#cb24-3"></a>  <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb24-4"><a href="#cb24-4"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> mean, <span class="at">y =</span> var)) <span class="sc">+</span></span>
+<span id="cb24-5"><a href="#cb24-5"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb24-6"><a href="#cb24-6"></a>  <span class="fu">ylab</span>(<span class="st">"log10(mean)"</span>) <span class="sc">+</span></span>
+<span id="cb24-7"><a href="#cb24-7"></a>  <span class="fu">xlab</span>(<span class="st">"log10(var)"</span>) <span class="sc">+</span></span>
+<span id="cb24-8"><a href="#cb24-8"></a>  <span class="fu">geom_abline</span>(<span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">slope =</span> <span class="dv">1</span>, <span class="at">linetype =</span> <span class="st">"dashed"</span>) <span class="sc">+</span></span>
+<span id="cb24-9"><a href="#cb24-9"></a>  <span class="fu">ggtitle</span>(<span class="st">"log-scale M-V (Unfiltered, raw)"</span>)</span>
+<span id="cb24-10"><a href="#cb24-10"></a>praw</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-17-1.png" width="960"></p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="options-for-de-analysis-on-counts" class="slide level2">
+<h2>Options for DE analysis on counts</h2>
+<ul>
+<li><p><strong>Summary of the problem</strong>: Count data is expected to violate both normality and constant variance assumptions</p></li>
+<li><p>Even microarray data usually has some mean-variance relation!</p></li>
+<li><p>Possibilities for coping:</p>
+<ul>
+<li><p>Use a non-parametric test (e.g.&nbsp;SAMseq – based on Wilcoxon)</p></li>
+<li><p>Make adjustments and model as usual</p></li>
+<li><p>Use a model specific for count data</p></li>
+</ul></li>
+</ul>
+</section>
+<section id="make-adjustments-model-as-usual-transformation" class="slide level2">
+<h2>Make adjustments &amp; model as usual: transformation</h2>
+<ul>
+<li><p>For microarray data, taking logs is often deemed sufficient to reduce M-V trends</p></li>
+<li><p>We’ll use plots like this which are mean vs <span class="math inline">\(\sqrt{sd}\)</span> (quarter root variance) instead of mean vs variance (you’ll see why later on)</p></li>
+<li><p>Behaviour of Nrl microarray data set (raw on left, log-tranformed on right):</p></li>
+</ul>
+
+<img data-src="img/arraytransf.png" class="r-stretch quarto-figure-center"></section>
+<section id="chd8-data-effect-of-log-transform" class="slide level2">
+<h2>Chd8 data &amp; effect of log transform</h2>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a>pqrt <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">mean =</span> (<span class="fu">rowMeans</span>(<span class="fu">as.matrix</span>(counts))),</span>
+<span id="cb25-2"><a href="#cb25-2"></a>           <span class="at">var =</span> <span class="fu">sqrt</span>(<span class="fu">sqrt</span>(<span class="fu">rowVars</span>(<span class="fu">as.matrix</span>(counts))))) <span class="sc">%&gt;%</span></span>
+<span id="cb25-3"><a href="#cb25-3"></a>  <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb25-4"><a href="#cb25-4"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> mean, <span class="at">y =</span> var)) <span class="sc">+</span></span>
+<span id="cb25-5"><a href="#cb25-5"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb25-6"><a href="#cb25-6"></a>  <span class="fu">xlab</span>(<span class="st">"mean"</span>) <span class="sc">+</span></span>
+<span id="cb25-7"><a href="#cb25-7"></a>  <span class="fu">ylab</span>(<span class="st">"sqrt(sd)"</span>) <span class="sc">+</span></span>
+<span id="cb25-8"><a href="#cb25-8"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"loess"</span>, <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">span =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb25-9"><a href="#cb25-9"></a>  <span class="fu">ggtitle</span>(<span class="st">"M vs Quarter-root V (Unfiltered, raw)"</span>)</span>
+<span id="cb25-10"><a href="#cb25-10"></a></span>
+<span id="cb25-11"><a href="#cb25-11"></a>plqrt <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">mean =</span> <span class="fu">rowMeans</span>(<span class="fu">log2</span>(<span class="fu">as.matrix</span>(counts)<span class="sc">+</span><span class="dv">1</span>)),</span>
+<span id="cb25-12"><a href="#cb25-12"></a>           <span class="at">var =</span> <span class="fu">sqrt</span>(<span class="fu">sqrt</span>(<span class="fu">rowVars</span>(<span class="fu">log2</span>(<span class="fu">as.matrix</span>(counts)<span class="sc">+</span><span class="dv">1</span>))))) <span class="sc">%&gt;%</span></span>
+<span id="cb25-13"><a href="#cb25-13"></a>  <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb25-14"><a href="#cb25-14"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> mean, <span class="at">y =</span> var)) <span class="sc">+</span></span>
+<span id="cb25-15"><a href="#cb25-15"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb25-16"><a href="#cb25-16"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"loess"</span>, <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">span =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb25-17"><a href="#cb25-17"></a>  <span class="fu">xlab</span>(<span class="st">"mean"</span>) <span class="sc">+</span></span>
+<span id="cb25-18"><a href="#cb25-18"></a>  <span class="fu">ylab</span>(<span class="st">"sqrt(sd)"</span>) <span class="sc">+</span></span>
+<span id="cb25-19"><a href="#cb25-19"></a>  <span class="fu">ggtitle</span>(<span class="st">"M vs Quarter-root V (Unfiltered, log2)"</span>) </span>
+<span id="cb25-20"><a href="#cb25-20"></a></span>
+<span id="cb25-21"><a href="#cb25-21"></a></span>
+<span id="cb25-22"><a href="#cb25-22"></a><span class="fu">grid.arrange</span>(praw, pqrt, plqrt, <span class="at">nrow =</span> <span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-18-1.png" width="1920" class="r-stretch quarto-figure-center"><div class="fragment">
+<p><strong>For RNA-seq data, log-transformation doesn’t reliably improve the trends</strong></p>
+</div>
+</section>
+<section id="mean-variance-trends-in-various-rna-seq-datasets" class="slide level2">
+<h2>Mean variance trends in various RNA-seq datasets</h2>
+<div class="columns">
+<div class="column">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1"></a>plqrtf <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">mean =</span> <span class="fu">rowMeans</span>(<span class="fu">log2</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts<span class="sc">+</span><span class="dv">1</span>)),</span>
+<span id="cb26-2"><a href="#cb26-2"></a>           <span class="at">var =</span> <span class="fu">sqrt</span>(<span class="fu">sqrt</span>(<span class="fu">rowVars</span>(<span class="fu">log2</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts<span class="sc">+</span><span class="dv">1</span>))))) <span class="sc">%&gt;%</span></span>
+<span id="cb26-3"><a href="#cb26-3"></a>  <span class="fu">drop_na</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb26-4"><a href="#cb26-4"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> mean, <span class="at">y =</span> var)) <span class="sc">+</span></span>
+<span id="cb26-5"><a href="#cb26-5"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
+<span id="cb26-6"><a href="#cb26-6"></a>  <span class="fu">xlab</span>(<span class="st">"mean"</span>) <span class="sc">+</span></span>
+<span id="cb26-7"><a href="#cb26-7"></a>  <span class="fu">ylab</span>(<span class="st">"sqrt(sd)"</span>) <span class="sc">+</span></span>
+<span id="cb26-8"><a href="#cb26-8"></a>  <span class="fu">geom_smooth</span>(<span class="at">method =</span> <span class="st">"loess"</span>, <span class="at">se =</span> <span class="cn">FALSE</span>, <span class="at">span =</span> <span class="fl">0.3</span>) <span class="sc">+</span></span>
+<span id="cb26-9"><a href="#cb26-9"></a>  <span class="fu">ggtitle</span>(<span class="st">"M vs Quarter-root V (Filtered, log2)"</span>)</span>
+<span id="cb26-10"><a href="#cb26-10"></a>plqrtf</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-19-1.png" width="960"></p>
+</div>
+</div>
+<p>Chd8 dataset (Filtered to remove lowly expressed genes, log2-transformed)</p>
+</div><div class="column">
+<p><img data-src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/bin/gb-2014-15-2-r29-1.jpg"></p>
+<p>Panels (a)-(e) represent datasets with increasing expected biological variability</p>
+<p>Source: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/">Law et al.&nbsp;2014</a></p>
+</div>
+</div>
+</section>
+<section id="one-option-voom" class="slide level2">
+<h2>One option: Voom</h2>
+<h3 id="mean-variance-modelling-at-the-observational-level">Mean-variance modelling at the observational level</h3>
+<ul>
+<li><p>Falls under the category <em>“Make adjustments and model as usual”</em></p></li>
+<li><p>Specifically, adjustment to regular <code>lm</code> to account for M-V relationship + <code>limma</code></p></li>
+</ul>
+<div class="fragment">
+<div class="callout callout-important callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Key ideas of Voom:</strong></p>
+</div>
+<div class="callout-content">
+<ol type="1">
+<li><p>heteroskedasticity leads to higher variance observations getting more weight in minimization of error than they should</p></li>
+<li><p>modeling the mean-variance relationship is more important than getting the probability distribution exactly right (i.e.&nbsp;don’t bother with distributions like Poisson, Binomial, etc that lead to more complicated likelihoods)</p></li>
+</ol>
+</div>
+</div>
+</div>
+<ul>
+<li>Proposed in <a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29">“voom: precision weights unlock linear model analysis tools for RNA-seq read counts” by Law et al.&nbsp;(2014)</a></li>
+</ul>
+</div>
+</section>
+<section id="voom-implementation" class="slide level2">
+<h2>Voom implementation</h2>
+<ul>
+<li><p>Input:</p>
+<ol type="1">
+<li><p><strong>raw counts</strong> (required to estimate M-V relationship), but modeling is done on log-transformed CPM values <span class="math inline">\(((log_2(CPM + 0.5)\)</span> to be precise)</p></li>
+<li><p>design matrix</p></li>
+</ol></li>
+<li><p>Output: precision weights and moderated <span class="math inline">\(t\)</span>-statistics</p></li>
+<li><p>Implemented in <code>limma::voom()</code> function</p></li>
+</ul>
+</section>
+<section id="voom-steps" class="slide level2">
+<h2>Voom steps</h2>
+<ol type="1">
+<li><p>Fit linear model to <span class="math inline">\(log_2(CPM_{ig} + 0.5)\)</span> values (samples <span class="math inline">\(i\)</span>) for each gene <span class="math inline">\(g\)</span></p></li>
+<li><p>Extract the fitted quarter-root error variance estimates <span class="math inline">\(s^{1/2}_g = \sqrt{sd(\hat{\varepsilon_{ig}})}\)</span></p></li>
+<li><p>Fit a smoothed line <span class="math inline">\(\hat{f}\)</span> to the trend between mean log counts and <span class="math inline">\(s^{1/2}_g\)</span> using <a href="https://rafalab.github.io/dsbook/smoothing.html#local-weighted-regression-loess">lowess</a> (locally weighted regression)</p></li>
+</ol>
+<div class="fragment">
+<ol start="4" type="1">
+<li><p>Use the fitted lowess curve to estimate <strong>precision weights</strong>: <span class="math inline">\(w_{ig} = \frac{1}{\hat{f}(\hat{c}_{ig})^4}\)</span> where <span class="math inline">\(\hat{c}_{ig}\)</span> are the <span class="math inline">\(log_2\)</span> <em>fitted</em> counts (estimated from model in step 1)</p></li>
+<li><p>Fit linear model to <span class="math inline">\(log_2(CPM_{ig} + 0.5)\)</span> values using <strong>precision weights</strong> <span class="math inline">\(w_{ig}\)</span></p></li>
+<li><p>Compute moderated <span class="math inline">\(t\)</span>-statistics as before (using <code>eBayes</code> from <code>limma</code>)</p></li>
+</ol>
+</div>
+</section>
+<section id="voom-illustration" class="slide level2">
+<h2>Voom illustration</h2>
+
+<img data-src="https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg" class="r-stretch"><p>Figure 2, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a></p>
+<div class="fragment">
+<p><span class="math display">\[w_{ig} = \frac{1}{\hat{f}(\hat{c}_{ig})^4} = \frac{1}{(\sqrt{s_{ig}})^4} = \frac{1}{s_{ig}^2}\]</span></p>
+</div>
+</section>
+<section id="lowess" class="slide level2">
+<h2>lowess</h2>
+<div class="columns">
+<div class="column">
+<ul>
+<li><p>locally weighted regression fits a smooth curve to approximate the relationship between independent &amp; dependent variables</p></li>
+<li><p>Each smoothed value is given by a weighted linear least squares regression over the <strong>span</strong> (a neighborhood of the independent variable)</p></li>
+<li><p>Smoothing span is adjustable</p></li>
+<li><p>Generalization to locally weighted polynomial regression &amp; inclusion of multiple independent variables: <code>loess</code></p></li>
+</ul>
+<p>GIF source: <a href="https://rafalab.github.io/dsbook/smoothing.html#local-weighted-regression-loess">“Intro to Data Science” by Irizarry</a></p>
+</div><div class="column">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><a href="https://rafalab.github.io/dsbook/ml/img/loess-animation.gif"><img data-src="https://rafalab.github.io/dsbook/ml/img/loess-animation.gif"></a></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="why-quarter-root-variance" class="slide level2">
+<h2>Why quarter-root variance?</h2>
+<ul>
+<li><p>The <strong>coefficient of variation</strong> <span class="math inline">\((CV = \frac{\sigma}{\mu})\)</span> for RNA-seq counts is roughly <span class="math inline">\(\sqrt{\frac{1}{\lambda} + \phi}\)</span></p>
+<ul>
+<li><p><span class="math inline">\(\lambda:\)</span> expected size of count; arises from technical variability associated with sequencing and gradually decreases with increasing count size</p></li>
+<li><p><span class="math inline">\(\phi:\)</span> measure of biological variation (<em>overdispersion</em>); roughly constant</p></li>
+</ul></li>
+</ul>
+<div class="fragment">
+<ul>
+<li>Standard deviation of <span class="math inline">\(log_2(CPM)\)</span> is approximately equal to CV of the counts (by Taylor’s theorem)</li>
+</ul>
+<p><span class="math display">\[sd(log_2(CPM)) \approx \sqrt{\frac{1}{\lambda} + \phi}\]</span></p>
+</div>
+</section>
+<section id="why-quarter-root-variance-1" class="slide level2">
+<h2>Why quarter-root variance?</h2>
+<div class="callout callout-note callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Note</strong></p>
+</div>
+<div class="callout-content">
+<p>Coefficient of variation (CV) of RNA-seq counts should be a decreasing function of count size for small to moderate counts, and asymptote to a value that depends on biological variability</p>
+</div>
+</div>
+</div>
+
+<img data-src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/bin/gb-2014-15-2-r29-1.jpg" class="r-stretch quarto-figure-center"><p><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/">Law et al.&nbsp;2014</a>: Panels (a)-(e) represent datasets with increasing expected biological variability</p>
+<div class="fragment">
+<p>Square root of standard deviation used as distribution is more symmetric (i.e.&nbsp;less skewed)</p>
+</div>
+</section>
+<section id="what-do-we-do-with-these-precision-weights" class="slide level2">
+<h2>What do we do with these ‘precision weights’?</h2>
+<p>How can we actually incorporate these precision weights in the regression fit?</p>
+</section>
+<section id="weighted-least-squares-wls-regression" class="slide level2">
+<h2>Weighted least squares (WLS) regression</h2>
+<ul>
+<li><p>OLS: <span class="math inline">\(\boldsymbol{\hat{\beta}}_g = \boldsymbol{(X^TX)^{-1}X^T}\boldsymbol{y}_g\)</span></p></li>
+<li><p>WLS: <span class="math inline">\(\boldsymbol{\hat{\beta}}_g = \boldsymbol{(X^T}\boldsymbol{W}_g\boldsymbol{X)^{-1}X^T}\boldsymbol{W}_g\boldsymbol{y}_g\)</span>, where <span class="math inline">\(\boldsymbol{W}_g\)</span> is a diagonal matrix of weights for gene <span class="math inline">\(g\)</span></p></li>
+<li><p><strong>Intuition</strong>: in minimizing the RSS, we put less weight on data points that are less precise:</p></li>
+</ul>
+<p><span class="math display">\[\boldsymbol{\hat{\beta}}_{g} = argmin_{\beta_{g1}, ..., \beta_{gp}} \Big( \sum_{i=1}^n w_{ig}(x_{i1} \beta_{g1} + ... + x_{ip} \beta_{gp} - y_{ig})^2 \Big)\]</span></p>
+<div class="fragment">
+<ul>
+<li>Optimal weights to correct for heteroskedasticity: inverse variance<sup>1</sup></li>
+</ul>
+</div>
+<aside><ol class="aside-footnotes"><li id="fn3"><p>Note: parameter estimates <span class="math inline">\(\hat{\boldsymbol{\beta}}_g\)</span> assume weights (variances) are known</p></li></ol></aside></section>
+<section id="limma-voom" class="slide level2">
+<h2>limma-voom</h2>
+<ul>
+<li><p><strong>limma-voom</strong> is the application of <code>limma</code> to <span class="math inline">\(log_2(CPM + 0.5)\)</span> values, with inverse variance observational weights <em>estimated from the M-V trend</em></p></li>
+<li><p>This alleviates the problem of heteroskedasticity and (hopefully) improves estimates of residual standard error</p></li>
+<li><p>Gene-specific variance estimates are ‘shrunken’ to borrow information across all genes:</p></li>
+</ul>
+<p><span class="math display">\[\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}\]</span></p>
+<div class="fragment">
+<ul>
+<li><p>Note that <span class="math inline">\(s^2_g\)</span> estimates are affected by voom weights</p>
+<ul>
+<li>recall that <span class="math inline">\(s^2_g\)</span> is the sum of squared residuals <span class="math inline">\(\frac{1}{n-p}\hat{\boldsymbol{\epsilon}_g}^T\hat{\boldsymbol{\epsilon}_g}\)</span></li>
+<li>under WLS <span class="math inline">\(\boldsymbol{\hat{\epsilon}}_g = \boldsymbol{y}_g - \boldsymbol{X\hat{\beta}}_g = \boldsymbol{y}_g - \boldsymbol{X(X^T}\boldsymbol{W}_g\boldsymbol{X)^{-1}X^T}\boldsymbol{W}_g\boldsymbol{y}_g\)</span></li>
+</ul></li>
+</ul>
+</div>
+</section>
+<section id="limma-voom-continued" class="slide level2">
+<h2>limma-voom, continued</h2>
+<ul>
+<li><p>Moderated <span class="math inline">\(t\)</span> statistics are then calculated using the shrunken gene-specific variance estimates: <span class="math inline">\(\tilde{t}_{g} = \frac{\hat{\beta}_{ig}}{\tilde{s}_g \sqrt{v_{ii}}}\)</span></p>
+<ul>
+<li>recall that under OLS, <span class="math inline">\(v_{ii}\)</span> is the <span class="math inline">\(i^{th}\)</span> diagonal element of <span class="math inline">\(\boldsymbol{(X^TX)}^{-1}\)</span></li>
+<li>under WLS, <span class="math inline">\(v_{ii}\)</span> is the <span class="math inline">\(i^{th}\)</span> diagonal element of <span class="math inline">\((\boldsymbol{X^T}\boldsymbol{W}_g\boldsymbol{X})^{-1}\)</span></li>
+</ul></li>
+<li><p>Recall:</p>
+<ul>
+<li>Degrees of freedom for moderated <span class="math inline">\(t\)</span> statistic: <span class="math inline">\(n-p+d_0\)</span></li>
+<li>If <span class="math inline">\(d_0\)</span> is large compared to <span class="math inline">\(n-p\)</span>, moderated statistics have a bigger effect compared to using regular <span class="math inline">\(t\)</span> statistics (i.e.&nbsp;in general, shrinkage matters more for small sample sizes)</li>
+</ul></li>
+</ul>
+</section>
+<section id="differential-expression-analysis-on-chd8-data-2" class="slide level2">
+<h2>Differential expression analysis on Chd8 data</h2>
+<ul>
+<li><p>Recall: Our <strong>additive</strong> model for each gene to test for Group (Chd8 mutant vs WT) effect, and adjust for:</p>
+<ul>
+<li><p>Sex (M vs F)</p></li>
+<li><p>DPC (days post conception, 5 levels)</p></li>
+</ul></li>
+</ul>
+<p><span class="math display">\[Y_{i} = \theta + \tau_{Mut} x_{i,Mut} + \tau_{F} x_{i,F} + \tau_{D14.5} x_{i,D14.5} + \tau_{D17.5} x_{i,D17.5} + \tau_{D21} x_{i,D21} + \tau_{D77} x_{i,D77} + \epsilon_i\]</span></p>
+<p><span class="math display">\[x_{i,Mut} = \bigg\{\begin{array}{l}
+1\text{ if } i \text{ is Mutant} \\
+0 \text{ otherwise}\\
+\end{array}, \hspace{1em} x_{i,F} = \bigg\{\begin{array}{l}
+1\text{ if } i \text{ is Female} \\
+0 \text{ otherwise}\\
+\end{array}, \hspace{1em}x_{i,D\#} = \bigg\{\begin{array}{l}
+1\text{ if } i \text{ is DPC#} \\
+0 \text{ otherwise}\\
+\end{array}\]</span></p>
+<p>where <span class="math inline">\(D\# \in \{D14.5, D17.5, D21, D77\}\)</span></p>
+<ul>
+<li><p>Our model has <span class="math inline">\(n-p=44-7=37\)</span> degrees of freedom</p></li>
+<li><p>We will focus on the null hypothesis of the <strong>main effect</strong> of Group <span class="math inline">\(H_0: \tau_{Mut}=0\)</span></p></li>
+</ul>
+</section>
+<section id="limma-voom-in-action" class="slide level2">
+<h2>limma-voom in action</h2>
+<div class="cell" data-layout-align="center">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a><span class="co"># estimate voom weights; plot M-V trend</span></span>
+<span id="cb27-2"><a href="#cb27-2"></a>vw <span class="ot">&lt;-</span> <span class="fu">voom</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts, </span>
+<span id="cb27-3"><a href="#cb27-3"></a>           <span class="at">design =</span> <span class="fu">model.matrix</span>( <span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp)), </span>
+<span id="cb27-4"><a href="#cb27-4"></a>           <span class="at">plot =</span> <span class="cn">TRUE</span>, <span class="at">span =</span> <span class="fl">0.5</span>)  </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a><span class="co"># run limma with voom weights</span></span>
+<span id="cb28-2"><a href="#cb28-2"></a>lvfit <span class="ot">&lt;-</span> <span class="fu">lmFit</span>(vw, <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp)))</span>
+<span id="cb28-3"><a href="#cb28-3"></a>lvfit <span class="ot">&lt;-</span> <span class="fu">eBayes</span>(lvfit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-20-1.png" width="672" class="r-stretch quarto-figure-center"></section>
+<section id="limma-voom-vs-limma" class="slide level2">
+<h2>limma-voom vs limma</h2>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1"></a><span class="co"># run plain limma (no voom weights) on log cpms</span></span>
+<span id="cb29-2"><a href="#cb29-2"></a>lfit <span class="ot">&lt;-</span> <span class="fu">lmFit</span>(<span class="fu">cpm</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts, <span class="at">prior.count =</span> <span class="fl">0.5</span>, <span class="at">log =</span> <span class="cn">TRUE</span>), </span>
+<span id="cb29-3"><a href="#cb29-3"></a>              <span class="at">design =</span> <span class="fu">model.matrix</span>( <span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp)))</span>
+<span id="cb29-4"><a href="#cb29-4"></a>lfit <span class="ot">&lt;-</span> <span class="fu">eBayes</span>(lfit)</span>
+<span id="cb29-5"><a href="#cb29-5"></a></span>
+<span id="cb29-6"><a href="#cb29-6"></a><span class="co"># plot moderated t statistics compared to limma-voom</span></span>
+<span id="cb29-7"><a href="#cb29-7"></a><span class="fu">data.frame</span>(<span class="at">limma =</span> lfit<span class="sc">$</span>t[,<span class="st">"GroupMu"</span>], <span class="at">voom =</span> lvfit<span class="sc">$</span>t[,<span class="st">"GroupMu"</span>]) <span class="sc">%&gt;%</span></span>
+<span id="cb29-8"><a href="#cb29-8"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> limma, <span class="at">y =</span> voom)) <span class="sc">+</span></span>
+<span id="cb29-9"><a href="#cb29-9"></a>  <span class="fu">geom_hex</span>(<span class="at">bins =</span> <span class="dv">60</span>, <span class="fu">aes</span>(<span class="at">fill =</span> <span class="fu">stat</span>(<span class="fu">log</span>(count)))) <span class="sc">+</span></span>
+<span id="cb29-10"><a href="#cb29-10"></a>  <span class="fu">geom_abline</span>(<span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">slope =</span> <span class="dv">1</span>) <span class="sc">+</span></span>
+<span id="cb29-11"><a href="#cb29-11"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>(<span class="fu">paste</span>(<span class="st">"limma "</span>, <span class="fu">tilde</span>(t)[g]))) <span class="sc">+</span></span>
+<span id="cb29-12"><a href="#cb29-12"></a>  <span class="fu">ylab</span>(<span class="fu">expression</span>(<span class="fu">paste</span>(<span class="st">"limma-voom "</span>, <span class="fu">tilde</span>(t)[g]))) <span class="sc">+</span></span>
+<span id="cb29-13"><a href="#cb29-13"></a>  <span class="fu">ggtitle</span>(<span class="st">"Moderated t statistics (Chd8 Mu vs WT)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-21-1.png" width="768" class="r-stretch quarto-figure-center"></section>
+<section id="another-option-limma-trend" class="slide level2">
+<h2>Another option: limma-trend</h2>
+<h4 id="limma-trend-uses-the-m-v-relationship-at-the-gene-level-whereas-voom-uses-observational-level-trends-law-et.-al-2014">Limma-trend uses the M-V relationship at the <strong>gene</strong> level, whereas voom uses <strong>observational</strong> level trends (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a>)</h4>
+<ul>
+<li>Gene-wise variances are shrunken toward a <strong>global M-V trend</strong>, instead of toward a constant pooled variance:</li>
+</ul>
+<p><span class="math display">\[\tilde{s}^2_g = \frac{d_0s_{0g}^2 + ds^2_g}{d_0 + d}\]</span></p>
+<div class="fragment">
+<ul>
+<li><p>Notice the <span class="math inline">\(g\)</span> subscript on <span class="math inline">\(s_{0g}^2\)</span>! The prior variance is different for each gene (unlike in regular limma)</p></li>
+<li><p>Based on the M-V trend, <span class="math inline">\(s_{0g}^2\)</span> is (typically) higher for lowly expressed genes</p></li>
+</ul>
+</div>
+</section>
+<section id="limma-trend-vs-voom" class="slide level2">
+<h2>limma-trend vs voom?</h2>
+
+<img data-src="https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg" class="r-stretch"><p>Figure 2, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a></p>
+</section>
+<section id="limma-trend-in-action" class="slide level2">
+<h2>limma-trend in action</h2>
+<div class="columns">
+<div class="column">
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1"></a>mm <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
+<span id="cb30-2"><a href="#cb30-2"></a>                   <span class="at">data =</span> <span class="fu">colData</span>(sumexp))</span>
+<span id="cb30-3"><a href="#cb30-3"></a>ltfit <span class="ot">&lt;-</span> <span class="fu">lmFit</span>(<span class="fu">cpm</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts, </span>
+<span id="cb30-4"><a href="#cb30-4"></a>                   <span class="at">log =</span> <span class="cn">TRUE</span>), </span>
+<span id="cb30-5"><a href="#cb30-5"></a>               <span class="at">design =</span>  mm)</span>
+<span id="cb30-6"><a href="#cb30-6"></a>ltfit <span class="ot">&lt;-</span> <span class="fu">eBayes</span>(ltfit, <span class="at">trend =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb30-7"><a href="#cb30-7"></a></span>
+<span id="cb30-8"><a href="#cb30-8"></a><span class="co"># limma-trend s^2_{0g}</span></span>
+<span id="cb30-9"><a href="#cb30-9"></a><span class="fu">str</span>(ltfit<span class="sc">$</span>s2.prior)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> Named num [1:12158] 0.0287 0.051 0.0274 0.023 0.0268 ...
+ - attr(*, "names")= chr [1:12158] "0610007P14Rik" "0610009B22Rik" "0610009O20Rik" "0610010F05Rik" ...</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1"></a><span class="co"># regular limma s^2_0</span></span>
+<span id="cb32-2"><a href="#cb32-2"></a><span class="fu">str</span>(lfit<span class="sc">$</span>s2.prior)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> num 0.0337</code></pre>
+</div>
+</div>
+</div><div class="column">
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1"></a><span class="co"># plot histogram of limma trend gene-specific prior variances vs limma prior</span></span>
+<span id="cb34-2"><a href="#cb34-2"></a><span class="fu">data.frame</span>(<span class="at">prior =</span> ltfit<span class="sc">$</span>s2.prior) <span class="sc">%&gt;%</span> </span>
+<span id="cb34-3"><a href="#cb34-3"></a>  <span class="fu">ggplot</span>() <span class="sc">+</span> </span>
+<span id="cb34-4"><a href="#cb34-4"></a>  <span class="fu">geom_histogram</span>(<span class="fu">aes</span>(prior), <span class="at">bins =</span> <span class="dv">35</span>) <span class="sc">+</span> </span>
+<span id="cb34-5"><a href="#cb34-5"></a>  <span class="fu">scale_x_log10</span>() <span class="sc">+</span></span>
+<span id="cb34-6"><a href="#cb34-6"></a>  <span class="fu">geom_vline</span>(<span class="at">xintercept =</span> lfit<span class="sc">$</span>s2.prior, <span class="at">colour =</span> <span class="st">"red"</span>) <span class="sc">+</span> </span>
+<span id="cb34-7"><a href="#cb34-7"></a>  <span class="fu">geom_text</span>(<span class="fu">aes</span>(<span class="at">x =</span> <span class="fl">0.052</span>, <span class="at">y =</span> <span class="dv">3000</span>, <span class="at">label =</span> <span class="st">"limma s_0^2"</span>), <span class="at">colour =</span> <span class="st">"red"</span>) <span class="sc">+</span></span>
+<span id="cb34-8"><a href="#cb34-8"></a>  <span class="fu">xlab</span>(<span class="fu">expression</span>(<span class="fu">paste</span>(<span class="st">"limma-trend "</span>, s[<span class="st">"0g"</span>]<span class="sc">^</span><span class="dv">2</span>))) <span class="sc">+</span></span>
+<span id="cb34-9"><a href="#cb34-9"></a>  <span class="fu">ggtitle</span>(<span class="fu">expression</span>(<span class="fu">paste</span>(<span class="st">"limma-trend "</span>, s[<span class="st">"0g"</span>]<span class="sc">^</span><span class="dv">2</span>, <span class="st">" vs limma "</span>, s[<span class="dv">0</span>]<span class="sc">^</span><span class="dv">2</span>))) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-23-1.png" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="nuances-for-limma-trend-and-limma-voom" class="slide level2">
+<h2>Nuances for limma-trend and limma-voom</h2>
+<ul>
+<li><p>If M-V relationship is flat, limma-voom and limma-trend have practically no effect</p>
+<ul>
+<li><p>for limma-voom, weights will be all equal</p></li>
+<li><p>for limma-trend, <span class="math inline">\(s_{0g}^2\)</span> will be constant across genes</p></li>
+</ul></li>
+<li><p>Even if M-V isn’t flat, impact is most prominent in lowly expressed genes</p></li>
+</ul>
+</section>
+<section id="limma-voom-false-positives" class="slide level2">
+<h2>limma-voom ‘false positives’?</h2>
+<p>One of the top DE genes by Group according to voom (but not other methods):</p>
+<div class="cell" data-layout-align="center">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1"></a><span class="co"># get counts in tidy format</span></span>
+<span id="cb35-2"><a href="#cb35-2"></a>counts_long <span class="ot">&lt;-</span> <span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts <span class="sc">%&gt;%</span> <span class="fu">data.frame</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb35-3"><a href="#cb35-3"></a>  <span class="fu">rownames_to_column</span>(<span class="st">"Gene"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb35-4"><a href="#cb35-4"></a>  <span class="fu">pivot_longer</span>(<span class="at">names_to =</span> <span class="st">"Sample"</span>, <span class="at">values_to =</span> <span class="st">"Count"</span>, <span class="at">cols =</span> <span class="sc">-</span>Gene) <span class="sc">%&gt;%</span></span>
+<span id="cb35-5"><a href="#cb35-5"></a>  <span class="fu">left_join</span>(<span class="fu">data.frame</span>(<span class="fu">colData</span>(sumexp)), <span class="at">by=</span><span class="st">"Sample"</span>)</span>
+<span id="cb35-6"><a href="#cb35-6"></a></span>
+<span id="cb35-7"><a href="#cb35-7"></a><span class="co"># plot gene with high rank in limma - voom only </span></span>
+<span id="cb35-8"><a href="#cb35-8"></a><span class="co"># not showing selection of this gene (refer to full analysis in companion notes)</span></span>
+<span id="cb35-9"><a href="#cb35-9"></a>counts_long <span class="sc">%&gt;%</span> </span>
+<span id="cb35-10"><a href="#cb35-10"></a>  <span class="fu">filter</span>(Gene <span class="sc">==</span> <span class="st">"Etnppl"</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb35-11"><a href="#cb35-11"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> Group, <span class="at">y =</span> Count, <span class="at">colour =</span> Group)) <span class="sc">+</span></span>
+<span id="cb35-12"><a href="#cb35-12"></a>  <span class="fu">geom_jitter</span>(<span class="at">width=</span><span class="fl">0.05</span>, <span class="at">height=</span><span class="dv">0</span>, <span class="at">size=</span><span class="dv">3</span> )  <span class="sc">+</span> </span>
+<span id="cb35-13"><a href="#cb35-13"></a>  <span class="fu">facet_grid</span>(Gene <span class="sc">~</span> DPC) <span class="sc">+</span> </span>
+<span id="cb35-14"><a href="#cb35-14"></a>  <span class="fu">ggtitle</span>(<span class="st">"Top hit in limma-voom only"</span>) <span class="sc">+</span> </span>
+<span id="cb35-15"><a href="#cb35-15"></a>  <span class="fu">labs</span>(<span class="at">x=</span><span class="st">"Group"</span> ) <span class="sc">+</span> </span>
+<span id="cb35-16"><a href="#cb35-16"></a>  <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="fu">log2</span>(<span class="dv">1</span>), <span class="at">color=</span><span class="st">"grey"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+
+</div>
+<img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-24-1.png" width="1344" class="r-stretch quarto-figure-center"><div class="fragment">
+<ul>
+<li>Why does this happen?
+<ul>
+<li>Voom weighting causes very low expression values to have little effect on model fit</li>
+<li>Weights for this gene are about 30-40x higher for DPC 77 observations</li>
+</ul></li>
+<li>Whether this is a false positive is a matter of opinion, but lesson is: <em>always look at the data</em></li>
+</ul>
+</div>
+</section>
+<section id="alternative-option-use-count-models" class="slide level2">
+<h2>Alternative option: use count models</h2>
+<div class="columns">
+<div class="column" style="width:25%;">
+<p><img data-src="https://raw.githubusercontent.com/Bioconductor/BiocStickers/master/DESeq2/DESeq2.png"> <img data-src="https://raw.githubusercontent.com/Bioconductor/BiocStickers/master/edgeR/edgeR.png"></p>
+</div><div class="column" style="width:75%;">
+<ul>
+<li><p>Methods: <a href="https://bioconductor.org/packages/release/bioc/html/edgeR.html"><code>edgeR</code></a>, <a href="https://bioconductor.org/packages/release/bioc/html/DESeq2.html"><code>DESeq2</code></a></p></li>
+<li><p>Both assume counts have underlying <em>Negative Binomial distribution</em> and fit <strong>generalized linear models</strong></p>
+<ul>
+<li><p><strong>Generalized linear models</strong> (GLM) are a generalization of OLS that allows for response variables that have error distribution models other than a normal distribution</p></li>
+<li><p>No closed-form solutions (iterative estimation)</p></li>
+</ul></li>
+<li><p>Still fit models gene-by-gene as we’ve discussed so far</p></li>
+<li><p>Many similarities with limma: empirical Bayes-based moderation of parameters and addressing the M-V trend</p></li>
+</ul>
+</div>
+</div>
+</section>
+<section id="why-negative-binomial-distribution" class="slide level2">
+<h2>Why Negative Binomial distribution?</h2>
+<ul>
+<li><p>Negative Binomial is also known as a <strong>Poisson-Gamma</strong> mixture</p>
+<ul>
+<li><p>i.e.&nbsp;A Poisson with a rate parameter that is Gamma-distributed (instead of fixed)</p></li>
+<li><p>The Gamma distribution on means captures the biological variance (overdispersion) that can’t be accommodated by Poisson alone</p></li>
+</ul></li>
+<li><p>“Overdispersed Poisson” (variance <span class="math inline">\(&gt;\)</span> mean)</p></li>
+<li><p><strong>Key problem</strong>: estimating dispersion from small datasets is tricky</p></li>
+</ul>
+
+<img data-src="img/overdisp.png" class="r-stretch quarto-figure-center"></section>
+<section id="negative-binomial-glm" class="slide level2">
+<h2>Negative Binomial GLM</h2>
+<ul>
+<li><p>Gene-specific variance under NB: <span class="math inline">\(\sigma_g^2 = \mu_g + \mu_g^2\phi_g\)</span></p>
+<ul>
+<li><p><span class="math inline">\(\phi_g\)</span> is the <strong>dispersion</strong> for gene <span class="math inline">\(g\)</span></p></li>
+<li><p>if <span class="math inline">\(\phi_g=0\)</span>, get Poisson!</p></li>
+</ul></li>
+<li><p>We can perform inference about <span class="math inline">\(\mu_g\)</span> using GLM (e.g.&nbsp;using likelihood ratio tests)</p></li>
+</ul>
+<div class="fragment">
+<ul>
+<li>To do so, we need to treat <span class="math inline">\(\phi_g\)</span> as known (<em>so first need to estimate it</em>)</li>
+</ul>
+</div>
+<div class="fragment">
+<div class="callout callout-important callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Important</strong></p>
+</div>
+<div class="callout-content">
+<p>Estimation of dispersion is the main issue addressed by methods like <code>edgeR</code> and <code>DEseq2</code></p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="disperson-estimation" class="slide level2">
+<h2>Disperson estimation</h2>
+<ul>
+<li><p>One option is to assume <span class="math inline">\(\phi_g\)</span> is a set parametric function of the mean <span class="math inline">\(\mu_g\)</span> (e.g.&nbsp;quadratic)</p></li>
+<li><p>More flexible approach is to use empirical Bayes techniques: dispersion is gene-specific but moderated toward the observed trend with the mean</p></li>
+</ul>
+
+<img data-src="img/dispersion.png" class="r-stretch quarto-figure-center"><p>source: <a href="https://link.springer.com/book/10.1007/978-3-319-07212-8">Statistical Analysis of Next Generation Sequencing Data, by Chen et al.</a></p>
+</section>
+<section id="deseq2-vs-edger" class="slide level2">
+<h2><code>DESeq2</code> vs <code>edgeR</code></h2>
+<ul>
+<li><p>These methods are very similar overall</p></li>
+<li><p>Major differences between the methods lie in how they filter low-count genes, estimate prior degrees of freedom, deal with outliers in dispersion estimation, and moderate dispersion of genes with high within-group variance or low counts</p>
+<ul>
+<li>Also slight differences in specific types of hypothesis tests (quasi-likelihood in edgeR and Wald test in DESeq2)</li>
+</ul></li>
+<li><p>Many of these choices can be altered by changing default parameter settings in both methods (see user manuals)</p></li>
+</ul>
+</section>
+<section id="deseq2-vs-edger-1" class="slide level2">
+<h2><code>DESeq2</code> vs <code>edgeR</code></h2>
+<div class="columns">
+<div class="column">
+<p><strong>edgeR</strong></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1"></a>dge <span class="ot">&lt;-</span> <span class="fu">DGEList</span>(<span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts)</span>
+<span id="cb36-2"><a href="#cb36-2"></a>dge <span class="ot">&lt;-</span> <span class="fu">calcNormFactors</span>(dge)</span>
+<span id="cb36-3"><a href="#cb36-3"></a>dge <span class="ot">&lt;-</span> <span class="fu">estimateDisp</span>(dge, </span>
+<span id="cb36-4"><a href="#cb36-4"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
+<span id="cb36-5"><a href="#cb36-5"></a>  <span class="at">data =</span> <span class="fu">colData</span>(sumexp)), </span>
+<span id="cb36-6"><a href="#cb36-6"></a>  <span class="at">robust =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb36-7"><a href="#cb36-7"></a></span>
+<span id="cb36-8"><a href="#cb36-8"></a>edgeR_fit <span class="ot">&lt;-</span> <span class="fu">glmQLFit</span>(dge, </span>
+<span id="cb36-9"><a href="#cb36-9"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
+<span id="cb36-10"><a href="#cb36-10"></a>  <span class="at">data =</span> <span class="fu">colData</span>(sumexp)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div><div class="column">
+<p><strong>DESeq2</strong></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeqDataSet</span>(sumexp, </span>
+<span id="cb37-2"><a href="#cb37-2"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
+<span id="cb37-3"><a href="#cb37-3"></a>  <span class="at">data =</span> <span class="fu">colData</span>(sumexp)))</span>
+<span id="cb37-4"><a href="#cb37-4"></a>dds <span class="ot">&lt;-</span> <span class="fu">estimateSizeFactors</span>(dds)</span>
+<span id="cb37-5"><a href="#cb37-5"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeq</span>(dds)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="how-to-choose-a-method" class="slide level2">
+<h2>How to choose a method?</h2>
+
+<img data-src="img/comparisons.png" class="r-stretch"></section>
+<section id="example-comparison-1-love-et-al.-2018" class="slide level2">
+<h2>Example comparison 1: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6178912.2/">Love et al.&nbsp;(2018)</a></h2>
+
+<img data-src="https://f1000researchdata.s3.amazonaws.com/manuscripts/17982/ea0127cc-e217-43f8-ab4c-f0f93e48eb46_figure14.gif" class="r-stretch quarto-figure-center"></section>
+<section id="example-comparison-2-for-single-cell-rna-seq" class="slide level2">
+<h2>Example comparison 2 (for single-cell RNA-seq)</h2>
+
+<img data-src="https://media.springernature.com/lw685/springer-static/image/art%3A10.1038%2Fnmeth.4612/MediaObjects/41592_2018_Article_BFnmeth4612_Fig5_HTML.jpg?as=webp" class="r-stretch quarto-figure-center"><p><a href="https://www.nature.com/articles/nmeth.4612">Soneson &amp; Robinson (2018)</a></p>
+</section>
+<section id="how-to-choose-a-method-1" class="slide level2">
+<h2>How to choose a method?</h2>
+<ul>
+<li><p>No established gold standards</p>
+<ul>
+<li><p>Simulations somewhat unsatisfying (depend on specific settings)</p></li>
+<li><p>In real data, the truth is unknown</p></li>
+</ul></li>
+</ul>
+<div class="fragment">
+<div class="callout callout-important callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>The most popular and widely used methods tend to give similar results</strong></p>
+</div>
+<div class="callout-content">
+<ul>
+<li><p><strong>edgeR</strong> and <strong>DESeq2</strong> are very similar in design</p>
+<ul>
+<li>might be expected to work better for small sample sizes or low read depth</li>
+</ul></li>
+<li><p><strong>limma-trend</strong> or <strong>limma-voom</strong> also sound choices</p>
+<ul>
+<li><p>work equally well when library sizes don’t vary much</p></li>
+<li><p>might not do as well when sample size or depth is very low</p></li>
+</ul></li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="comparing-methods-on-the-chd8-dataset" class="slide level2">
+<h2>Comparing methods on the Chd8 dataset</h2>
+<h4 id="tldr-version-there-isnt-a-big-difference">tl;dr version: there isn’t a big difference</h4>
+<p>Possible reasons why:</p>
+<ul>
+<li><p>methods have been converging in approach</p></li>
+<li><p>modeling count data directly with GLMs is more important for smaller samples sizes, lower read depth</p></li>
+</ul>
+<p>Check out the comparisons in detail (including the results of <code>edgeR</code> and <code>DESeq2</code> in the <a href="https://github.com/STAT540-UBC/STAT540-UBC.github.io/blob/master/examples/rnaseqdiffex-examples/examples-RNAseq.md">companion notes</a></p>
+</section>
+<section id="rank-correlation-of-p-values-for-effect-of-chd8-mutation" class="slide level2">
+<h2>Rank correlation of p-values for effect of Chd8 mutation</h2>
+
+<img data-src="https://raw.githubusercontent.com/STAT540-UBC/resources/main/rnaseqdiffex-examples/examples-RNAseq_files/figure-gfm/unnamed-chunk-28-1.png" class="r-stretch quarto-figure-center"></section>
+<section id="heatmap-of-top-30-genes-by-limma-trend-adjusted-for-dpc-effect" class="slide level2">
+<h2>Heatmap of top 30 genes by limma-trend, adjusted for DPC effect</h2>
+
+<img data-src="https://raw.githubusercontent.com/STAT540-UBC/resources/main/rnaseqdiffex-examples/examples-RNAseq_files/figure-gfm/adjhm-1.png" class="r-stretch quarto-figure-center"></section>
+<section id="additional-resources" class="slide level2">
+<h2>Additional resources</h2>
+<ul>
+<li><p><a href="https://www.huber.embl.de/msmb/01-chap.html">Chapter 1: Generative Models for Discrete Data</a> in Modern Statistics for Modern Biology by Holmes and Huber is a great review of count models</p></li>
+<li><p>Detailed comparison of these methods on the Chd8 dataset can be found <a href="https://github.com/STAT540-UBC/resources/blob/main/rnaseqdiffex-examples/examples-RNAseq.md">here</a></p></li>
+<li><p>For all of the specific methods we discuss, refer to the Bioconductor pages (vignettes, reference manuals) for the most current and thorough details on implementation</p></li>
+</ul>
+
+<img src="https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png" class="slide-logo r-stretch"><div class="footer footer-default">
+
+</div>
+</section>
+
+    </div>
+  </div>
+
+  <script>window.backupDefine = window.define; window.define = undefined;</script>
+  <script src="lect10-RNAseq_files/libs/revealjs/dist/reveal.js"></script>
+  <!-- reveal.js plugins -->
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/pdf-export/pdfexport.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/reveal-menu/menu.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/reveal-menu/quarto-menu.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/reveal-chalkboard/plugin.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/quarto-support/support.js"></script>
+  
+
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/notes/notes.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/search/search.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/zoom/zoom.js"></script>
+  <script src="lect10-RNAseq_files/libs/revealjs/plugin/math/math.js"></script>
+  <script>window.define = window.backupDefine; window.backupDefine = undefined;</script>
+
+  <script>
+
+      // Full list of configuration options available at:
+      // https://revealjs.com/config/
+      Reveal.initialize({
+'controlsAuto': true,
+'previewLinksAuto': false,
+'smaller': false,
+'pdfSeparateFragments': false,
+'autoAnimateEasing': "ease",
+'autoAnimateDuration': 1,
+'autoAnimateUnmatched': true,
+'menu': {"side":"left","useTextContentForMissingTitles":true,"markers":false,"loadIcons":false,"custom":[{"title":"Tools","icon":"<i class=\"fas fa-gear\"></i>","content":"<ul class=\"slide-menu-items\">\n<li class=\"slide-tool-item active\" data-item=\"0\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.fullscreen(event)\"><kbd>f</kbd> Fullscreen</a></li>\n<li class=\"slide-tool-item\" data-item=\"1\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.speakerMode(event)\"><kbd>s</kbd> Speaker View</a></li>\n<li class=\"slide-tool-item\" data-item=\"2\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.overview(event)\"><kbd>o</kbd> Slide Overview</a></li>\n<li class=\"slide-tool-item\" data-item=\"3\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.overview(event)\"><kbd>e</kbd> PDF Export Mode</a></li>\n<li class=\"slide-tool-item\" data-item=\"4\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.toggleChalkboard(event)\"><kbd>b</kbd> Toggle Chalkboard</a></li>\n<li class=\"slide-tool-item\" data-item=\"5\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.toggleNotesCanvas(event)\"><kbd>c</kbd> Toggle Notes Canvas</a></li>\n<li class=\"slide-tool-item\" data-item=\"6\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.downloadDrawings(event)\"><kbd>d</kbd> Download Drawings</a></li>\n<li class=\"slide-tool-item\" data-item=\"7\"><a href=\"#\" onclick=\"RevealMenuToolHandlers.keyboardHelp(event)\"><kbd>?</kbd> Keyboard Help</a></li>\n</ul>"}],"openButton":true},
+'chalkboard': {"buttons":true},
+'smaller': false,
+ 
+        // Display controls in the bottom right corner
+        controls: false,
+
+        // Help the user learn the controls by providing hints, for example by
+        // bouncing the down arrow when they first encounter a vertical slide
+        controlsTutorial: false,
+
+        // Determines where controls appear, "edges" or "bottom-right"
+        controlsLayout: 'edges',
+
+        // Visibility rule for backwards navigation arrows; "faded", "hidden"
+        // or "visible"
+        controlsBackArrows: 'faded',
+
+        // Display a presentation progress bar
+        progress: true,
+
+        // Display the page number of the current slide
+        slideNumber: 'c/t',
+
+        // 'all', 'print', or 'speaker'
+        showSlideNumber: 'all',
+
+        // Add the current slide number to the URL hash so that reloading the
+        // page/copying the URL will return you to the same slide
+        hash: true,
+
+        // Start with 1 for the hash rather than 0
+        hashOneBasedIndex: false,
+
+        // Flags if we should monitor the hash and change slides accordingly
+        respondToHashChanges: true,
+
+        // Push each slide change to the browser history
+        history: true,
+
+        // Enable keyboard shortcuts for navigation
+        keyboard: true,
+
+        // Enable the slide overview mode
+        overview: true,
+
+        // Disables the default reveal.js slide layout (scaling and centering)
+        // so that you can use custom CSS layout
+        disableLayout: false,
+
+        // Vertical centering of slides
+        center: false,
+
+        // Enables touch navigation on devices with touch input
+        touch: true,
+
+        // Loop the presentation
+        loop: false,
+
+        // Change the presentation direction to be RTL
+        rtl: false,
+
+        // see https://revealjs.com/vertical-slides/#navigation-mode
+        navigationMode: 'linear',
+
+        // Randomizes the order of slides each time the presentation loads
+        shuffle: false,
+
+        // Turns fragments on and off globally
+        fragments: true,
+
+        // Flags whether to include the current fragment in the URL,
+        // so that reloading brings you to the same fragment position
+        fragmentInURL: false,
+
+        // Flags if the presentation is running in an embedded mode,
+        // i.e. contained within a limited portion of the screen
+        embedded: false,
+
+        // Flags if we should show a help overlay when the questionmark
+        // key is pressed
+        help: true,
+
+        // Flags if it should be possible to pause the presentation (blackout)
+        pause: true,
+
+        // Flags if speaker notes should be visible to all viewers
+        showNotes: false,
+
+        // Global override for autoplaying embedded media (null/true/false)
+        autoPlayMedia: null,
+
+        // Global override for preloading lazy-loaded iframes (null/true/false)
+        preloadIframes: null,
+
+        // Number of milliseconds between automatically proceeding to the
+        // next slide, disabled when set to 0, this value can be overwritten
+        // by using a data-autoslide attribute on your slides
+        autoSlide: 0,
+
+        // Stop auto-sliding after user input
+        autoSlideStoppable: true,
+
+        // Use this method for navigation when auto-sliding
+        autoSlideMethod: null,
+
+        // Specify the average time in seconds that you think you will spend
+        // presenting each slide. This is used to show a pacing timer in the
+        // speaker view
+        defaultTiming: null,
+
+        // Enable slide navigation via mouse wheel
+        mouseWheel: false,
+
+        // The display mode that will be used to show slides
+        display: 'block',
+
+        // Hide cursor if inactive
+        hideInactiveCursor: true,
+
+        // Time before the cursor is hidden (in ms)
+        hideCursorTime: 5000,
+
+        // Opens links in an iframe preview overlay
+        previewLinks: false,
+
+        // Transition style (none/fade/slide/convex/concave/zoom)
+        transition: 'none',
+
+        // Transition speed (default/fast/slow)
+        transitionSpeed: 'default',
+
+        // Transition style for full page slide backgrounds
+        // (none/fade/slide/convex/concave/zoom)
+        backgroundTransition: 'none',
+
+        // Number of slides away from the current that are visible
+        viewDistance: 3,
+
+        // Number of slides away from the current that are visible on mobile
+        // devices. It is advisable to set this to a lower number than
+        // viewDistance in order to save resources.
+        mobileViewDistance: 2,
+
+        // The "normal" size of the presentation, aspect ratio will be preserved
+        // when the presentation is scaled to fit different resolutions. Can be
+        // specified using percentage units.
+        width: 1600,
+
+        height: 900,
+
+        // Factor of the display size that should remain empty around the content
+        margin: 0.1,
+
+        math: {
+          mathjax: 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js',
+          config: 'TeX-AMS_HTML-full',
+          tex2jax: {
+            inlineMath: [['\\(','\\)']],
+            displayMath: [['\\[','\\]']],
+            balanceBraces: true,
+            processEscapes: false,
+            processRefs: true,
+            processEnvironments: true,
+            preview: 'TeX',
+            skipTags: ['script','noscript','style','textarea','pre','code'],
+            ignoreClass: 'tex2jax_ignore',
+            processClass: 'tex2jax_process'
+          },
+        },
+
+        // reveal.js plugins
+        plugins: [QuartoLineHighlight, PdfExport, RevealMenu, RevealChalkboard, QuartoSupport,
+
+          RevealMath,
+          RevealNotes,
+          RevealSearch,
+          RevealZoom
+        ]
+      });
+    </script>
+    
+    <script>
+      // htmlwidgets need to know to resize themselves when slides are shown/hidden.
+      // Fire the "slideenter" event (handled by htmlwidgets.js) when the current
+      // slide changes (different for each slide format).
+      (function () {
+        // dispatch for htmlwidgets
+        function fireSlideEnter() {
+          const event = window.document.createEvent("Event");
+          event.initEvent("slideenter", true, true);
+          window.document.dispatchEvent(event);
+        }
+
+        function fireSlideChanged(previousSlide, currentSlide) {
+          fireSlideEnter();
+
+          // dispatch for shiny
+          if (window.jQuery) {
+            if (previousSlide) {
+              window.jQuery(previousSlide).trigger("hidden");
+            }
+            if (currentSlide) {
+              window.jQuery(currentSlide).trigger("shown");
+            }
+          }
+        }
+
+        // hookup for slidy
+        if (window.w3c_slidy) {
+          window.w3c_slidy.add_observer(function (slide_num) {
+            // slide_num starts at position 1
+            fireSlideChanged(null, w3c_slidy.slides[slide_num - 1]);
+          });
+        }
+
+      })();
+    </script>
+
+    <script id="quarto-html-after-body" type="application/javascript">
+    window.document.addEventListener("DOMContentLoaded", function (event) {
+      const toggleBodyColorMode = (bsSheetEl) => {
+        const mode = bsSheetEl.getAttribute("data-mode");
+        const bodyEl = window.document.querySelector("body");
+        if (mode === "dark") {
+          bodyEl.classList.add("quarto-dark");
+          bodyEl.classList.remove("quarto-light");
+        } else {
+          bodyEl.classList.add("quarto-light");
+          bodyEl.classList.remove("quarto-dark");
+        }
+      }
+      const toggleBodyColorPrimary = () => {
+        const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+        if (bsSheetEl) {
+          toggleBodyColorMode(bsSheetEl);
+        }
+      }
+      toggleBodyColorPrimary();  
+      const tabsets =  window.document.querySelectorAll(".panel-tabset-tabby")
+      tabsets.forEach(function(tabset) {
+        const tabby = new Tabby('#' + tabset.id);
+      });
+      const clipboard = new window.ClipboardJS('.code-copy-button', {
+        target: function(trigger) {
+          return trigger.previousElementSibling;
+        }
+      });
+      clipboard.on('success', function(e) {
+        // button target
+        const button = e.trigger;
+        // don't keep focus
+        button.blur();
+        // flash "checked"
+        button.classList.add('code-copy-button-checked');
+        var currentTitle = button.getAttribute("title");
+        button.setAttribute("title", "Copied!");
+        let tooltip;
+        if (window.bootstrap) {
+          button.setAttribute("data-bs-toggle", "tooltip");
+          button.setAttribute("data-bs-placement", "left");
+          button.setAttribute("data-bs-title", "Copied!");
+          tooltip = new bootstrap.Tooltip(button, 
+            { trigger: "manual", 
+              customClass: "code-copy-button-tooltip",
+              offset: [0, -8]});
+          tooltip.show();    
+        }
+        setTimeout(function() {
+          if (tooltip) {
+            tooltip.hide();
+            button.removeAttribute("data-bs-title");
+            button.removeAttribute("data-bs-toggle");
+            button.removeAttribute("data-bs-placement");
+          }
+          button.setAttribute("title", currentTitle);
+          button.classList.remove('code-copy-button-checked');
+        }, 1000);
+        // clear code selection
+        e.clearSelection();
+      });
+      function tippyHover(el, contentFn) {
+        const config = {
+          allowHTML: true,
+          content: contentFn,
+          maxWidth: 500,
+          delay: 100,
+          arrow: false,
+          appendTo: function(el) {
+              return el.closest('section.slide') || el.parentElement;
+          },
+          interactive: true,
+          interactiveBorder: 10,
+          theme: 'quarto-reveal',
+          placement: 'bottom-start'
+        };
+          config['offset'] = [0,0];
+          config['maxWidth'] = 700;
+        window.tippy(el, config); 
+      }
+      const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+      for (var i=0; i<noterefs.length; i++) {
+        const ref = noterefs[i];
+        tippyHover(ref, function() {
+          // use id or data attribute instead here
+          let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+          try { href = new URL(href).hash; } catch {}
+          const id = href.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          return note.innerHTML;
+        });
+      }
+      const findCites = (el) => {
+        const parentEl = el.parentElement;
+        if (parentEl) {
+          const cites = parentEl.dataset.cites;
+          if (cites) {
+            return {
+              el,
+              cites: cites.split(' ')
+            };
+          } else {
+            return findCites(el.parentElement)
+          }
+        } else {
+          return undefined;
+        }
+      };
+      var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+      for (var i=0; i<bibliorefs.length; i++) {
+        const ref = bibliorefs[i];
+        const citeInfo = findCites(ref);
+        if (citeInfo) {
+          tippyHover(citeInfo.el, function() {
+            var popup = window.document.createElement('div');
+            citeInfo.cites.forEach(function(cite) {
+              var citeDiv = window.document.createElement('div');
+              citeDiv.classList.add('hanging-indent');
+              citeDiv.classList.add('csl-entry');
+              var biblioDiv = window.document.getElementById('ref-' + cite);
+              if (biblioDiv) {
+                citeDiv.innerHTML = biblioDiv.innerHTML;
+              }
+              popup.appendChild(citeDiv);
+            });
+            return popup.innerHTML;
+          });
+        }
+      }
+    });
+    </script>
+    
+
+</body></html>
