@@ -460,6 +460,17 @@ Keegan Korthauer
 </div>
 </div>
 </section>
+<section id="post-peak-calling" class="slide level2">
+<h2>Post peak-calling</h2>
+<p>Depending on the type of experiment and the hypotheses, next steps may include (but not limited to):</p>
+<ul>
+<li><a href="http://bioconductor.org/packages/release/bioc/vignettes/ChIPseeker/inst/doc/ChIPseeker.html">annotating peaks with genomic context</a></li>
+<li><a href="https://www.bioconductor.org/packages/release/workflows/html/chipseqDB.html">differential binding analysis</a></li>
+<li>enrichment analysis<sup>1</sup></li>
+<li><a href="https://www.bioconductor.org/packages/release/workflows/html/generegulation.html">motif analysis</a></li>
+<li>integration with other measurements (e.g.&nbsp;expression)</li>
+</ul>
+<aside><ol class="aside-footnotes"><li id="fn2"><p>we’ll discuss next lecture</p></li></ol></aside></section>
 <section id="dna-methylation-5mc" class="slide level2">
 <h2>DNA Methylation (5mC)</h2>
 <ul>
@@ -473,7 +484,7 @@ Keegan Korthauer
 <p></p><figcaption><a href="https://www.epigentek.com">image source</a></figcaption><p></p>
 </figure>
 </div>
-<aside><ol class="aside-footnotes"><li id="fn2"><p>other contexts observed in neuronal cells</p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn3"><p>other contexts observed in neuronal cells</p></li></ol></aside></section>
 <section id="dna-methylation-at-cpgs" class="slide level2">
 <h2>DNA Methylation at CpGs</h2>
 
@@ -1117,11 +1128,11 @@ Up        240380       559    227    521   1052    957</code></pre>
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
-<p><strong>Danger</strong></p>
+<p><strong>Caution</strong></p>
 </div>
 <div class="callout-content">
 <ul>
-<li><p>binomial regression unstable for fully methylated or unmethylated cytosines</p></li>
+<li><p>Binomial regression unstable for fully methylated or unmethylated cytosines</p></li>
 <li><p>Computationally intensive to fit model at every cytosine</p></li>
 </ul>
 </div>

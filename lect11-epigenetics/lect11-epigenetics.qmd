@@ -94,6 +94,15 @@ Recall basics of DNA-binding and DNA methylation assays from [lecture 2](https:/
 :::
 :::
 
+## Post peak-calling
+
+Depending on the type of experiment and the hypotheses, next steps may include (but not limited to):
+
+* [annotating peaks with genomic context](http://bioconductor.org/packages/release/bioc/vignettes/ChIPseeker/inst/doc/ChIPseeker.html)
+* [differential binding analysis](https://www.bioconductor.org/packages/release/workflows/html/chipseqDB.html)
+* enrichment analysis^[we'll discuss next lecture]
+* [motif analysis](https://www.bioconductor.org/packages/release/workflows/html/generegulation.html)
+* integration with other measurements (e.g. expression)
 
 
 ## DNA Methylation (5mC) 
@@ -635,7 +644,9 @@ plot(p, log(p/(1-p)), type = "l", ylab = "transformed", ylim=c(-5,5))
 . . .  
 
 :::{.callout-caution}
-* binomial regression unstable for fully methylated or unmethylated cytosines
+# Caution
+
+* Binomial regression unstable for fully methylated or unmethylated cytosines
     
 * Computationally intensive to fit model at every cytosine
 :::
