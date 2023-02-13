@@ -676,18 +676,14 @@ Keegan Korthauer
 <p>Data from <a href="https://www.ncbi.nlm.nih.gov/pubmed/23974203">Zhang et al.&nbsp;(2013)</a></p>
 <ul>
 <li><a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667">GEO accession GSE49667</a></li>
-<li>Here we use the Bioc objects downloaded from <a href="https://figshare.com/articles/dataset/methylAnalysisData_tar_gz/3471719">here</a></li>
+<li>Here we use the Bioc objects that were created by <a href="https://f1000research.com/articles/5-1281">these authors</a>, with details described in Seminar 7</li>
 </ul>
 <div class="cell">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="co"># load libraries </span></span>
-<span id="cb1-2"><a href="#cb1-2"></a><span class="fu">library</span>(minfi)</span>
-<span id="cb1-3"><a href="#cb1-3"></a><span class="fu">library</span>(limma)</span>
-<span id="cb1-4"><a href="#cb1-4"></a></span>
-<span id="cb1-5"><a href="#cb1-5"></a><span class="co"># read in data</span></span>
-<span id="cb1-6"><a href="#cb1-6"></a>mSet <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"data/mSet.rds"</span>)</span>
-<span id="cb1-7"><a href="#cb1-7"></a>targets <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"data/targets.rds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1"></a><span class="co"># read in data - see Seminar 7</span></span>
+<span id="cb1-2"><a href="#cb1-2"></a>mSet <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"data/mSet.rds"</span>)</span>
+<span id="cb1-3"><a href="#cb1-3"></a>targets <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">"data/targets.rds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <div class="cell">

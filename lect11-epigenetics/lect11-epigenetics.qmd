@@ -28,6 +28,7 @@ library(gridExtra)
 library(broom)
 library(latex2exp)
 library(limma)
+library(minfi)
 library(RColorBrewer)
 theme_set(theme_bw(base_size = 20))
 ```
@@ -268,15 +269,12 @@ Need some way to summarize the two relative measures for each probe:
 Data from [Zhang et al. (2013)](https://www.ncbi.nlm.nih.gov/pubmed/23974203) 
 
 * [GEO accession GSE49667](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667) 
-* Here we use the Bioc objects downloaded from [here](https://figshare.com/articles/dataset/methylAnalysisData_tar_gz/3471719)
+* Here we use the Bioc objects that were created by [these authors](https://f1000research.com/articles/5-1281), with details described in Seminar 7
 
 ```{r}
 #| code-fold: true
-# load libraries 
-library(minfi)
-library(limma)
 
-# read in data
+# read in data - see Seminar 7
 mSet <- readRDS("data/mSet.rds")
 targets <- readRDS("data/targets.rds")
 ```

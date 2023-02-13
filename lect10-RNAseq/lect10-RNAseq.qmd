@@ -31,6 +31,15 @@ library(limma)
 theme_set(theme_bw(base_size = 20))
 ```
 
+## Reminders/announcements
+
+* Paper Critique due today
+
+* Analysis Assignment released - due Feb 28
+
+  * use limma + **voom** to analyze RNA-seq data from paper you critiqued
+
+
 ## Learning objectives
 
 * Understand *why* and *when* between- and within-sample normalization are needed
