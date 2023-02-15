@@ -1516,8 +1516,7 @@ attr(,"contrasts")$DPC
 <section id="voom-illustration" class="slide level2">
 <h2>Voom illustration</h2>
 
-<img data-src="https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg" class="r-stretch"><p>Figure 2, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a></p>
-<div class="fragment">
+<img data-src="https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg" class="r-stretch quarto-figure-center"><p class="caption">Figure 2, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a></p><div class="fragment">
 <p><span class="math display">\[w_{ig} = \frac{1}{\hat{f}(\hat{c}_{ig})^4} = \frac{1}{(\sqrt{s_{ig}})^4} = \frac{1}{s_{ig}^2}\]</span></p>
 </div>
 </section>
@@ -1694,7 +1693,8 @@ attr(,"contrasts")$DPC
 <h2>Another option: limma-trend</h2>
 <h4 id="limma-trend-uses-the-m-v-relationship-at-the-gene-level-whereas-voom-uses-observational-level-trends-law-et.-al-2014">Limma-trend uses the M-V relationship at the <strong>gene</strong> level, whereas voom uses <strong>observational</strong> level trends (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a>)</h4>
 <ul>
-<li>Gene-wise variances are shrunken toward a <strong>global M-V trend</strong>, instead of toward a constant pooled variance:</li>
+<li><p>Compared to voom, limma-trend treats all observations within a gene the same</p></li>
+<li><p>Compared to regular limma, limma-trend shrinks gene-specific variances toward a <strong>global M-V trend</strong>, instead of toward a constant pooled variance:</p></li>
 </ul>
 <p><span class="math display">\[\tilde{s}^2_g = \frac{d_0s_{0g}^2 + ds^2_g}{d_0 + d}\]</span></p>
 <div class="fragment">
@@ -1707,7 +1707,23 @@ attr(,"contrasts")$DPC
 <section id="limma-trend-vs-voom" class="slide level2">
 <h2>limma-trend vs voom?</h2>
 
-<img data-src="https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg" class="r-stretch"><p>Figure 2, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a></p>
+<img data-src="https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg" class="r-stretch quarto-figure-center"><p class="caption">Figure 2, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34">Law et. al, 2014</a></p><div class="callout callout-important callout-captioned callout-style-default">
+<div class="callout-body">
+<div class="callout-caption">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Intuition</strong></p>
+</div>
+<div class="callout-content">
+<ul>
+<li>limma obtains one <em>overall</em> prior variance for all genes</li>
+<li>limma-trend obtains a prior variance for <em>each gene</em> based on it’s mean using a smoothed curve of the mean vs variance</li>
+<li>limma-voom obtains a weight for <em>each observation</em> from such a curve</li>
+</ul>
+</div>
+</div>
+</div>
 </section>
 <section id="limma-trend-in-action" class="slide level2">
 <h2>limma-trend in action</h2>
@@ -1845,7 +1861,11 @@ attr(,"contrasts")$DPC
 <li><p><span class="math inline">\(\phi_g\)</span> is the <strong>dispersion</strong> for gene <span class="math inline">\(g\)</span></p></li>
 <li><p>if <span class="math inline">\(\phi_g=0\)</span>, get Poisson!</p></li>
 </ul></li>
-<li><p>We can perform inference about <span class="math inline">\(\mu_g\)</span> using GLM (e.g.&nbsp;using likelihood ratio tests)</p></li>
+<li><p>We can perform inference about <span class="math inline">\(\mu_g\)</span> using GLM: <span class="math inline">\(E(\boldsymbol{Y|X})=g(\boldsymbol\mu) = \boldsymbol{X\beta}\)</span></p>
+<ul>
+<li><p>using likelihood ratio tests (analogous to F-tests in ANOVA/OLS)</p></li>
+<li><p>using Wald tests for individual coefficients (analogous to t-test in OLS)</p></li>
+</ul></li>
 </ul>
 <div class="fragment">
 <ul>
@@ -1906,6 +1926,7 @@ attr(,"contrasts")$DPC
 <span id="cb36-10"><a href="#cb36-10"></a>  <span class="at">design =</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, </span>
 <span id="cb36-11"><a href="#cb36-11"></a>                        <span class="at">data =</span> sumexp<span class="sc">$</span>samples))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Explore results with <code>topTags</code></p>
 </div><div class="column">
 <p><strong>DESeq2</strong></p>
 <div class="cell">
@@ -1915,6 +1936,7 @@ attr(,"contrasts")$DPC
 <span id="cb37-4"><a href="#cb37-4"></a>dds <span class="ot">&lt;-</span> <span class="fu">estimateSizeFactors</span>(dds)</span>
 <span id="cb37-5"><a href="#cb37-5"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeq</span>(dds)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>Explore results with <code>results</code></p>
 </div>
 </div>
 </section>
@@ -1974,7 +1996,7 @@ attr(,"contrasts")$DPC
 <li><p>methods have been converging in approach</p></li>
 <li><p>modeling count data directly with GLMs is more important for smaller samples sizes, lower read depth</p></li>
 </ul>
-<p>Check out the comparisons in detail (including the results of <code>edgeR</code> and <code>DESeq2</code> in the <a href="https://github.com/STAT540-UBC/STAT540-UBC.github.io/blob/master/examples/rnaseqdiffex-examples/examples-RNAseq.md">companion notes</a></p>
+<p>Check out the comparisons in detail (including the results of <code>edgeR</code> and <code>DESeq2</code> in the <a href="https://github.com/STAT540-UBC/resources/blob/main/rnaseqdiffex-examples/examples-RNAseq.md">companion notes</a></p>
 </section>
 <section id="rank-correlation-of-p-values-for-effect-of-chd8-mutation" class="slide level2">
 <h2>Rank correlation of p-values for effect of Chd8 mutation</h2>

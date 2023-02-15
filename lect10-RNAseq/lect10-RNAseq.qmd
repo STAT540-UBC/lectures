@@ -48,7 +48,7 @@ theme_set(theme_bw(base_size = 20))
 
 * Understand why the *count nature* of RNA-seq data requires modification to the Differential Expression approaches applied to microarray data (e.g. `limma`)
 
-* Apply models such as **limma-trend, limma-voom, `DESeq2` and `edgeR`** for inference of Differential Expression 
+* Apply models such as **limma-trend, limma-voom, `DESeq2` and `edgeR`** for inference of Differential Expression
 
 
 ## A CHD8 RNA-seq experiment
@@ -211,7 +211,7 @@ Heatmap(corr,
         top_annotation = HeatmapAnnotation(Group = m$Group,
                                            Sex = m$Sex,
                                            Batch = m$SeqRun, 
-                                           DPC = factor(m$DPC)), 
+                                           DPC = m$DPC), 
         row_names_gp = gpar(fontsize = 8), 
         column_names_gp = gpar(fontsize = 8))
 ```
@@ -926,9 +926,7 @@ Source: [Law et al. 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/)
 
 ## Voom illustration
 
-![](https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg)
-
-Figure 2, [Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34)
+![Figure 2, [Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34)](https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg)
 
 . . . 
 
@@ -1121,8 +1119,9 @@ data.frame(limma = lfit$t[,"GroupMu"], voom = lvfit$t[,"GroupMu"]) %>%
 
 #### Limma-trend uses the M-V relationship at the **gene** level, whereas voom uses **observational** level trends ([Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34))
 
+* Compared to voom, limma-trend treats all observations within a gene the same
 
-* Gene-wise variances are shrunken toward a **global M-V trend**, instead of toward a constant pooled variance:
+* Compared to regular limma, limma-trend shrinks gene-specific variances toward a **global M-V trend**, instead of toward a constant pooled variance:
 
 $$\tilde{s}^2_g = \frac{d_0s_{0g}^2 + ds^2_g}{d_0 + d}$$ 
 
@@ -1136,11 +1135,14 @@ $$\tilde{s}^2_g = \frac{d_0s_{0g}^2 + ds^2_g}{d_0 + d}$$
 
 ## limma-trend vs voom? 
 
-![](https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg)
+![Figure 2, [Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34)](https://media.springernature.com/full/springer-static/image/art%3A10.1186%2Fgb-2014-15-2-r29/MediaObjects/13059_2013_Article_3227_Fig2_HTML.jpg)
 
-Figure 2, [Law et. al, 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/#B34)
-
-
+:::{.callout-important}
+# Intuition 
+* limma obtains one *overall* prior variance for all genes
+* limma-trend obtains a prior variance for *each gene* based on it's mean using a smoothed curve of the mean vs variance
+* limma-voom obtains a weight for *each observation* from such a curve
+:::
 
 ## limma-trend in action
 
@@ -1282,7 +1284,11 @@ counts_long %>%
 
   * if $\phi_g=0$, get Poisson!
 
-* We can perform inference about $\mu_g$ using GLM (e.g. using likelihood ratio tests)
+* We can perform inference about $\mu_g$ using GLM: $E(\boldsymbol{Y|X})=g(\boldsymbol\mu) = \boldsymbol{X\beta}$ 
+  
+  * using likelihood ratio tests (analogous to F-tests in ANOVA/OLS)
+  
+  * using Wald tests for individual coefficients (analogous to t-test in OLS)
 
 . . . 
 
@@ -1339,8 +1345,12 @@ dge <- estimateDisp(dge,
 edgeR_fit <- glmQLFit(dge, 
   design = model.matrix(~ Sex + Group + DPC, 
                         data = sumexp$samples))
+
 ```
+
+Explore results with `topTags`
 :::
+
 ::: column
 **DESeq2**
 
@@ -1352,6 +1362,7 @@ dds <- DESeqDataSet(sumexp,
 dds <- estimateSizeFactors(dds)
 dds <- DESeq(dds)
 ```
+Explore results with `results`
 :::
 :::
 
@@ -1409,7 +1420,7 @@ Possible reasons why:
 
 * modeling count data directly with GLMs is more important for smaller samples sizes, lower read depth
 
-Check out the comparisons in detail (including the results of `edgeR` and `DESeq2` in the [companion notes](https://github.com/STAT540-UBC/STAT540-UBC.github.io/blob/master/examples/rnaseqdiffex-examples/examples-RNAseq.md)
+Check out the comparisons in detail (including the results of `edgeR` and `DESeq2` in the [companion notes](https://github.com/STAT540-UBC/resources/blob/main/rnaseqdiffex-examples/examples-RNAseq.md)
 
 
 ## Rank correlation of p-values for effect of Chd8 mutation

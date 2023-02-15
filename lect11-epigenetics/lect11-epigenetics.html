@@ -406,71 +406,21 @@ Keegan Korthauer
 <section id="learning-objectives-for-today" class="slide level2">
 <h2>Learning objectives for today<sup>1</sup></h2>
 <ul>
-<li><p>Be familiar with the types of epigenetic measurements that involve <strong>“peak-calling”</strong>, and what a peak represents in each</p></li>
-<li><p>Understand the main statistical test performed by the widely used peak-caller MACS2</p></li>
-<li><p>Explain the similarities and differences (and understand their implications) between analysis of <strong>differential expression</strong> and <strong>differential methylation</strong>, with regard to:</p>
+<li><p>Explain the main similarities and differences (and understand their implications) between analysis of <strong>differential expression</strong> and <strong>differential methylation</strong>:</p>
 <ul>
 <li><p>continuous models of microarray data vs count models of sequencing data (similarity)</p></li>
 <li><p>methylation level represents a proportion vs expression level unbounded (difference)</p></li>
 <li><p>grouping of sites into differentially methylated regions (difference)</p></li>
 </ul></li>
+<li><p>Be familiar with the types of epigenetic measurements that involve <strong>“peak-calling”</strong>, and what a peak represents in each</p></li>
+<li><p>Understand the main statistical test performed by the widely used peak-caller MACS2</p></li>
 </ul>
 <aside><ol class="aside-footnotes"><li id="fn1"><p>We won’t have time to cover preprocessing / normalization steps</p></li></ol></aside></section>
 <section id="epigenetics" class="slide level2">
 <h2>Epigenetics</h2>
 
-<img data-src="https://i1.abocdn.com/f8983e70d0e154ca2233646305eeafb7d3baa11d/resources/images/blog/epigenetics-schema.jpeg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://www.antibodies-online.com/areas/epigenetics/">Image source</a></p><p>Recall basics of DNA-binding and DNA methylation assays from <a href="https://github.com/STAT540-UBC/lectures/raw/main/lect02-technology.pdf">lecture 2</a></p>
+<img data-src="https://i1.abocdn.com/f8983e70d0e154ca2233646305eeafb7d3baa11d/resources/images/blog/epigenetics-schema.jpeg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://www.antibodies-online.com/areas/epigenetics/">Image source</a></p><p>Recall basics of DNA methylation and DNA-binding assays from <a href="https://github.com/STAT540-UBC/lectures/raw/main/lect02-technology.pdf">lecture 2</a></p>
 </section>
-<section id="open-chromatin-nucleosome-positioning" class="slide level2">
-<h2>Open chromatin &amp; nucleosome positioning</h2>
-
-<img data-src="img/atac.jpeg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://rockefelleruniversity.github.io/RU_ATAC_Workshop.html">Image source</a></p></section>
-<section id="peak-calling" class="slide level2">
-<h2>Peak calling</h2>
-<ul>
-<li><p>Sequencing after one of these selection/digestion techniques (IP, DNase, MNase, transposase) generally requires a peak-finding analysis</p></li>
-<li><p>One of the most widely used methods is <a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2008-9-9-r137">MACS2</a>:</p></li>
-</ul>
-
-<img data-src="img/macs.png" class="r-stretch quarto-figure-center"><p class="caption">MACS2</p></section>
-<section id="macs2-overview" class="slide level2">
-<h2>MACS2 overview</h2>
-<div class="columns">
-<div class="column">
-<ul>
-<li>Shift reads to remove strand asymmetry: estimate <span class="math inline">\(d\)</span> from 1,000 regions</li>
-</ul>
-<div class="quarto-figure quarto-figure-center">
-<figure>
-<p><img data-src="https://hbctraining.github.io/Intro-to-ChIPseq/img/plos_chipseq_arrow.png"></p>
-<p></p><figcaption><a href="https://hbctraining.github.io/Intro-to-ChIPseq">images source</a></figcaption><p></p>
-</figure>
-</div>
-</div><div class="column">
-<ul>
-<li>Let <span class="math inline">\(\lambda_{BG}\)</span> be the expected number of reads in each window</li>
-<li>Let <span class="math inline">\(\lambda_{local} = max(\lambda_{BG}, \lambda_{1K}, \lambda_{5K}, \lambda_{10K})\)</span> be the expected number of reads in a window</li>
-<li>P-value for <span class="math inline">\(k\)</span> observed reads = <span class="math inline">\(e^{-\lambda_{local}} \sum_{i=0}^k \frac{\lambda_{local}^i}{i!}\)</span></li>
-</ul>
-<div class="quarto-figure quarto-figure-center">
-<figure>
-<p><img data-src="https://hbctraining.github.io/Intro-to-ChIPseq/img/lambda.png"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-<section id="post-peak-calling" class="slide level2">
-<h2>Post peak-calling</h2>
-<p>Depending on the type of experiment and the hypotheses, next steps may include (but not limited to):</p>
-<ul>
-<li><a href="http://bioconductor.org/packages/release/bioc/vignettes/ChIPseeker/inst/doc/ChIPseeker.html">annotating peaks with genomic context</a></li>
-<li><a href="https://www.bioconductor.org/packages/release/workflows/html/chipseqDB.html">differential binding analysis</a></li>
-<li>enrichment analysis<sup>1</sup></li>
-<li><a href="https://www.bioconductor.org/packages/release/workflows/html/generegulation.html">motif analysis</a></li>
-<li>integration with other measurements (e.g.&nbsp;expression)</li>
-</ul>
-<aside><ol class="aside-footnotes"><li id="fn2"><p>we’ll discuss next lecture</p></li></ol></aside></section>
 <section id="dna-methylation-5mc" class="slide level2">
 <h2>DNA Methylation (5mC)</h2>
 <ul>
@@ -484,7 +434,7 @@ Keegan Korthauer
 <p></p><figcaption><a href="https://www.epigentek.com">image source</a></figcaption><p></p>
 </figure>
 </div>
-<aside><ol class="aside-footnotes"><li id="fn3"><p>other contexts observed in neuronal cells</p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn2"><p>other contexts observed in neuronal cells</p></li></ol></aside></section>
 <section id="dna-methylation-at-cpgs" class="slide level2">
 <h2>DNA Methylation at CpGs</h2>
 
@@ -508,21 +458,37 @@ Keegan Korthauer
 <h2>Role in gene regulation</h2>
 
 <img data-src="img/genereg.jpg" class="r-stretch quarto-figure-center"></section>
-<section id="evolution-of-methylation-assays" class="slide level2">
-<h2>Evolution of methylation assays</h2>
-
-<img data-src="img/methassays.jpg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://doi.org/10.1038/nrg2732">Laird 2010</a></p></section>
-<section id="distinguishing-methylated-and-unmethylated-sites" class="slide level2">
-<h2>Distinguishing methylated and unmethylated sites</h2>
+<section id="methylation-assays" class="slide level2">
+<h2>Methylation assays</h2>
+<div class="columns">
+<div class="column" style="width:75%;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8353442/bin/fgene-12-671057-g004.jpg"></p>
+</figure>
+</div>
+</div><div class="column" style="width:25%;">
+<p>We’ll focus on two common approaches for distinguishing methylated and unmethylated sites:</p>
+<ol type="1">
+<li>Affinity enrichment</li>
+<li>Bisulfite conversion</li>
+</ol>
+<p><a href="https://doi.org/10.3389%2Ffgene.2021.671057">image: Barefoot et al., 2021</a></p>
+</div>
+</div>
+</section>
+<section id="affinity-enrichment-basics" class="slide level2">
+<h2>Affinity enrichment: basics</h2>
 <div class="columns">
 <div class="column">
-<ol type="1">
-<li>Methylated DNA immunoprecipitation (MeDIP)</li>
-</ol>
+<ul>
+<li>example: Methylated DNA immunoprecipitation (MeDIP)</li>
+<li>targets <strong>only</strong> methylated DNA - the ‘methylome’
 <ul>
 <li>treat fragmented DNA with antibody targeting 5mC</li>
 <li>wash away unbound DNA</li>
 <li>measure extent to which each cytosine is still present (methylated) with <strong>microarray or sequencing</strong></li>
+</ul></li>
 </ul>
 </div><div class="column">
 <div class="quarto-figure quarto-figure-center">
@@ -534,43 +500,15 @@ Keegan Korthauer
 </div>
 </div>
 </section>
-<section id="distinguishing-methylated-and-unmethylated-sites-1" class="slide level2">
-<h2>Distinguishing methylated and unmethylated sites</h2>
-<div class="columns">
-<div class="column">
-<ol start="2" type="1">
-<li>Bisulfite conversion</li>
-</ol>
-<ul>
-<li>5mC <span class="math inline">\(\rightarrow\)</span> stays 5mC</li>
-<li>C (not methylated) <span class="math inline">\(\rightarrow\)</span> converted to U</li>
-<li>Sequencing:
-<ul>
-<li>5mC read as C</li>
-<li>C read as T</li>
-</ul></li>
-<li>For each C measure fraction of signal corresponding to C vs T with <strong>microarray or sequencing</strong></li>
-<li><em>Note that can’t distinguish between C <span class="math inline">\(\rightarrow\)</span> T mutation and unmethylated C</em></li>
-</ul>
-</div><div class="column">
-<div class="quarto-figure quarto-figure-center">
-<figure>
-<p><img data-src="img/bisulfite-conversion.jpg"></p>
-<p></p><figcaption><a href="https://www.diagenode.com/en/categories/bisulfite-conversion">image source</a></figcaption><p></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-<section id="analysis-of-medip" class="slide level2">
-<h2>Analysis of MeDIP</h2>
+<section id="affinity-enrichment-analysis" class="slide level2">
+<h2>Affinity enrichment: analysis</h2>
 <div class="columns">
 <div class="column">
 <ul>
-<li>MeDIP targets <strong>only</strong> methylated DNA</li>
 <li><strong>MeDIP-chip</strong>: much like gene expression microarrays</li>
-<li><strong>MeDIP-seq</strong>: differential abundance of counts (similar to RNA-seq)
+<li><strong>MeDIP-seq</strong>:
 <ul>
+<li>differential abundance of counts (similar to RNA-seq)</li>
 <li>Complication: instead of genes or transcripts, need to define genomic “bins” to count reads over</li>
 <li>One option is to use sliding windows: <a href="http://bioconductor.org/packages/MEDIPS/">MEDIPS R package</a> performs preprocessing and implements <code>edgeR</code> to test for differential abundance of each window</li>
 </ul></li>
@@ -585,8 +523,28 @@ Keegan Korthauer
 </div>
 </div>
 </section>
-<section id="bisulfite-conversion-arrays-e.g.-infinum-450k-epic-850k" class="slide level2">
-<h2>Bisulfite conversion arrays (e.g.&nbsp;Infinum 450K, Epic 850K)</h2>
+<section id="bisulfite-conversion-basics" class="slide level2">
+<h2>Bisulfite conversion: basics</h2>
+<div class="columns">
+<div class="column">
+<ul>
+<li>5mC <span class="math inline">\(\rightarrow\)</span> stays 5mC</li>
+<li>C (not methylated) <span class="math inline">\(\rightarrow\)</span> converted to U</li>
+<li>For each C measure fraction of signal corresponding to C vs T with <strong>microarray or sequencing</strong></li>
+<li><em>Note that can’t distinguish between C <span class="math inline">\(\rightarrow\)</span> T mutation and unmethylated C</em></li>
+</ul>
+</div><div class="column">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="img/bisulfite-conversion.jpg"></p>
+<p></p><figcaption><a href="https://www.diagenode.com/en/categories/bisulfite-conversion">image source</a></figcaption><p></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="bisulfite-conversion-arrays-e.g.-infinium-450k-epic-850k" class="slide level2">
+<h2>Bisulfite conversion: arrays (e.g.&nbsp;Infinium 450K, Epic 850K)</h2>
 <div class="columns">
 <div class="column">
 <ul>
@@ -648,11 +606,11 @@ Keegan Korthauer
 <ul>
 <li><a href="http://bioconductor.org/packages/minfi/">minfi</a> for preprocessing and normalization</li>
 <li><a href="http://bioconductor.org/packages/limma/">limma</a> for individual cytosine analysis</li>
-<li><a href="http://bioconductor.org/packages/bumphunter/">bumphunter</a> for region-level analysis</li>
-<li>Workflow that combines these: <a href="https://bioconductor.org/packages/methylationArrayAnalysis/">methylationArrayAnalysis</a> - explore in Seminar 7</li>
+<li><a href="http://bioconductor.org/packages/bumphunter/">bumphunter</a> or <a href="https://bioconductor.org/packages/release/bioc/html/DMRcate.html">dmrcate</a> for region-level analysis</li>
+<li>Workflow that combines these: <a href="https://bioconductor.org/packages/methylationArrayAnalysis/">methylationArrayAnalysis</a> - explore in Seminar 7<sup>1</sup></li>
 </ul></li>
 </ul>
-</section>
+<aside><ol class="aside-footnotes"><li id="fn3"><p>Note that this seminar requires installation of a couple of packages that download data and can take some time - please try run the installation step before class time!</p></li></ol></aside></section>
 <section id="example---dna-methylation-in-sorted-t-cells" class="slide level2">
 <h2>Example - DNA Methylation in sorted T cells</h2>
 <p>“Genome-wide DNA methylation analysis identifies hypomethylated genes regulated by FOXP3 in human regulatory T cells” from <a href="https://www.ncbi.nlm.nih.gov/pubmed/23974203">Zhang et al.&nbsp;(2013)</a></p>
@@ -676,7 +634,7 @@ Keegan Korthauer
 <p>Data from <a href="https://www.ncbi.nlm.nih.gov/pubmed/23974203">Zhang et al.&nbsp;(2013)</a></p>
 <ul>
 <li><a href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667">GEO accession GSE49667</a></li>
-<li>Here we use the Bioc objects that were created by <a href="https://f1000research.com/articles/5-1281">these authors</a>, with details described in Seminar 7</li>
+<li>Here we use filtered and normalized Bioc objects that were created by <a href="https://f1000research.com/articles/5-1281">this workflow</a>, with details described in Seminar 7</li>
 </ul>
 <div class="cell">
 <details>
@@ -844,8 +802,6 @@ cg11954957  1.853192  2.494570    2.470994     2.323683</code></pre>
 <section id="differentially-methylated-cytosines-dmc" class="slide level2">
 <h2>Differentially methylated cytosines (DMC)</h2>
 <p>Which cytosines/probes are differentially methylated between naive &amp; activated naive T cells?</p>
-<div class="columns">
-<div class="column">
 <div class="cell">
 <div class="sourceCode cell-code" id="cb18"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1"></a><span class="do">## this is the factor of interest</span></span>
 <span id="cb18-2"><a href="#cb18-2"></a>cellType <span class="ot">&lt;-</span> <span class="fu">factor</span>(targets<span class="sc">$</span>Sample_Group)</span>
@@ -856,26 +812,30 @@ cg11954957  1.853192  2.494570    2.470994     2.323683</code></pre>
 <span id="cb18-7"><a href="#cb18-7"></a><span class="do">## use the above to create a design matrix</span></span>
 <span id="cb18-8"><a href="#cb18-8"></a>design <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>( <span class="sc">~</span> cellType <span class="sc">+</span> individual, </span>
 <span id="cb18-9"><a href="#cb18-9"></a>                       <span class="at">data =</span> targets)</span>
-<span id="cb18-10"><a href="#cb18-10"></a></span>
-<span id="cb18-11"><a href="#cb18-11"></a><span class="co"># rename columns to be more convenient</span></span>
-<span id="cb18-12"><a href="#cb18-12"></a><span class="fu">colnames</span>(design) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">levels</span>(cellType),</span>
-<span id="cb18-13"><a href="#cb18-13"></a>                      <span class="fu">levels</span>(individual)[<span class="sc">-</span><span class="dv">1</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</div><div class="column">
-<div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1"></a>design</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb18-10"><a href="#cb18-10"></a>design</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>   act_naive act_rTreg naive rTreg M29 M30
-1          1         0     1     0   0   0
-2          1         0     0     1   0   0
-3          1         0     0     0   0   0
-4          1         0     1     0   1   0
-5          1         0     0     0   1   0
-6          1         1     0     0   1   0
-7          1         0     1     0   0   1
-8          1         0     0     1   0   1
-9          1         0     0     0   0   1
-10         1         1     0     0   0   1
+<pre><code>   (Intercept) cellTypeact_rTreg cellTypenaive cellTyperTreg individualM29
+1            1                 0             1             0             0
+2            1                 0             0             1             0
+3            1                 0             0             0             0
+4            1                 0             1             0             1
+5            1                 0             0             0             1
+6            1                 1             0             0             1
+7            1                 0             1             0             0
+8            1                 0             0             1             0
+9            1                 0             0             0             0
+10           1                 1             0             0             0
+   individualM30
+1              0
+2              0
+3              0
+4              0
+5              0
+6              0
+7              1
+8              1
+9              1
+10             1
 attr(,"assign")
 [1] 0 1 1 1 2 2
 attr(,"contrasts")
@@ -886,19 +846,17 @@ attr(,"contrasts")$individual
 [1] "contr.treatment"</code></pre>
 </div>
 </div>
-</div>
-</div>
 </section>
 <section id="differential-methylation-limma-on-m-values" class="slide level2">
 <h2>Differential methylation: limma on M-values</h2>
-<p>Here, the reference is <code>act_naive</code> cells</p>
+<p>Here, the reference cell type is <code>act_naive</code> cells</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1"></a><span class="do">## fit the linear model (one for each probe)</span></span>
-<span id="cb21-2"><a href="#cb21-2"></a>mfit <span class="ot">&lt;-</span> <span class="fu">lmFit</span>(mVals, design)</span>
-<span id="cb21-3"><a href="#cb21-3"></a>cfit <span class="ot">&lt;-</span> <span class="fu">eBayes</span>(mfit)</span>
-<span id="cb21-4"><a href="#cb21-4"></a></span>
-<span id="cb21-5"><a href="#cb21-5"></a><span class="do">## look at top DM CpGs between naive and ref (act_naive)</span></span>
-<span id="cb21-6"><a href="#cb21-6"></a><span class="fu">topTable</span>(cfit, <span class="at">coef=</span><span class="st">"naive"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1"></a><span class="do">## fit the linear model (one for each probe)</span></span>
+<span id="cb20-2"><a href="#cb20-2"></a>mfit <span class="ot">&lt;-</span> <span class="fu">lmFit</span>(mVals, design)</span>
+<span id="cb20-3"><a href="#cb20-3"></a>cfit <span class="ot">&lt;-</span> <span class="fu">eBayes</span>(mfit)</span>
+<span id="cb20-4"><a href="#cb20-4"></a></span>
+<span id="cb20-5"><a href="#cb20-5"></a><span class="do">## look at top DM CpGs between naive and ref (act_naive)</span></span>
+<span id="cb20-6"><a href="#cb20-6"></a><span class="fu">topTable</span>(cfit, <span class="at">coef=</span><span class="st">"cellTypenaive"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>               logFC     AveExpr         t      P.Value   adj.P.Val        B
 cg15459165 -3.892074 -1.47895212 -22.09541 1.993958e-08 0.002793543 6.810420
@@ -918,13 +876,17 @@ cg21837189 -3.717982 -1.08764112 -18.00052 9.895908e-08 0.003769603 6.224845</co
 <h2>Summary for all coefficients</h2>
 <p>Significant tests (BH-adjusted p-value less than 0.05) of the null hypotheses: each coefficient equal to zero</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1"></a><span class="do">## look at the numbers of DM CpGs at FDR &lt; 0.05</span></span>
-<span id="cb23-2"><a href="#cb23-2"></a><span class="fu">summary</span>(<span class="fu">decideTests</span>(cfit))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1"></a><span class="do">## look at the numbers of DM CpGs at FDR &lt; 0.05</span></span>
+<span id="cb22-2"><a href="#cb22-2"></a><span class="fu">summary</span>(<span class="fu">decideTests</span>(cfit))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>       act_naive act_rTreg  naive  rTreg    M29    M30
-Down      184747       919    400    827   1367   1245
-NotSig     14791    438440 439291 438570 437499 437716
-Up        240380       559    227    521   1052    957</code></pre>
+<pre><code>       (Intercept) cellTypeact_rTreg cellTypenaive cellTyperTreg individualM29
+Down        184747               919           400           827          1367
+NotSig       14791            438440        439291        438570        437499
+Up          240380               559           227           521          1052
+       individualM30
+Down            1245
+NotSig        437716
+Up               957</code></pre>
 </div>
 </div>
 <p>Note that the first column tests whether the reference group (<code>act_naive</code>) has an M value of zero (not usually of interest)</p>
@@ -932,21 +894,39 @@ Up        240380       559    227    521   1052    957</code></pre>
 <section id="interpretation-of-parameters-and-effect-sizes" class="slide level2">
 <h2>Interpretation of parameters and effect sizes</h2>
 <ul>
-<li>Our previous model gives parameter estimates for differences in M values <span class="math inline">\(\alpha\)</span></li>
-<li>To interpret on the scale of methylation proportions, need to back-transform:
+<li>To interpret parameter estimates from M-values on <span class="math inline">\(\beta\)</span> scale, need to back-transform:
 <ul>
 <li>Recall: <span class="math inline">\(M= log_2\big(\frac{\text{methylated intensity}}{\text{unmethylated intensity}}\big) = log_2(\beta/(1-\beta))\)</span></li>
+<li>Solving for beta gives <span class="math inline">\(\beta = 2^M/(1+2^M)\)</span></li>
 </ul></li>
-<li>Solving for beta gives <span class="math inline">\(\beta = \frac{2^M}{(1+2^M)}\)</span></li>
 </ul>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1"></a>(M <span class="ot">&lt;-</span> cfit<span class="sc">$</span>coefficients[<span class="st">"cg15459165"</span>, <span class="st">"naive"</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1"></a><span class="co"># fitted mean M-value for cg15459165 in ref group:</span></span>
+<span id="cb24-2"><a href="#cb24-2"></a>(M_act_naive <span class="ot">&lt;-</span> cfit<span class="sc">$</span>coefficients[<span class="st">"cg15459165"</span>, <span class="st">"(Intercept)"</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] -3.892074</code></pre>
+<pre><code>[1] 0.4121952</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1"></a><span class="dv">2</span><span class="sc">^</span>M<span class="sc">/</span>(<span class="dv">1</span><span class="sc">+</span><span class="dv">2</span><span class="sc">^</span>M)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1"></a>(M_naive <span class="ot">&lt;-</span> M_act_naive <span class="sc">+</span> cfit<span class="sc">$</span>coefficients[<span class="st">"cg15459165"</span>, <span class="st">"cellTypenaive"</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.06310445</code></pre>
+<pre><code>[1] -3.479879</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1"></a><span class="co"># back transform to beta values</span></span>
+<span id="cb28-2"><a href="#cb28-2"></a>inv_logit <span class="ot">&lt;-</span> <span class="cf">function</span>(x){ <span class="dv">2</span><span class="sc">^</span>x <span class="sc">/</span> (<span class="dv">1</span><span class="sc">+</span><span class="dv">2</span><span class="sc">^</span>x) }</span>
+<span id="cb28-3"><a href="#cb28-3"></a><span class="fu">inv_logit</span>(M_act_naive)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.570946</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1"></a><span class="fu">inv_logit</span>(M_naive)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.08225703</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1"></a><span class="co"># check against observed bVals</span></span>
+<span id="cb32-2"><a href="#cb32-2"></a>bVals[<span class="st">"cg15459165"</span>,]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>     naive.1      rTreg.2  act_naive.3      naive.4  act_naive.5  act_rTreg.6 
+  0.08651224   0.10634331   0.59098726   0.07511364   0.57558765   0.54125444 
+     naive.7      rTreg.8  act_naive.9 act_rTreg.10 
+  0.08156744   0.13179870   0.53288149   0.52037099 </code></pre>
 </div>
 </div>
 </section>
@@ -1040,26 +1020,14 @@ Up        240380       559    227    521   1052    957</code></pre>
 </ul>
 </div>
 </section>
-<section id="binomial-logisitic-regression" class="slide level2">
-<h2>Binomial (Logisitic) regression</h2>
+<section id="binomial-logistic-regression" class="slide level2">
+<h2>Binomial (Logistic) regression</h2>
 <ul>
-<li>Generalized linear model for probability of success <span class="math inline">\(p\)</span>: <span class="math display">\[logit(p)=log\Big(\frac{p}{1-p}\Big) = \boldsymbol{X\beta}\]</span></li>
+<li><p>Generalized linear model for probability of success <span class="math inline">\(p\)</span>: <span class="math display">\[logit(p)=log\Big(\frac{p}{1-p}\Big) = \boldsymbol{X\beta}\]</span></p></li>
+<li><p>Link function <span class="math inline">\(g(p) = log\big(\frac{p}{1-p}\big)\)</span> describes relationship between mean parameter of response and linear predictor</p></li>
+<li><p>No closed form; fit with iterative ML estimation</p></li>
+<li><p>Interpret coefficients on original scale with inverse link function <span class="math inline">\(g^{-1}: p = \frac{e^{\boldsymbol{X\beta}}}{1+e^{\boldsymbol{X\beta}}}\)</span></p></li>
 </ul>
-<div class="fragment">
-<ul>
-<li>Link function <span class="math inline">\(g(p) = log\big(\frac{p}{1-p}\big)\)</span> describes relationship between mean parameter of response and linear predictor</li>
-</ul>
-</div>
-<div class="fragment">
-<ul>
-<li>No closed form; fit with iterative ML estimation</li>
-</ul>
-</div>
-<div class="fragment">
-<ul>
-<li>Interpret coefficients on original scale with inverse link function <span class="math inline">\(g^{-1}: p = \frac{e^{\boldsymbol{X\beta}}}{1+e^{\boldsymbol{X\beta}}}\)</span></li>
-</ul>
-</div>
 <div class="fragment">
 <ul>
 <li>In R: <code>glm(cbind(successes, failures) ~ x, family="binomial")</code></li>
@@ -1069,11 +1037,11 @@ Up        240380       559    227    521   1052    957</code></pre>
 <section id="other-link-functions-for-glm" class="slide level2">
 <h2>Other link functions for GLM</h2>
 
-<img data-src="img/link.jpg" class="r-stretch quarto-figure-center"><p class="caption">Thiele &amp; Markussen 2012 (https://doi.org/10.1079/PAVSNNR20127016)</p></section>
+<img data-src="img/link.jpg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://doi.org/10.1079/PAVSNNR20127016">Thiele &amp; Markussen 2012</a></p></section>
 <section id="why-logit-transformation" class="slide level2">
 <h2>Why logit transformation?</h2>
 
-<img data-src="lect11-epigenetics_files/figure-revealjs/unnamed-chunk-14-1.png" width="672" class="r-stretch quarto-figure-center"><ul>
+<img data-src="lect11-epigenetics_files/figure-revealjs/unnamed-chunk-13-1.png" width="672" class="r-stretch quarto-figure-center"><ul>
 <li>Same idea as M-value (though M-value uses log base 2 instead of natural log by convention):
 <ul>
 <li>Transforms methylation proportions to the real line</li>
@@ -1230,18 +1198,67 @@ Up        240380       559    227    521   1052    957</code></pre>
 <img data-src="img/celltypecomp2.jpg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r31">Jaffe &amp; Irizarry 2014</a></p></section>
 <section id="cell-type-composition-confounding" class="slide level2">
 <h2>Cell type composition confounding</h2>
+
+<img data-src="img/celltypecomp.jpg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://bioconductor.org/packages/methylationArrayAnalysis/">methylationArrayAnalysis workflow</a></p><p>Can estimate cell type composition with models built on purified cell type methylation data (not always available)</p>
+</section>
+<section id="chromatin-immunoprecipitation" class="slide level2">
+<h2>Chromatin Immunoprecipitation</h2>
+
+<img data-src="https://www.researchgate.net/publication/260119313/figure/fig4/AS:380764744110083@1467792797223/ChIP-seq-procedure-for-detecting-sequences-at-the-sites-of-histone-modifications-or-the.png" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://doi.org/10.2144/000114133">image source</a></p></section>
+<section id="open-chromatin-nucleosome-positioning" class="slide level2">
+<h2>Open chromatin &amp; nucleosome positioning</h2>
+
+<img data-src="img/atac.jpeg" class="r-stretch quarto-figure-center"><p class="caption"><a href="https://rockefelleruniversity.github.io/RU_ATAC_Workshop.html">Image source</a></p></section>
+<section id="peak-calling" class="slide level2">
+<h2>Peak calling</h2>
+<ul>
+<li><p>Sequencing after one of these selection/digestion techniques (IP, DNase, MNase, transposase) generally requires a peak-finding analysis</p></li>
+<li><p>One of the most widely used methods is <a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2008-9-9-r137">MACS2</a>:</p></li>
+</ul>
+
+<img data-src="img/macs.png" class="r-stretch quarto-figure-center"><p class="caption">MACS2</p></section>
+<section id="macs2-overview" class="slide level2">
+<h2>MACS2 overview</h2>
+<div class="columns">
+<div class="column">
+<ul>
+<li>Shift reads to remove strand asymmetry: estimate <span class="math inline">\(d\)</span> from 1,000 regions</li>
+</ul>
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="img/celltypecomp.jpg"></p>
-<p></p><figcaption><a href="https://bioconductor.org/packages/methylationArrayAnalysis/">methylationArrayAnalysis workflow</a></figcaption><p></p>
+<p><img data-src="https://hbctraining.github.io/Intro-to-ChIPseq/img/plos_chipseq_arrow.png"></p>
+<p></p><figcaption><a href="https://hbctraining.github.io/Intro-to-ChIPseq">images source</a></figcaption><p></p>
 </figure>
 </div>
-<p>Can estimate cell type composition with models built on purified cell type methylation data (not always available)</p>
+</div><div class="column">
+<ul>
+<li>Let <span class="math inline">\(\lambda_{BG}\)</span> be the expected number of reads in each window</li>
+<li>Let <span class="math inline">\(\lambda_{local} = max(\lambda_{BG}, \lambda_{1K}, \lambda_{5K}, \lambda_{10K})\)</span> be the expected number of reads in a window</li>
+<li>P-value for <span class="math inline">\(k\)</span> observed reads = <span class="math inline">\(e^{-\lambda_{local}} \sum_{i=0}^k \frac{\lambda_{local}^i}{i!}\)</span></li>
+</ul>
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="https://hbctraining.github.io/Intro-to-ChIPseq/img/lambda.png"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="post-peak-calling" class="slide level2">
+<h2>Post peak-calling</h2>
+<p>Depending on the type of experiment and the hypotheses, next steps may include (but not limited to):</p>
+<ul>
+<li><a href="http://bioconductor.org/packages/release/bioc/vignettes/ChIPseeker/inst/doc/ChIPseeker.html">annotating peaks with genomic context</a></li>
+<li><a href="https://www.bioconductor.org/packages/release/workflows/html/chipseqDB.html">differential binding analysis</a></li>
+<li>enrichment analysis<sup>1</sup></li>
+<li><a href="https://www.bioconductor.org/packages/release/workflows/html/generegulation.html">motif analysis</a></li>
+<li>integration with other measurements (e.g.&nbsp;expression)</li>
+</ul>
 <p><img src="https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png" class="slide-logo"></p>
 <div class="footer footer-default">
 
 </div>
-</section>
+<aside><ol class="aside-footnotes"><li id="fn4"><p>we’ll discuss next lecture</p></li></ol></aside></section>
 
     </div>
   </div>
