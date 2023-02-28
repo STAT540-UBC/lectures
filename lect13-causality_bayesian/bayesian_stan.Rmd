@@ -86,26 +86,86 @@ A **Frequentist** Question/Approach:
 
     - p-value of some hypothesis test (rejecting the null)
 
-## A Bayesian way to know about the "how confident" question
 
-A Bayesian never wants to give a point estimate, particular $\hat{\mu}$ and $\hat{\gamma}$ values.
-Instead:
+## Slightly different world views: Frequentist vs. Bayesian
+
+:::::: {.columns}
+::: {.column width=.5}
+
+### Frequentist inference
+
+* If $n \to \infty$, how confident are you about the estimated parameter $\hat{\theta}$?
+
+* Will a true parameter $\theta$ (theoretical quantity) be consistently captured around a confidence interval around the estimated parameter $\hat{\theta}$?
+
+* If so, how "frequently" the constructed CI will include the true parameter as $n \to \infty$? 
+
+:::
+::: {.column width=.5}
+
+
+### Bayesian inference
+
+* Given the data observed ($n < \infty$), what is the distribution of the unknown parameter?
+
+* What was the underlying generative model?
+
+* Can we take into account uncertainty across multiple types of models?
+
+* How likely is this new observation $x^\star$ given the other observed data points?
+
+:::
+::::::
+
+\vfill
+
+
+:::::: {.columns}
+::: {.column width=.5}
+
+$$p\left(\theta \in (\hat{\theta}_{n} - 2\hat{\textsf{se}}_{n}, \hat{\theta}_{n} + 2\hat{\textsf{se}}_{n}) \right)$$
+
+
+:::
+::: {.column width=.5}
+
+$$p\left(\theta | \{i \in [n]:\, x_{i}\} \right)$$
+
+:::
+::::::
+
+
+
+## A Bayesian way to know about the "how confident" question (given data)
 
 - **Given** data $\{x_{i}\}$, what is the probability of the parameters (posterior probability)?
 
 $$p(\underbrace{ \mu, \gamma }_{\color{red} \textsf{unknown parameter}} | \underbrace{ \{x_{i}\} }_{\color{teal} \textsf{data}})$$
 
 
-- **Eventually** we also want to predict future outcomes (posterior prediction),
+- Eventually we also want to **predict** future outcomes (posterior prediction),
 
-$$p({\color{magenta} \underbrace{x^{\star}}_{\textsf{future}}} | {\color{teal} \underbrace{\{x_{i}\}}_{\textsf{data}}})  = \int d\mu\, d\gamma\, p( \underbrace{ {\color{magenta} x}^{\star} }_{\textsf{new observation} } \, | \underbrace{ \mu,\gamma) \, \, p(\mu, \gamma}_{\textsf{averaging over uncertainty}} \, |  \underbrace{ {\color{teal} \{x_{i}\}} }_{\textsf{training data}} ) $$
+\only<1>{
+$$p({\color{magenta} \underbrace{x^{\star}}_{\textsf{future}}} | {\color{teal} \underbrace{\{x_{i}\}}_{\textsf{data}}})  = \int d\mu\, d\gamma\, 
+\overbrace{
+p( \underbrace{ {\color{magenta} x}^{\star} }_{\textsf{new observation} } \, | \mu,\gamma) 
+}^{\textsf{data generating}}
+\, \, 
+\overbrace{
+p(\mu, \gamma \, |  \underbrace{ {\color{teal} \{x_{i}\}} }_{\textsf{training data}} )
+}^{\textsf{posterior probability}}$$
+}
 
-- Moreover, we want to find a better model comparing the model evidence:
+\only<2>{
+$$p({\color{magenta} \underbrace{x^{\star}}_{\textsf{future}}} | {\color{teal} \underbrace{\{x_{i}\}}_{\textsf{data}}})  = \int d\mu\, d\gamma\, p( {\color{magenta} x}^{\star}  \, | \underbrace{ \mu,\gamma) \, \, p(\mu, \gamma}_{\textsf{averaging over uncertainty}} \, |  {\color{teal} \{x_{i}\}} )$$
+}
+
+- Moreover, we want to find a better model **comparing** the model evidence:
 
 $$p(\textsf{data}\,|\,\textsf{model 1}) \, \textsf{vs.} \, p(\textsf{data}\,|\,\textsf{model 2})$$
 
 
-## _Side note:_ Bayesian inference often involves heavy math/computational work
+## _Side note:_ Bayesian inference often involves heavy computational work
 
 In the order of "easiness" in statistical learning (generally):
 
@@ -156,7 +216,11 @@ In our example:
 ## Markov Chain Monte Carlo (MCMC) simulations **infer** the distributing of unknown parameters
 
 
-Show PGM and
+Show PGM
+
+* Where is Markov Chain? 
+
+* Why is it Monte Carlo?
 
 
 ## `stan`: A good news! All you need is to complete the model description!
@@ -374,9 +438,24 @@ y <- round(exp(X[, 1:p] %*% theta + rnorm(n) * sigma))
 ## Can you draw the corresponding probabilistic graphical model?
 
 
-$$\beta_{j} \sim \mathcal{N}\!\left(0, 1\right)$$
+:::::: {.columns}
+::: {.column width=.5}
 
-$$\beta_{j} \sim \mathcal{N}\!\left(0, 1\right)$$
+$$\alpha, \beta_{j} \sim \mathcal{N}\!\left(0, 1\right)$$
+
+$$\phi \sim \operatorname{Gamma}(1, 1)$$
+
+$$\lambda_{i} | \phi \sim \operatorname{Gamma}(\phi, 1)$$
+
+$$\eta_{i} \gets \mathbf{x}_{i} \boldsymbol{\beta} + \alpha$$
+
+$$Y_{i} | \eta_{i}, \lambda_{i} \sim \operatorname{Poisson}(\lambda_{i} \exp(\eta_{i}))$$
+
+:::
+::: {.column width=.5}
+
+:::
+::::::
 
 
 ## Let's write out a Poisson regression generative model

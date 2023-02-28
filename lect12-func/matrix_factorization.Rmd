@@ -515,10 +515,21 @@ $$\hat{\Sigma}\mathbf{u} = \lambda \mathbf{u}$$
 
 *Why are they equivalent?* Solving the PCA problem is 
 
-$$\iff \max \underbrace{\mathbf{u}^{\top}\hat{\Sigma}\mathbf{u}}_{\textsf{total variation}} + \underbrace{\lambda\left(1 - \mathbf{u}^{\top}\mathbf{u}\right)}_{\textsf{constraint}},\,\lambda >0\,\quad\textsf{a.k.a. Lagrangian}$$
+$$\iff \max \underbrace{\mathbf{u}^{\top}\hat{\Sigma}\mathbf{u}}_{\textsf{total variation}} + \underbrace{\lambda\left( 1 - \mathbf{u}^{\top}\mathbf{u}\right) }_{\textsf{constraint}},\,\lambda >0\,\quad\textsf{a.k.a. Lagrangian}$$
 
 Taking the derivative with respect to $\mathbf{u}$ and setting it to zero, we get the eigen-value problem.
 
+{\Large
+\begin{eqnarray*}
+\onslide<2->{
+\nabla_{\mathbf{u}} &=& 2 \hat{\Sigma} \mathbf{u} - 2\lambda \mathbf{u} = 0\\
+}
+\onslide<3>{
+\hat{\Sigma} \mathbf{u} &=& \lambda \mathbf{u}
+}
+\end{eqnarray*}
+
+}
 
 ## Let's see how much the first eigenvector can explain
 
@@ -849,8 +860,8 @@ wrap_plots(p.eq, p0, p1, p.prod, p2, p.prod, p3,
 
 $$\hat{\Sigma} = X^{\top}X/(m-1)$$
 
-```{r fig.width=2, fig.height=2}
-.matshow(cov(x.sub), .lab = 0) + ggtitle("sample x sample covariance")
+```{r fig.width=2.5, fig.height=2.5}
+.matshow(cov(x.sub), .lab = 0)
 ```
 
 ## Principal components decompose the covariance matrix
@@ -989,7 +1000,7 @@ abline(a=0, b=1, col=2)
 
 ## What is NMF? How can we find NMF solutions?
 
-For each **non-negative** element $X_{ij} $of a matrix, we want to find non-negative $U$ and $V$ (factors and factor-loading values):
+For each **non-negative** element $X_{ij}$ of a matrix, we want to find non-negative $U$ and $V$ (factors and factor-loading values):
 
 $$X_{ij} \approx \sum_{k=1}^{K} U_{ik} V_{kj}$$
 
