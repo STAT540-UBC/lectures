@@ -15,13 +15,12 @@ setup.env(fig.dir, .echo=TRUE)
 dir.create("Data", showWarnings=FALSE)
 ```
 
-
 ## What is Gene Set Analysis?
 
 :::::: {.columns}
 ::: {.column width=.45}
 
-## (Discrete) Gene Set Analysis
+### (Discrete) Gene Set Analysis
 
 **Input:**
 
@@ -32,8 +31,7 @@ dir.create("Data", showWarnings=FALSE)
 :::
 ::: {.column width=.45}
 
-
-## (Rank-based) Gene Set Enrichment
+### (Rank-based) Gene Set Enrichment
 
 **Input:**
 
@@ -88,7 +86,7 @@ knitr::include_graphics("./Vis/geneset_5.pdf")
 :::
 ::: {.column width=.35}
 
-## What are the numbers to count?
+### What are the numbers to count?
 
 * $N$: \# genes in this universe
 
@@ -146,7 +144,7 @@ Questions:
 
 * Is it surprising enough that we recapitulated 6/9 (~`r round(6/9*100)` %)?
 
-* What is null distribution?
+* What is the null distribution?
 
 * What is the generative/simulation scheme?
 
@@ -165,7 +163,9 @@ knitr::include_graphics("./Vis/geneset_5.pdf")
 :::
 ::: {.column width=.45}
 
-## Under null of hypergeometric distribution
+### Under the null of hypergeometric distribution
+
+\Large
 
 1. Sample $k$ DEGs out of $N$ genes
 
@@ -176,27 +176,55 @@ knitr::include_graphics("./Vis/geneset_5.pdf")
 :::
 ::::::
 
-## *Review of binomial coefficient*: Let's see if we can estimate null distribution by counting
+## *Binomial coefficient*: Let's see if we can estimate the null distribution by counting
+
+\Large
 
 * How many all possible ways to select $k=8$ out of $N=24$ genes, ignoring the order of $k$ selected genes and $N-k$ *not* selected genes?
 
 * We can think of this as three steps: (1) enumerating $N$ genes, (2) partition them into the first $k$ genes and the rest, (3) ignore the order within each partition.
 
 $${24 \choose 8} = \frac{
+\onslide<1->{\color{teal}
 	\textsf{\{all possible ways to enumerate }24 \textsf{ genes}\}
+}
 	}{
+\onslide<2->{\color{magenta}
 		\{ \textsf{enumerating }8 \textsf{ genes} \}
+}
+\onslide<3->{\color{blue}
 		\{ \textsf{enumerating }16 \textsf{ genes} \}
 }
-= \frac{24!}{8! 16!}$$
+}
+= \frac{
+\onslide<1->{\color{teal}
+24!
+}
+}{
+\onslide<2->{\color{magenta}
+8! 
+}
+\onslide<3->{\color{blue}
+16!
+}
+}$$
+
+\vfill
+
+\normalsize
+
+Okay, using binomial coefficient, let's count the numbers.
 
 ## Hypergeometric distribution
 
-1. What is the probability of selecting $k$ DEGs out of $N$ genes?
+\Large
+\begin{itemize}
+\item<1-> What is the probability of uniformly selecting $k$ DEGs out of $N$ genes? ${N \choose k}^{-1}$
+\item<2-> How many possible ways of finding $q$ DEGs overlapping with $m$ genes in the gene set? ${m \choose q}$
+\item<3-> How many possible ways of finding the rest $k-q$ DEGs overlapping with ($N-m=n$) genes in the gene set? ${N-m \choose k-q}$
+\end{itemize}
 
-2. How many possible ways of finding $q$ DEGs overlapping with $m$ genes in the gene set?
-
-3. How many possible ways of finding the rest $k-q$ DEGs overlapping with ($N-m=n$) genes in the gene set?
+\normalsize
 
 ## Hypergeometric distribution
 
@@ -211,8 +239,8 @@ $${24 \choose 8} = \frac{
 {\color{magenta}
 \begin{array}{l}
   \textsf{the probability} \\
-  \textsf{of having a set w/size }k \\
-  \textsf{out of }N
+  \textsf{of choosing a set size }k \\
+  \textsf{out of total }N
 \end{array}} \\
 &=&
 \onslide<2->{
@@ -242,32 +270,53 @@ q\, \textsf{ overlap out of }m
 :::::: {.columns}
 ::: {.column width=.45}
 
+### Hypergenometric PMF
 
-## Hypergenometric PMF
+\Large
 
 $$p(x|N,m,k) = \frac{{m \choose x} {N - m \choose k-x}}{{N \choose k}}$$
 
 :::
 ::: {.column width=.45}
 
-## Hypergeometric CDF
+### Hypergeometric CDF
+
+\Large
 
 $$p(q|N,m,k) = \sum_{x = 0}^{q} \frac{{m \choose x} {N - m \choose k-x}}{{N \choose k}}$$
 
 :::
 ::::::
 
+\normalsize
+
 ## Hypergeometric test for testing significant overlap
 
-$$H_{0}:\, x \le q \quad \textsf{vs.} H_{1}:\, x > q$$
+\Large
+
+$$H_{0}:\, x \le q \quad \textsf{vs.} \quad H_{1}:\, x > q$$
+
+\normalsize
 
 We may observe overlap $q$ genes by random sampling of $k$ genes **without** replacement.
 
 Therefore, we can calculate the p-value:
 
+\only<1>{
+What is the definition of p-value?
+}
+
+\only<2->{
+
+\Large
+
 $$P(x > q|n, m, k) = 1 - \sum_{x = 0}^{q} \frac{{m \choose x } {n \choose k-x}}{{n+m \choose k}}$$
 
-```{r}
+\normalsize
+
+}
+
+```{r size="large"}
 phyper(q=6, m=9, n=15, k=8, lower.tail=FALSE)
 ```
 
@@ -383,8 +432,9 @@ plot.hyper.cutoff()
 ::::::
 
 
-
 ## Rank-based Gene Set Enrichment Analysis method (Subramanian _et al._ 2005)
+
+\Large
 
 - A collection of gene-sets: $\mathcal{C}_{1}, \ldots, \mathcal{C}_{K}$
 
@@ -392,11 +442,21 @@ plot.hyper.cutoff()
 
 - Each $z_{g}$ could come from differential expression analysis
 
+\normalsize
+
 ## GSEA algorithm
 
-- For each $k$, compute a set-level score $S_{k}(\mathbf{z},\mathcal{C}_{k})$
+\Large
 
-- E.g., Kolmogorov-Smirnov statistic comparing the distribution $\{z_{g}:\,g \in \mathcal{C}_{k}\}$ vs.  $\{z_{g}:\,g \notin \mathcal{C}_{k}\}$
+- For each $k$
+
+    - Compute a set-level score $S_{k}(\mathbf{z},\mathcal{C}_{k})$
+
+    - E.g., Kolmogorov-Smirnov statistic comparing
+	
+$$\{z_{g}:\,g \in \mathcal{C}_{k}\} \, \textsf{vs.} \, \{z_{g}:\,g \notin \mathcal{C}_{k}\}$$
+
+\normalsize
 
 
 ## Gene Set Enrichment Analysis method (Subramanian _et al._ 2005)
@@ -497,9 +557,8 @@ run.t.test <- function(X, Y){
 ::::::
 
 
-## What will be a proper gene set score?
+## The goal is to come up with a representative score for all the genes within each set
 
-Gene-level scores across gene sets:
 
 ```{r echo=FALSE, fig.width=6, fig.height=2}
 zz <-
@@ -522,15 +581,20 @@ zz <-
 
 ## What will be a proper gene set score?
 
+\Large
+
 Can we simply aggregate gene-level z-scores (or t-statistics) within each set?
 
 ::: {.block}
 
-## Irizarry _et al._ (2009), using Stouffer Z-score
+### Irizarry _et al._ (2009), using Stouffer Z-score
 
 $$S_{k} = \sum_{g \in \mathcal{C}_{k}} z_{g} /  \sqrt{|\mathcal{C}_{k}|} \sim \mathcal{N}\!\left(0, 1\right)$$
 if $Z_{g} \sim \mathcal{N}\!\left(0,1\right),\,\forall g$ 
+
 :::
+
+## Aggregating z-scores within a set to have one number for the set
 
 :::::: {.columns}
 ::: {.column width=.4}
@@ -597,26 +661,28 @@ z.sets <- geneset.score(dat$X, dat$S, dat$Y)
 :::
 ::::::
 
-## Constructing null distribution by gene permutation
+## Constructing the null distribution by gene permutation
 
 What if we don't know the distribution of set-wise scores?
 
 :::::: {.columns}
 ::: {.column width=.55}
 
-```{r}
+```{r size="large"}
 S.perm <- t(apply(dat$S, 1, sample))
 z.perm <- geneset.score(dat$X, S.perm, dat$Y)
 ```
 
-```{r fig.width=3.2, fig.height=2, echo=FALSE}
+```{r fig.width=3.2, fig.height=2, echo=FALSE, onslide.plot="2"}
 .qq.norm(z.perm, "permuted\nz-scores") | .pv.plot(z.perm)
 ```
 
 :::
 ::: {.column width=.45}
 
-* Repeat the permutation of gene set membership matrix while
+How it goes:
+
+* Repeatedly permuting gene set membership matrix while
   preserving the number of genes within each set
 
 * Compute set-level z-scores (or a similar kind) and construct null
@@ -627,7 +693,7 @@ z.perm <- geneset.score(dat$X, S.perm, dat$Y)
 :::
 ::::::
 
-## Constructing null distribution by sample permutation
+## Constructing the null distribution by sample permutation
 
 :::::: {.columns}
 ::: {.column width=.55}
@@ -654,3 +720,6 @@ z.perm <- geneset.score(dat$X, S.perm, Y.perm)
 
 :::
 ::::::
+
+## There is a smart way to permute genes/samples
+
