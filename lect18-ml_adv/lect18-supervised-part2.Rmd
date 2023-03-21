@@ -1489,7 +1489,7 @@ $$
 
 ## Challenges in a $p \gg n$ regression problem in genomics
 
-```{r echo = FALSE}
+```{r include = FALSE}
 dir.create("Data/genotype/", recursive=TRUE, showWarnings=FALSE)
 genotype.file <- "Data/genotype.rds"
 
@@ -2049,7 +2049,17 @@ susie.out <- susie(X, y)
 
 \vfill
 
-Wang .. Stephens (2020)
+\large
+$$\mathbf{y} = \sum_{l=1}^{L} \underbrace{ \sum_{j} \mathbf{x}_{j} 
+    \overset{\textsf{\color{magenta}probabilistic selection}}{\alpha_{j}} 
+	\overset{\textsf{\color{teal} single variant effect}}{\beta_{j}} }_{\textsf{layer-by-layer}}  + \boldsymbol{\epsilon}$$
+
+\normalsize
+where $\sum_{j=1}^{p} \alpha_{j} = 1$.
+
+\vfill
+
+Wang .. Stephens, _Journal of the Royal Statistical Society_ (2020)
 
 ## SuSiE identifies top causal variants
 
@@ -2057,6 +2067,7 @@ Wang .. Stephens (2020)
 susie.dt <- 
     data.table(pip = susie_get_pip(susie.out)) %>%
     mutate(i = 1:n()) %>% 
+    left_join(univar.dt) %>%
     mutate(l = as.integer(i %in% sim$causal)) %>%
     arrange(desc(pip)) %>%
     mutate(susie = 1:n())
@@ -2075,19 +2086,40 @@ susie.dt <-
 
 ## SuSiE can avoid the col-linearity problem
 
-```{r fig.width=5, fig.height=3, echo = FALSE}
+```{r fig.width=5, fig.height=2, echo = FALSE, only.plot="1"}
 logit <- function(x) log(x) - log(1-x)
 sigmoid <- function(x) 1/(1+exp(-x))
 
 .aes <- aes(i, logit(pmin(pmax(pip,1e-2),1-1e-2)), fill=as.factor(l))
 
-.gg.plot(susie.dt[order(`pip`)], .aes) +
+p1 <-
+    .gg.plot(susie.dt[order(`pip`)], .aes) +
     theme(legend.position = c(1,1)) +
     theme(legend.justification = c(1,1)) +
     xlab("variables (along genomic axis)") +
     scale_y_continuous("posterior probability", labels=function(x) round(sigmoid(x),2)) +
+    geom_vline(data=susie.dt[pip > .5], aes(xintercept=i), lty=2, size=.5, color=3) +
     geom_point(pch=21, stroke=0) +
     geom_hline(yintercept = 0, color="black", lty = 2, size = .2) +
     scale_fill_manual("causal", values=c("gray", "red"))
+p1
+```
+
+```{r fig.width=5, fig.height=3, echo = FALSE, only.plot="2"}
+p2 <-
+    .gg.plot(susie.dt[order(`l`)], aes(i, -log10(pval), fill = as.factor(l))) +
+    geom_vline(data=susie.dt[pip > .5], aes(xintercept=i), lty=2, size=.5, color=3) +
+    geom_point(pch=21) +
+    scale_fill_manual("causal", values=c("gray", "red"), guide=FALSE) +
+    xlab("variables (along genomic axis)")
+p1/p2
+```
+
+```{r fig.width=6, fig.height=3.5, echo = FALSE, only.plot="3"}
+susie_plot(susie.out, y = "PIP", add_bar = TRUE, add_legend = TRUE)
+```
+
+```{r fig.width=6, fig.height=3.5, echo = FALSE, only.plot="4"}
+susie_plot(susie.out, y = "log10PIP", add_legend = TRUE)
 ```
 
