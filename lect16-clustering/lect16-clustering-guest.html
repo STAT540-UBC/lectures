@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<script src="lec14-clustering-guest_files/libs/clipboard/clipboard.min.js"></script>
-<script src="lec14-clustering-guest_files/libs/quarto-html/tabby.min.js"></script>
-<script src="lec14-clustering-guest_files/libs/quarto-html/popper.min.js"></script>
-<script src="lec14-clustering-guest_files/libs/quarto-html/tippy.umd.min.js"></script>
-<link href="lec14-clustering-guest_files/libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="lec14-clustering-guest_files/libs/quarto-html/quarto-html.min.css" rel="stylesheet" data-mode="light">
-<link href="lec14-clustering-guest_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
-  <meta name="generator" content="quarto-1.2.269">
+<script src="lect16-clustering-guest_files/libs/clipboard/clipboard.min.js"></script>
+<script src="lect16-clustering-guest_files/libs/quarto-html/tabby.min.js"></script>
+<script src="lect16-clustering-guest_files/libs/quarto-html/popper.min.js"></script>
+<script src="lect16-clustering-guest_files/libs/quarto-html/tippy.umd.min.js"></script>
+<link href="lect16-clustering-guest_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="lect16-clustering-guest_files/libs/quarto-html/quarto-html.min.css" rel="stylesheet" data-mode="light">
+<link href="lect16-clustering-guest_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles"><meta charset="utf-8">
+  <meta name="generator" content="quarto-1.2.313">
 
   <meta name="author" content="Lucy Gao (w/ slide support from Keegan)">
   <meta name="dcterms.date" content="2023-03-14">
@@ -15,8 +15,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
-  <link rel="stylesheet" href="lec14-clustering-guest_files/libs/revealjs/dist/reset.css">
-  <link rel="stylesheet" href="lec14-clustering-guest_files/libs/revealjs/dist/reveal.css">
+  <link rel="stylesheet" href="lect16-clustering-guest_files/libs/revealjs/dist/reset.css">
+  <link rel="stylesheet" href="lect16-clustering-guest_files/libs/revealjs/dist/reveal.css">
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -30,13 +30,13 @@
       vertical-align: middle;
     }
   </style>
-  <link rel="stylesheet" href="lec14-clustering-guest_files/libs/revealjs/dist/theme/quarto.css" id="theme">
-  <link href="lec14-clustering-guest_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.css" rel="stylesheet">
-  <link href="lec14-clustering-guest_files/libs/revealjs/plugin/reveal-menu/menu.css" rel="stylesheet">
-  <link href="lec14-clustering-guest_files/libs/revealjs/plugin/reveal-menu/quarto-menu.css" rel="stylesheet">
-  <link href="lec14-clustering-guest_files/libs/revealjs/plugin/reveal-chalkboard/font-awesome/css/all.css" rel="stylesheet">
-  <link href="lec14-clustering-guest_files/libs/revealjs/plugin/reveal-chalkboard/style.css" rel="stylesheet">
-  <link href="lec14-clustering-guest_files/libs/revealjs/plugin/quarto-support/footer.css" rel="stylesheet">
+  <link rel="stylesheet" href="lect16-clustering-guest_files/libs/revealjs/dist/theme/quarto.css" id="theme">
+  <link href="lect16-clustering-guest_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.css" rel="stylesheet">
+  <link href="lect16-clustering-guest_files/libs/revealjs/plugin/reveal-menu/menu.css" rel="stylesheet">
+  <link href="lect16-clustering-guest_files/libs/revealjs/plugin/reveal-menu/quarto-menu.css" rel="stylesheet">
+  <link href="lect16-clustering-guest_files/libs/revealjs/plugin/reveal-chalkboard/font-awesome/css/all.css" rel="stylesheet">
+  <link href="lect16-clustering-guest_files/libs/revealjs/plugin/reveal-chalkboard/style.css" rel="stylesheet">
+  <link href="lect16-clustering-guest_files/libs/revealjs/plugin/quarto-support/footer.css" rel="stylesheet">
   <style type="text/css">
 
   .callout {
@@ -370,7 +370,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-3-1.png" width="384"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-3-1.png" width="384"></p>
 </figure>
 </div>
 </div>
@@ -396,7 +396,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-4-1.png" width="384"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-4-1.png" width="384"></p>
 </figure>
 </div>
 </div>
@@ -426,7 +426,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-5-1.png" width="384"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-5-1.png" width="384"></p>
 </figure>
 </div>
 </div>
@@ -506,7 +506,7 @@ Lucy Gao (w/ slide support from Keegan)
 <p><span class="math display">\[r_{\boldsymbol{x}_1, \boldsymbol{x}_{2}} = Cor(\boldsymbol{x}_1, \boldsymbol{x}_{2}) = \frac{Cov(\boldsymbol{x}_1, \boldsymbol{x}_{2})}{\sqrt{Var(\boldsymbol{x}_1)Var(\boldsymbol{x}_{2})}}\]</span></p>
 <p>In the plot below, attribute vectors 1 and 2 have large Pearson similarity (they “move together”)</p>
 
-<img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-8-1.png" width="960" class="r-stretch quarto-figure-center"></section>
+<img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-8-1.png" width="960" class="r-stretch quarto-figure-center"></section>
 <section id="euclidean-distance-and-pearson-similarity-for-standardized-attributes" class="slide level2">
 <h2>Euclidean distance and Pearson similarity for standardized attributes</h2>
 <p>If attribute vectors are <strong>standardized</strong> (centre and scaled), then:</p>
@@ -523,7 +523,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-9-1.png" width="384"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-9-1.png" width="384"></p>
 </figure>
 </div>
 </div>
@@ -534,7 +534,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-10-1.png" width="441"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-10-1.png" width="441"></p>
 </figure>
 </div>
 </div>
@@ -638,13 +638,13 @@ Lucy Gao (w/ slide support from Keegan)
 <h3 id="there-might-be-very-little-heterogeneity-in-the-data">There might be very little heterogeneity in the data</h3>
 <p>2D toy example: clustering pure noise samples</p>
 
-<img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-14-1.png" width="960" class="r-stretch quarto-figure-center"></section>
+<img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-14-1.png" width="960" class="r-stretch quarto-figure-center"></section>
 <section id="if-there-is-heterogeneity-in-the-data" class="slide level2">
 <h2>If there is heterogeneity in the data:</h2>
 <h3 id="subgroups-might-not-be-the-best-explanation-for-it">Subgroups might not be the best explanation for it</h3>
 <p>2D toy example: clustering samples from a simple linear model</p>
 
-<img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-15-1.png" width="960" class="r-stretch quarto-figure-center"></section>
+<img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-15-1.png" width="960" class="r-stretch quarto-figure-center"></section>
 <section id="even-if-subgroups-are-a-good-explanation" class="slide level2">
 <h2>Even if subgroups are a good explanation:</h2>
 <h3 id="our-definition-of-similarity-could-be-problematic">Our definition of similarity could be problematic</h3>
@@ -785,7 +785,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-22-1.png" width="960"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-22-1.png" width="960"></p>
 </figure>
 </div>
 </div>
@@ -970,7 +970,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-26-1.png" width="960"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-26-1.png" width="960"></p>
 </figure>
 </div>
 </div>
@@ -994,7 +994,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-27-1.png" width="960"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-27-1.png" width="960"></p>
 </figure>
 </div>
 </div>
@@ -1026,7 +1026,7 @@ Lucy Gao (w/ slide support from Keegan)
 </div>
 </div>
 
-<img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-28-1.png" width="1344" class="r-stretch quarto-figure-center"></section>
+<img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-28-1.png" width="1344" class="r-stretch quarto-figure-center"></section>
 <section id="an-extreme-exception-where-theres-no-problem" class="slide level2">
 <h2>An extreme exception where there’s no problem</h2>
 <div class="columns">
@@ -1035,7 +1035,7 @@ Lucy Gao (w/ slide support from Keegan)
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lec14-clustering-guest_files/figure-revealjs/unnamed-chunk-29-1.png" width="960"></p>
+<p><img data-src="lect16-clustering-guest_files/figure-revealjs/unnamed-chunk-29-1.png" width="960"></p>
 </figure>
 </div>
 </div>
@@ -1086,20 +1086,20 @@ Lucy Gao (w/ slide support from Keegan)
   </div>
 
   <script>window.backupDefine = window.define; window.define = undefined;</script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/dist/reveal.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/dist/reveal.js"></script>
   <!-- reveal.js plugins -->
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/pdf-export/pdfexport.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/reveal-menu/menu.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/reveal-menu/quarto-menu.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/reveal-chalkboard/plugin.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/quarto-support/support.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/quarto-line-highlight/line-highlight.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/pdf-export/pdfexport.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/reveal-menu/menu.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/reveal-menu/quarto-menu.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/reveal-chalkboard/plugin.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/quarto-support/support.js"></script>
   
 
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/notes/notes.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/search/search.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/zoom/zoom.js"></script>
-  <script src="lec14-clustering-guest_files/libs/revealjs/plugin/math/math.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/notes/notes.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/search/search.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/zoom/zoom.js"></script>
+  <script src="lect16-clustering-guest_files/libs/revealjs/plugin/math/math.js"></script>
   <script>window.define = window.backupDefine; window.backupDefine = undefined;</script>
 
   <script>
