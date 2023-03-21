@@ -1,0 +1,1067 @@
+---
+title: "Unsupervised learning in biological data analysis: clustering"
+title-slide-attributes:
+  data-background-color: "#197aa0"
+  data-background-opacity: "0.9"
+  data-background-image: "https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png"
+  data-background-size: 12%
+  data-background-position: 95% 90%
+author: "Lucy Gao (w/ slide support from Keegan)"
+date: "14 March 2023"
+date-format: long
+format: 
+  revealjs:
+    chalkboard: true
+    slide-number: c/t
+    width: 1600
+    height: 900
+    logo: "https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png"
+    echo: true
+    theme: [default, custom.scss]
+    show-notes: false
+---
+
+## Hello! 
+
+```{r, echo = FALSE, fig.align='center', out.width = 300}
+knitr::include_graphics("img/me.jpeg")
+```
+
+- My background: biostatistics by way of math/stats
+- Unsupervised learning researcher since 2015 (has involved lots of clustering ...)
+
+
+
+## Learning objectives 
+
+::: {.incremental}
+
+- Understand the unsupervised learning setting 
+ 
+- Understand why clustering is powerful, but hard to apply in biological data analysis
+
+- Understand high-level principles behind two well-known clustering algorithms: 
+     + k-means clustering
+     + hierarchical clustering 
+   
+- Understand the challenges of doing statistical inference downstream of clustering
+
+:::
+
+## Unsupervised learning data setting 
+
+:::: {.columns}
+
+::: {.column width="50%"}
+
+```{r, include=FALSE} 
+library(ISLR2)
+library(ggplot2)
+library(pheatmap)
+
+bcols<-colorRampPalette(c("#000000" ,"#800000" ,"#FF8000" ,"#FFFF00", "#FFFFFF"))(20)
+
+nci.labs <- NCI60$labs
+nci.data <- t(NCI60$data)
+```
+
+```{r, echo = FALSE,  fig.align='center', fig.width = 4, fig.height = 5.5}
+set.seed(1) 
+
+x <- nci.data[sample(seq_len(nrow(nci.data)), 200), ]
+
+hm <- pheatmap(x,
+         color = bcols,
+         border_color = NA,
+         cluster_cols = FALSE, cluster_rows = FALSE,
+         show_rownames = FALSE,
+         show_colnames = FALSE)
+hm
+```
+
+NCI-60 Human Tumour Cell Lines  microarray data   (~7000 genes, only 100 visualized)   
+
+::: 
+
+::: {.column width="50%"}
+
+<br>
+
+::: {.incremental}
+- We have access to $m$ features $X_1, \ldots, X_m$ measured on $n$ samples
+- Represent as a matrix $X$ with $m$ rows (number of features) and $n$ columns (number of samples)
+- **IMPORTANTLY**: we don't have access to *anything* other than this data matrix 
+::: 
+
+:::
+
+::::
+
+## What we can't do in the unsupervised data setting 
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```{r, echo = FALSE,  fig.align='center', fig.width = 4, fig.height = 5.5}
+hm
+```
+
+NCI-60 Human Tumour Cell Lines  microarray data   (~7000 genes, only 200 visualized)   
+
+:::
+
+
+
+::: {.column width="50%"}
+
+::: {.incremental}
+- We don't know the experiment design, sample phenotype, batch, etc.
+- This greatly limits what we can do: 
+    - We can't quantify the association between $X_1, \ldots, X_p$ and a response variable $Y$ 
+    - We can't use $X$ to predict a response variable $Y$
+    - We can't (directly) compare populations represented in $X$ with two-sample testing
+::: 
+
+::: 
+
+::::
+
+## What we can do in this data setting
+
+### Discover "interesting things" about the measurements we have
+
+:::: {.columns}
+
+::: {.column width="50%"}
+```{r, echo = FALSE,  fig.align='center', fig.width = 4, fig.height = 5.5}
+hm
+```
+
+NCI-60 Human Tumour Cell Lines data set (~7000 genes, only 200 visualized)   
+
+:::
+
+
+::: {.column width="50%"}
+
+::: {.incremental}
+- Each sample's measurements (column) are a vector in 7000-dimensional space 
+- Each feature's measurements (row) are a vector in 64-dimensional space
+
+- Look for possible "hidden structure" within samples and/or features:
+  - **Dimension reduction**: project samples/features onto lower-dimensional space
+  - **Clustering**: group the samples (columns) and/or group the features (rows) 
+::: 
+
+:::
+
+::::
+
+## Clustering problem definition:
+
+### Break a set of objects up into groups, so that objects **within each group** are **more similar to each other** than to objects in **other groups**
+
+```{r, echo = FALSE, fig.align='center', out.width = 400}
+knitr::include_graphics("img/cassie-cats-clustered.png")
+```
+
+(Photo and idea credit: Cassie Kozyrkov)
+
+## Similar how?
+
+-  We will define a numerical vector of **attributes** for each object 
+
+  - For a set of $n$ objects, we will represent each object $i$ $(i=1,...,n)$ as a numeric vector $\boldsymbol{x}_i$ of length $p$ (containing $p$ attributes)
+
+  - So each object $i$ is represented by $\boldsymbol{x}_i = (x_{i1}, x_{i2}, ..., x_{ip})$
+
+
+<br> 
+
+Now we can define the clustering problem more precisely: 
+
+### Break a set of objects up into groups, so that *attributes* of objects within each group are more similar to each other than to *attributes* of objects in other groups
+
+
+## Attribute similarity
+
+
+Is this precise enough? 
+
+### Break a set of objects up into groups, so that *attributes* of objects within each group are more similar to each other than to *attributes* of objects in other groups
+
+<br> 
+
+::: {.incremental}
+
+- We also need to define a formula to describe similarity between attribute vectors $\boldsymbol{x}_i$
+  
+  - We call this a measure of **similarity** 
+
+- Equivalently, we can define a formula to describe dissimilarity between attribute vectors $\boldsymbol{x}_i$
+  
+  - This is convenient because we can use **distance** metrics (e.g. Euclidean, Manhattan)
+
+:::
+
+
+## Eg. define small Euclidean distance to mean "similar"
+
+Euclidean distance between two vectors of $p$ attributes $\boldsymbol{x}_1$ and $\boldsymbol{x}_2$: 
+
+$$D_{euc}(\boldsymbol{x}_1, \boldsymbol{x}_2) = || \boldsymbol{x}_1 - \boldsymbol{x}_2 ||_2 = \sqrt{\sum_{j=1}^p (x_{1j} - x_{2j})^2}$$
+In two dimensions: 
+```{r, echo = FALSE, fig.align='center', out.width = 400}
+knitr::include_graphics("https://www.tutorialexample.com/wp-content/uploads/2020/05/Euclidean-distance-in-tensorflow.png")
+```
+
+## Euclidean distance: should we scale? 
+
+Euclidean distance between two vectors of $p$ attributes $\boldsymbol{x}_1$ and $\boldsymbol{x}_2$: 
+
+$$D_{euc}(\boldsymbol{x}_1, \boldsymbol{x}_2) = || \boldsymbol{x}_1 - \boldsymbol{x}_2 ||_2 = \sqrt{\sum_{j=1}^p (x_{1j} - x_{2j})^2}$$ 
+
+
+::: {.incremental} 
+
+- If the $p$ attributes have vastly different ranges/units, then some of the attributes will have a way bigger impact on the Euclidean distance than others 
+
+- If we think that's a bad thing, then we could scale each vector of attributes to have standard deviation 1
+
+- But whether or not it's a bad thing is highly context dependent
+
+::: 
+
+
+## Eg. define large Pearson correlation to mean "similar"
+
+Pearson correlation between two vectors of $p$ attributes $\boldsymbol{x}_1$ and $\boldsymbol{x}_2$: 
+
+$$r_{\boldsymbol{x}_1, \boldsymbol{x}_{2}} = Cor(\boldsymbol{x}_1, \boldsymbol{x}_{2}) = \frac{Cov(\boldsymbol{x}_1, \boldsymbol{x}_{2})}{\sqrt{Var(\boldsymbol{x}_1)Var(\boldsymbol{x}_{2})}}$$
+
+In the plot below, attribute vectors 1 and 2 have large Pearson similarity (they "move together")
+
+```{r, echo= FALSE, fig.align='center'} 
+
+library(tidyverse)
+
+set.seed(2)
+generator <- rnorm(20)
+x1 <- generator + 2 + rnorm(20)*0.25
+x2 <-  generator + 10 + rnorm(20)*0.25
+x3 <- rnorm(20) + 3
+
+data <- tibble(attribute = 1:20, 
+               `Vector 1` = x1, `Vector 2` = x2, `Vector 3` = x3) 
+
+data %>% pivot_longer(cols=-attribute, names_to = "Vector") %>%
+ggplot(aes(attribute, value, col=Vector)) + xlab("Attribute") + 
+  ylab("") + geom_line(linewidth=1.5) + 
+  scale_colour_brewer(palette = "Set2") + 
+  theme_bw(base_size=22) 
+```
+
+## Euclidean distance and Pearson similarity for standardized attributes
+
+If attribute vectors are **standardized** (centre and scaled), then: 
+
+$$r_{\boldsymbol{x}_1, \boldsymbol{x}_{2}} = \sum_{j=1}^p x_{1j}x_{2j}$$
+
+We can now see that: 
+$$D_{euc}^2 (\boldsymbol{x}_1, \boldsymbol{x}_{2}) = \sum_{j=1}^p (x_{1j} - x_{2j})^2 = \sum_{j=1}^p x_{1j}^2 + \sum_{j=1}^p x_{2j}^2 + 2\sum_{j=1}^p x_{1j}x_{2j} = 2(1-r_{\boldsymbol{x}_1, \boldsymbol{x}_{2}})$$
+
+## Clustering for visualization and data exploration 
+
+:::: {.columns} 
+
+::: {.column width="50%"} 
+
+NCI-60 data: centered and scaled
+
+<br>
+
+```{r, echo = FALSE,  fig.align='center', fig.width=4, fig.height=6}
+hm.centred <- pheatmap(x,
+         scale = "row",
+         color = bcols,
+         border_color = NA,
+         cluster_cols = FALSE, cluster_rows = FALSE,
+         show_rownames = FALSE,
+         show_colnames = FALSE)
+hm.centred
+```
+
+
+:::
+
+::: {.column width="50%"} 
+
+
+Columns and rows clustered and re-ordered
+
+```{r, echo=FALSE, fig.align='center', fig.width=4.6, fig.height=6.8}
+hm.clustered <- pheatmap(x,
+         scale = "row",
+         color = bcols,
+         border_color = NA,
+         cluster_cols = TRUE, cluster_rows = TRUE,
+         show_rownames = FALSE,
+         show_colnames = FALSE)
+hm.clustered
+```
+
+
+::: 
+
+::::
+
+## What do these clusters mean?  
+
+:::: {.columns}
+
+::: {.column width="60%"} 
+
+### At face value
+
+::: {.incremental}
+
+  - Column clusters: 
+      - Samples with similar feature measurements
+      - **Specific** definition of "similar" (e.g. small Euclidean distance)
+  - Row clusters:
+      - Features that move together 
+      - **Specific** definition of "moving together" (e.g. high Pearson correlation)
+::: 
+
+:::
+
+::: {.column width="40%"} 
+
+### Speculating further 
+
+::: {.incremental}
+  - Column clusters: 
+      - Samples from different batches? 
+      - Samples from "real" underlying populations? 
+      
+  - Row clusters: 
+      - Features that really work together or belong together?
+:::
+
+:::
+
+::::
+
+
+## A famous success story: clustering samples in microarrays
+<br> 
+
+Key finding of [Sørlie et al. 2001](https://www.pnas.org/doi/full/10.1073/pnas.191367098): "Gene expression patterns of breast cancer carcinomas distinguish tumor subclasses with clinical implications"
+
+
+:::: {.columns} 
+
+::: {.column width="60%"} 
+
+
+```{r, echo = FALSE, fig.align='center', out.width=1200}
+knitr::include_graphics("img/sorlie2001-dendrogram.jpeg")
+```
+
+:::
+
+::: {.column width="40%"} 
+
+```{r, echo = FALSE, fig.align='center', out.width=500}
+knitr::include_graphics("img/sorlie2001-survival.jpeg")
+```
+
+
+:::
+
+::::
+
+## A famous success story: clustering genes in microarrays
+
+Key finding of [Eisen, et al. (1998)](https://www.pnas.org/content/95/25/14863): 
+"Clustering gene expression data groups together efficiently genes of known similar function"
+
+
+<br> 
+
+:::: {.columns} 
+
+
+::: {.column width="40%"} 
+
+::: {.incremental}
+- Columns combine time courses of gene expression in yeast
+- Row/gene clusters are highlighted 
+- Genes in clusters have similar functional annotations - involved in common cellular processes
+:::
+
+:::
+
+::: {.column width="60%"} 
+
+```{r, echo = FALSE, fig.align='center', out.width=390}
+knitr::include_graphics("img/eisen1998-fig2.jpeg")
+```
+
+
+:::
+
+::::
+
+## But be cautious: there are many ways to not succeed
+
+### There might be very little heterogeneity in the data 
+
+2D toy example: clustering pure noise samples
+
+```{r, echo=FALSE, fig.align="center"}
+n <- 100
+
+set.seed(3)
+X <- matrix(rnorm(n*2), n, 2) 
+km <- kmeans(X, 3)
+
+dat <- data.frame(X1=X[, 1], X2=X[, 2], cluster=as.factor(km$cluster))
+
+ggplot(dat) + geom_point(aes(X1, X2, col=cluster)) +
+  xlab("Feature 1") + ylab("Feature 2")  + 
+  theme_bw(base_size=22) + theme(legend.position="none") +  
+  coord_fixed() + 
+  scale_colour_manual(values=c("#66c2a5", "#fc8d62", "#8da0cb"))
+
+```
+
+## If there is heterogeneity in the data: 
+### Subgroups might not be the best explanation for it
+
+2D toy example: clustering samples from a simple linear model 
+
+```{r, echo=FALSE, fig.align="center"}
+  set.seed(4)
+  x <- rnorm(1000, 0, 1)
+  y <- (2 * x) + rnorm(1000, 0, 3)
+  
+  km <- kmeans(cbind(x, y), 5)
+  
+  data <- data.frame(x = x, y = y, cl=as.factor(km$cluster))
+  
+  ggplot(data) + geom_point(aes(x, y, col=cl)) +
+  xlab("Feature 1") + ylab("Feature 2")  +
+  theme_bw(base_size=22) + theme(legend.position="none") +  
+  scale_colour_viridis_d()
+
+```
+
+## Even if subgroups are a good explanation:  
+### Our definition of similarity could be problematic
+
+:::: {.columns} 
+
+
+::: {.column width="50%"} 
+
+Our clustering from before
+
+```{r, echo = FALSE, fig.align='center', out.width = 1200}
+knitr::include_graphics("img/cassie-cats-clustered.png")
+```
+
+:::
+
+::: {.column width="50%"} 
+
+What I actually care about
+
+```{r, echo = FALSE, fig.align='center', out.width = 12000}
+knitr::include_graphics("img/cassie-cats-clustered-2.png")
+```
+
+:::
+
+::::
+
+<br>
+(Photo and idea credit: Cassie Kozyrkov)
+
+## The fundamental frustration: we have no labelled data
+
+:::: {.columns}
+
+::: {.column width="50%"} 
+
+```{r, echo = FALSE, fig.align='center', out.width = 600}
+knitr::include_graphics("https://imgs.xkcd.com/comics/k_means_clustering.png")
+```
+
+:::
+
+::: {.column width="50%"} 
+
+::: {.incremental}
+
+- This makes it hard to check our work statistically 
+- Be cautious when interpreting your clustering results
+- Gather other corroborating information whenever you can
+- Prior information, experience, and domain knowledge are huge assets here! 
+
+:::
+
+:::
+
+::::
+
+## Clustering algorithms: inputs and outputs 
+
+- **Input**: 
+  
+  * Data matrix, e.g. $X_{p \times n}$ (features in rows, samples in columns)
+  
+  * Number of clusters $K$
+
+- **Output**:
+  
+  * Discrete: Assignment of cluster membership for each object $C_i$, where $C_i=k$ if object $i$ is assigned to cluster $k$ 
+  
+  * Probabilistic: $K$-length vector of probabilities for each object $\boldsymbol{C}_i$, were $C_{ik}\in [0,1]$ is the probability that object $i$ belongs to cluster $k$, and $\sum_{k=1}^K C_{ik} =1$
+
+## There are many clustering algorithms 
+
+<br>
+<br>
+
+```{r, echo = FALSE, fig.align='center', out.width = 1000}
+knitr::include_graphics("img/clustmethods.png")
+```
+
+## k-means clustering 
+
+- One of the most widely used partition-based clustering approaches
+
+- Partition-based (flat), and discrete
+
+### Main idea: minimize the sum of within-cluster variation 
+
+Let $G_k$ be a set containing the objects assigned to cluster $k$, for $k = 1, 2, \ldots K$. 
+
+We want to find non-overlapping sets $G_1, \ldots, G_K$ that minimize:  
+$$ \sum \limits_{k=1}^K W(G_k)$$ 
+
+Typically, we define within-cluster variation $W(G_k)$ with squared Euclidean distance: 
+$$  W(G_k) = \frac{1}{|G_k|} \sum_{i, i' \in G_k} \| \boldsymbol{x}_i - \boldsymbol{x}_{i'}\|_2^2 = \frac{1}{|G_k|} \sum_{i, i' \in G_k} \sum \limits_{j=1}^p (x_{ij} - x_{i'j})^2 $$ 
+
+
+## More on the K-means objective function 
+
+The optimization problem that defines k-means clustering is therefore: 
+$$ \underset{G_1, \ldots, G_K}{\text{minimize}} ~~ \left \{ \sum \limits_{k=1}^K \frac{1}{|G_k|}   \sum_{i, i' \in G_k} \sum \limits_{j=1}^p (x_{ij} - x_{i'j})^2 \right \} $$
+
+It turns out that: 
+
+$$ \frac{1}{|G_k|}    \sum_{i, i' \in G_k} \sum \limits_{j=1}^p (x_{ij} - x_{i'j})^2 = 2 \sum \limits_{i \in G_k} \sum \limits_{j=1}^p (x_{ij} - \bar{x}_{kj})^2, $$ 
+where $\bar{x}_{kj} = \frac{1}{|G_k|} \sum \limits_{i \in G_k} x_{ij}$ is the mean for attribute $j$ in cluster $G_k$. 
+
+### So another interpretation of this optimization problem is that we want to minimize the sum of within-cluster distances to cluster centres. 
+
+
+## Algorithm: k-means clustering 
+
+([Helpful illustrated example by Allison Horst](https://allisonhorst.com/k-means-clustering))
+
+<br> 
+
+Initialize: Pick $K$ random points as initial cluster centres
+
+1. Measure distance (squared Euclidean) between all points and the cluster centres 
+2. Assign points to nearest cluster
+3. Update cluster means
+
+We repeat until cluster assignments stop changing. 
+
+::: callout-tip
+[This algorithm does not guarantee that you reach the global minimum value of the k-means objective function! Use multiple random initializations, then pick the clustering result that gives you the smallest k-means objective function.]{style="font-size: 1.2em;"}  
+::: 
+
+## When might you want a hierarchical approach instead?
+
+Sometimes, a hierarchical organization just makes more sense:
+
+```{r, echo = FALSE, fig.align='center', out.width = 200}
+knitr::include_graphics("https://community.jmp.com/t5/image/serverpage/image-id/16821iE19A16F9BF548BFF/image-dimensions/343x264?v=v2")
+```
+
+(Picture by Chelsea Parlett-Pelleriti)
+
+More pragmatically, sometimes we don't want to pre-specify the number of clusters $K$ 
+
+## Agglomerative hierarchical clustering 
+
+**Agglomerative**: in the algorithm, each observation starts in its own cluster; going up in hierarchy pairs of clusters are merged 
+
+```{r, echo = FALSE, fig.align='center', out.width = 400}
+knitr::include_graphics("https://ars.els-cdn.com/content/image/3-s2.0-B9780124157811000091-f09-04-9780124157811.jpg")
+```
+
+Note: vertical red bar 'cuts' the tree to define the clusters indicated by label colours
+
+## How to use a dendrogram 
+
+:::: {.columns}
+
+::: {.column width="50%"} 
+
+```{r, echo = FALSE, fig.align='center', fig.height=8}
+library(palmerpenguins)
+library(ggdendro)
+
+set.seed(5)
+X <- penguins %>% slice_sample(n=3, by=species) 
+
+ggdendrogram( hclust(dist(X %>% select(bill_length_mm, flipper_length_mm))) ) + theme_classic(base_size=30) + 
+  theme(axis.ticks=element_blank(), 
+        axis.line.x=element_blank()) + xlab("") + ylab("")
+```
+ 
+::: 
+
+::: {.column width="50%"} 
+ 
+::: {.incremental}
+
+- Each *leaf* is one of the 9 objects, and as we move up the tree, leaves *fuse* into *branches*
+- The *height* where branches containing two objects is the dissimilarity between them
+- Note: horizontal proximity is meaningless. We use **vertical** proximity to measure similarity
+- Cutting the dendrogram horizontally at a given height yields (hierarchically nested) clusters
+:::
+
+:::
+
+
+::::
+
+## Algorithm: Hierarchical agglomerative clustering
+([Helpful illustrated example by Allison Horst](https://allisonhorst.com/agglomerative-hierarchical-clustering))
+
+<br> 
+
+Given $n$ objects with $p$ attributes and a distance metric:
+
+ **Initialize**: Treat each object as its own cluster and compute pairwise distances between all clusters 
+
+ **Iterate**: Repeat steps 1 and 2 until all objects belong to a single cluster
+
+1. Find the "closest" pair of clusters, and **merge** them into a single cluster
+
+2. Compute new distances between clusters
+
+<br>
+
+
+But what's the distance between the cluster \{1, 2, 3\} and the cluster \{8, 9\} on the last slide? 
+
+## We need the concept of "linkage"
+
+Linkage extends the notion of distance between two observations (a distance metric, like Euclidean distance) to a notion of distance between *groups* of observations
+
+<br>
+
+### Common linkages: 
+
+-  **Single** linkage: distance between two clusters is the **minimum** distance between any pair of elements
+  
+- **Average** linkage: distance between two clusters is the **average** distance between all pairs of elements
+  
+- **Complete** linkage: distance between two clusters is the **maximum** distance between any pair of elements
+
+
+## Different linkages can give very different results
+
+:::: {.columns}
+
+::: {.column width="60%"} 
+
+
+
+```{r, echo = FALSE, fig.align='center', fig.height=14}
+knitr::include_graphics("img/linkage.jpeg")
+```
+
+::: 
+
+::: {.column width="40%"} 
+
+What's the distance if we use: 
+
+- Single linkage? 
+
+- Average linkage?
+
+- Complete linkage? 
+
+
+(Image and idea credit to Chelsea Parlett-Pelleriti)
+
+:::
+
+::::
+
+<br> 
+
+In general, there's no "right" or "wrong" linkage. 
+
+But, a reasonable heuristic is to use average and complete over single linkage, since they tend to give more balanced dendrograms 
+
+
+## Choosing the number of clusters $K$ 
+
+**Note**: picking $K$ to minimize (say) the sum of the within-cluster variations will **not** be informative, as it leads to the solution that each object should be in its own cluster. Therefore, need a method that takes into account the "cost" of adding additional clusters
+
+:::: {.columns}
+
+::: {.column width="50%"} 
+
+::: {.incremental}
+
+* Prior knowledge
+
+* "Elbow" method: point of diminishing returns
+
+* Information Criteria (AIC or BIC): likelihood penalized for number of parameters
+
+* Silhouette metric: how similar an object is to its own cluster compared to other clusters
+
+* Gap Statistics: total within-cluster variation compared to that expected under the null
+
+:::
+
+::: 
+
+::: {.column width="50%"} 
+
+<br> 
+
+```{r, echo = FALSE, fig.align='center', out.width = 500}
+knitr::include_graphics("img/elbow.JPG")
+```
+
+:::
+
+::::
+
+## Pragmatic advice: Try all the things, get a fuller picture
+
+:::: {.columns}
+
+::: {.column width="50%"} 
+
+```{r, echo = FALSE, fig.align='center', out.width = 500}
+knitr::include_graphics("img/xkcd-machine-learning.png")
+```
+
+
+::: 
+
+::: {.column width="50%"} 
+
+- Try using different combinations of attributes 
+- Try using different measures of similarity
+- Try different ways of standardizing the data
+- Try using different algorithms
+- Try using a different number of clusters 
+- Try using different linkages
+- Try clustering subsets of the objects 
+
+::: 
+
+::::
+
+
+## Inference after clustering: it's tempting 
+
+Suppose you clustered samples into two groups.
+
+<br> 
+
+:::: {.columns}
+
+::: {.column width="50%"} 
+
+### Follow-up questions:
+
+
+  1. Are these clusters associated with a feature that wasn't used for clustering ($Y$)?
+  2. Were these clusters really sampled from different populations? 
+  3. If so, then which features are actually different across these populations?
+  
+::: 
+
+
+::: {.column width="50%"} 
+
+### Attempts to answer them: 
+
+  1. Two group comparisons test on measurements of $Y$ 
+  
+  2. Two group comparisons test on measurements of $X_1, \ldots, X_p$ 
+  
+  3. For $j = 1, \ldots, p$, two group comparisons test on measurements of $X_j$ 
+:::
+
+::::
+
+<br> 
+
+**Unfortunately**, this can get you in big trouble for questions 2 & 3 
+
+## The key difference: circularity/double-dipping
+
+Recall how we tried to answer the three questions:
+
+  1. Two group comparisons test on measurements of $Y$,  with clusters as groups
+  2. Two group comparisons test on measurements of $X_1, \ldots, X_p$, with clusters as groups
+  3. For $j = 1, 2, \ldots, p$, two group comparisons test on measurements of $X_j$,  with clusters as groups 
+
+### There's circularity in questions 2 and 3!
+- In questions 2 and 3, we used the same data set to define groups ($X$) and to test for a difference between groups ($X$)
+  
+
+### Compare to question 1: no circularity 
+- In question 1, we used different data sets to define groups ($X$) and to test for a difference between groups ($Y$)
+
+## Intuition: why is circularity/double-dipping bad?
+
+- When we choose a hypothesis to test **after** looking at our data, then we often wind up **cherry-picking** one that seems to be supported by our data 
+
+::: {.incremental} 
+
+- Recall: roughly speaking, p-values measure  how surprised we are to observe such an extreme test statistic
+
+- When we cherry-pick, we will get more extreme test statistic values by chance alone even if the null hypothesis is true, so **it should be harder to surprise us** 
+
+- Unless this fact is taken into account, we are going to exaggerate the amount of evidence against the null hypothesis (i.e. p-values are going to be too small) 
+
+:::
+
+
+## Visual illustration of what can go wrong 
+
+:::: {.columns} 
+
+::: {.column width="50%"} 
+
+
+```{r, echo=FALSE, fig.align="center", fig.height=8} 
+set.seed(6)
+n <- 50
+sig <- 1
+X <- matrix(rnorm(n*2, sd=sig), n, 2) 
+
+dat <- data.frame(X1=X[, 1], X2=X[, 2])
+
+dat$est <- as.factor(kmeans(X, 2)$cluster)
+
+ggplot(dat) + geom_point(aes(X1, X2, col=est), cex=4) + 
+  xlab("Feature 1") + ylab("Feature 2")  + 
+  theme_bw(base_size=30) + 
+  scale_colour_manual(name="Clusters", values=c("#fc8d62", "#8da0cb")) + 
+  theme(legend.position="bottom")
+
+```
+
+::: 
+
+::: {.column width="50%"} 
+
+1. Sample 50 observations from a single population 
+
+2. Cluster the observations with k-means clustering
+
+3. Two-sample $t$-test to compare feature 1 across clusters: p-value = `r signif(t.test(dat[dat$est == 1, 1], dat[dat$est == 2, 1])$p.value, 3)` 
+
+4. Two-sample $t$-test to compare feature 2 across clusters: p-value = `r signif(t.test(dat[dat$est == 1, 2], dat[dat$est == 2, 2])$p.value, 3)` 
+
+:::
+
+::::
+
+### p-values are too small, because we've cherry-picked two groups to compare via clustering 
+
+## Compare to: sampling from two populations with the same mean for features 1 and 2
+
+:::: {.columns} 
+
+::: {.column width="50%"} 
+
+
+```{r, echo=FALSE, fig.align="center", fig.height=8} 
+set.seed(7)
+n <- 50
+sig <- 1
+X <- matrix(rnorm(n*2, sd=sig), n, 2) 
+
+dat <- data.frame(X1=X[, 1], X2=X[, 2])
+
+dat$group <- as.factor(c(rep(1, 25), rep(2, 25)))
+
+ggplot(dat) + geom_point(aes(X1, X2, col=group), cex=4) + 
+  xlab("Feature 1") + ylab("Feature 2")  + 
+  theme_bw(base_size=30) + 
+  scale_colour_manual(name="Groups", values=c("#fc8d62", "#8da0cb")) + 
+  theme(legend.position="bottom")
+
+```
+
+::: 
+
+::: {.column width="50%"} 
+
+1. Sample 25 observations from a population for group 1 
+
+2. Sample 25 observations from another population (with the same population means) for group 2
+
+3. Two-sample $t$-test to compare feature 1 across groups: p-value = `r round(t.test(dat[dat$group == 1, 1], dat[dat$group == 2, 1])$p.value, 3)` 
+
+4. Two-sample $t$-test to compare feature 2 across groups: p-value = `r round(t.test(dat[dat$group == 1, 2], dat[dat$group == 2, 2])$p.value, 3)` 
+
+:::
+
+::::
+
+### p-values are not too small, because we didn't do any cherry-picking
+
+
+## Comparing the distributions of the mean differences
+
+::: callout-note
+# Recall: Numerator of two-sample $t$-test statistic for feature 1 
+[Mean of feature 1 in group 1 - Mean of feature 1 in group 2]{style="font-size: 1.5em;"} 
+:::
+
+
+```{r,  echo=FALSE, fig.align="center", fig.width = 14} 
+
+do_sim_cluster <- function() { 
+  n <- 50
+  sig <- 1
+  X <- matrix(rnorm(n*2, sd=sig), n, 2) 
+
+  dat <- data.frame(X1=X[, 1], X2=X[, 2])
+  dat$est <- as.factor(kmeans(X, 2)$cluster)
+  mean(dat[dat$est == 1, 1]) - mean(dat[dat$est == 2, 1])
+  
+}
+
+do_sim_no_cluster <- function() { 
+  n <- 50
+  sig <- 1
+  X <- matrix(rnorm(n*2, sd=sig), n, 2) 
+
+  dat <- data.frame(X1=X[, 1], X2=X[, 2])
+  dat$group <- as.factor(c(rep(1, 25), rep(2, 25)))
+  mean(dat[dat$group == 1, 1]) - mean(dat[dat$group == 2, 1])
+
+}
+
+set.seed(8)
+results <- tibble(cluster = replicate(1000, do_sim_cluster()), 
+                  no_cluster = replicate(1000, do_sim_no_cluster()))
+
+
+library(patchwork) 
+
+p1 <- ggplot(results) + geom_histogram(aes(x = cluster)) + xlab("") +  ylab("Frequency") + 
+  theme_bw(base_size=22) + ggtitle("Clustering algorithm (cherry-picked)")
+
+p2 <- ggplot(results) + geom_histogram(aes(x = no_cluster)) + xlab("") +  ylab("Frequency") + 
+  theme_bw(base_size=22) + ggtitle("Assumed null sampling distribution")
+
+p1 + p2
+
+```
+
+
+
+
+## An extreme exception where there's no problem
+
+:::: {.columns} 
+
+::: {.column width="50%"} 
+
+
+```{r, echo=FALSE, fig.align="center", fig.height=7} 
+set.seed(9)
+n <- 50
+sig <- 1
+truecl <- c(rep(1, 25), rep(2, 25))[sample(1:n, replace=FALSE)]
+X <- matrix(rnorm(n*2, sd=sig), n, 2) + rbind(c(0, 0), c(10, 10))[truecl, ]
+
+
+dat <- data.frame(X1=X[, 1], X2=X[, 2]) 
+
+dat$est <- as.factor(kmeans(X, 2)$cluster)
+
+ggplot(dat) + geom_point(aes(X1, X2, col=est), cex=4) + 
+  xlab("Feature 1") + ylab("Feature 2")  + 
+  theme_bw(base_size=30) + 
+  scale_colour_manual(name="Clusters", values=c("#fc8d62", "#8da0cb")) + 
+  theme(legend.position="bottom")
+
+```
+
+::: 
+
+::: {.column width="50%"} 
+
+1. Sample 25 observations from two very different populations 
+
+2. Ignore population labels and cluster all the observations with k-means clustering 
+
+3. Two-sample $t$-test to compare feature 1 across clusters: p-value = `r signif(t.test(dat[dat$est == 1, 1], dat[dat$est == 2, 1])$p.value, 3)` 
+
+4. Two-sample $t$-test to compare feature 2 across clusters: p-value = `r signif(t.test(dat[dat$est == 1, 2], dat[dat$est == 2, 2])$p.value, 3)` 
+
+:::
+
+::::
+
+### These results will look the same as if we used true population labels
+
+## Double-dipping is particularly relevant to scRNA-seq
+### Marker gene detection and cell type annotation
+
+```{r, echo = FALSE, fig.align='center', out.width = 500}
+knitr::include_graphics("img/deg.png")
+```
+
+
+
+## Pragmatic advice
+
+### Ask yourself: how strong and unambiguous is the signal? 
+
+- If the grouping signal is strong and unambigous enough that clustering output is close to deterministic (i.e. not random), then go ahead and "double-dip" 
+
+- Otherwise, double-dipping can get you into trouble
+
+- Without a lot of prior information and domain knowledge, there's no way of knowing which case you're in
+
+
+### My $0.02: if you don't feel confident in prior information/domain knowledge, then it's safer to just avoid double-dipping
+
+## Summary of unsupervised learning and clustering 
+
+- Many choices to make when you want to cluster a set of objects:
+  
+  - Objective, algorithm, attributes/features, distance metric, number of clusters
+
+- There is no "best" method - it all depends on data and goal
+
+- Clustering is very powerful, but reckless application leads to misguided conclusions
+
+- Be especially careful when performing statistical inference with clustering outputs 
+
