@@ -1,0 +1,725 @@
+---
+title: "GWAS: summary-based inference"
+author: |
+    | Yongjin Park
+    | University of British Columbia
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+classoption: "aspectratio=169"
+output:
+    beamer_presentation:
+        colortheme: "orchid"
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage[normalem]{ulem}
+  - \usepackage{makecell}
+  - \usepackage{xcolor}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(patchwork)
+source("Util.R")
+source("Setup.R")
+fig.dir <- "Fig/"
+setup.env(fig.dir)
+dir.create("Data", showWarnings=FALSE)
+theme_set(theme_classic())
+```
+
+```{r include = FALSE}
+dir.create("Data/genotype/", recursive=TRUE, showWarnings=FALSE)
+genotype.file <- "Data/genotype.rds"
+
+if.needed(genotype.file, {
+
+    library(bigsnpr)
+    options(timeout=500)
+    .bed.file <- "Data/genotype/1000G_phase3_common_norel.bed"
+    if(!file.exists(.bed.file)){
+        download_1000G("Data/genotype/")
+    }
+
+    .rds.file <- "Data/genotype/1000G_phase3_common_norel.rds"
+    .bk.file <- "Data/genotype/1000G_phase3_common_norel.bk"
+    if(!file.exists(.rds.file)){
+        BED <- snp_readBed(.bed.file)
+    }
+    data <- snp_attach(.rds.file)
+
+    ntot <- nrow(data$genotypes)
+    X <- data$genotypes[, 2001:7000]
+
+    saveRDS(X, file = genotype.file)
+    unlink(.bed.file)
+    unlink(.rds.file)
+    unlink(.bk.file)
+})
+
+X <- readRDS(genotype.file)
+```
+
+# Modelling GWAS summary statistics data
+
+## GWAS summary statistics
+
+But we have summary statistics of meta-analysis:
+
+\onslide<1->{
+
+\textbf{\color{teal} A generative model of SNP-level statistics}
+
+For each $\beta_{j}$'s, effect size, variance, z-score:
+
+$$\hat{\beta}_{j} = \frac{\sum_{i} X_{ij} Y_{i}}{\sum_{i} X_{ij}^{2}}, \quad \hat{\mathbb{V}}\!\left[\beta_{j}\right] = \frac{\sigma_{\epsilon}^{2}}{\sum_{i=1}X_{ij}^{2}}, \quad Z_{j} = \frac{\hat{\beta}_{j}}{\sqrt{\hat{\mathbb{V}}\!\left[\beta_{j}\right]}}$$
+
+}
+
+\onslide<2->{
+Although
+\textbf{\color{magenta} the underlying multivariate regression model}:
+
+\Large
+$$\mathbf{y} = X \boldsymbol{\theta} + \boldsymbol{\epsilon}$$
+
+\normalsize
+where $\theta_{j} \neq \beta_{j}$
+}
+
+## What is the relationship between the summary (univariate) and multivariate effects?
+
+For simplicity, let's assume standardized genotype matrix $X$, i.e., $\bar{X}_{j} = 0$ and $\hat{\sigma}_{X_{j}}^{2} = 1$. The we have z-score
+
+\only<1>{
+\large
+
+$$\hat{Z}_{j} = \sum_{i=1}^{n} X_{ij} Y_{i} / \sigma_{\epsilon} \sqrt{n}$$ for all $j \in [p]$.
+}
+
+\Large
+\begin{eqnarray*}
+\onslide<2->{
+	\underset{\textsf{\color{teal} $p \times 1$ univariate}}{\mathbf{z}} &=& \frac{1}{\sigma \sqrt{n}} X^{\top}\mathbf{y}
+}
+\onslide<3->{
+	= \frac{1}{\sigma \sqrt{n}} X^{\top}\underbrace{\left(X\boldsymbol{\theta} + \boldsymbol{\epsilon}\right)}_{\textsf{\color{magenta} a multivariate model}}
+} \\
+\only<4>{
+&=& \frac{\sqrt{n}}{\sigma} \underbrace{\left( \frac{1}{n} X^{\top}X \right)}_{\textsf{\color{teal} LD}} \boldsymbol{\theta} + \frac{1}{\sigma\sqrt{n}} X^{\top} \boldsymbol{\epsilon}
+}
+\only<5>{
+&=& \mathbf{\color{teal} R} {{\color{magenta} \frac{\sqrt{n}}{\sigma} \boldsymbol{\theta} }} + \tilde{\boldsymbol{\epsilon}},\quad  \tilde{\boldsymbol{\epsilon}} \sim \mathcal{N}\!\left(\mathbf{0}, \mathbf{\color{teal} R} \right)
+}
+\end{eqnarray*}
+
+\only<5>{
+\normalsize
+where $\mathbf{\color{teal} R} = n^{-1} X^{\top}X$ is an empirical LD matrix.
+}
+
+\vfill
+\tiny
+Hormozdiari \textit{et al.}, Genetics (2014); Zhu and Stephens, Annals of Applied Statistics (2017)
+
+## How can GWAS p-value fool human genetics research?
+
+Some thought experiment on causal variant $i$. We generated $y$ as follows:
+
+$$\mathbf{y} = \mathbf{x}_{i} \theta_{i} + \ldots$$
+
+Because of LD and population structure, we have 
+$$\mathbf{x}_{j} = \mathbf{u} + \tilde{\mathbf{x}}_{j}\ldots, \, \mathbb{E}\!\left[\mathbf{x}_{i}^{\top}\tilde{\mathbf{x}}_{j}\right] = n \delta$$
+
+This structural bias and correlation will simply remain in a z-score:
+
+\only<1>{
+$$z_{j} = n^{-1/2}\mathbf{x}_{j}^{\top} \mathbf{y} = n^{-1/2}(\mathbf{u} + \tilde{\mathbf{x}}_{j} + \ldots)^{\top}(\mathbf{x}_{i} \theta_{i} + \ldots)$$
+}
+
+\only<2>{
+$$z_{j} = \frac{\mathbf{u}^{\top}\mathbf{x}_{i}}{n^{1/2}} \theta_{i} + \frac{ \overbrace{\mathbf{x}_{i}^{\top} \tilde{\mathbf{x}}_{j}}^{{\color{magenta} \to n \delta}} }{n^{1/2}} \theta_{i} + \ldots = \left( \underbrace{ \frac{\mathbf{u}^{\top}\mathbf{x}_{i}}{n^{1/2}} }_{\textsf{\color{teal} population structure}} + \underbrace{ \delta n^{1/2} }_{\textsf{\color{magenta} tight LD between }i,j} \right) \theta_{i}$$
+}
+
+\only<3>{
+\begin{itemize}
+\item Population structure-bias will diminish as $n \to \infty$
+\item LD-bias will aggravate as $n \to \infty$
+\end{itemize}
+}
+
+
+## Polygenic regression model
+
+```{r}
+#' @param X
+#' @param h2
+#' @param n.causal
+#' @param n.traits
+simulate.pgs <- function(X, h2, n.causal, n.traits = 1) {
+    .rnorm <- function(d1, d2) matrix(rnorm(d1*d2), d1, d2)
+    causal.snp <- sample(ncol(X), n.causal)
+    xx.causal <- scale(X[, causal.snp, drop=FALSE])
+    xx.causal[is.na(xx.causal)] <- 0
+
+    n.ind <- nrow(X)
+    theta <- .rnorm(n.causal, n.traits) / sqrt(n.causal)
+    y.true <- scale(xx.causal %*% theta)
+    y.err <- scale(.rnorm(n.ind, n.traits))
+    y.obs <- y.true * sqrt(h2) + y.err * sqrt(1 - h2)
+
+    list(y = y.obs, causal = causal.snp, theta = theta)
+}
+```
+
+\Large
+
+* An "infinitesimal" (aka omnigenic) model: Every variant contributes to total heritability in complex traits.
+
+* First coined by R.A. Fisher, trying to reconcile between Biometricians' and Medelians' different points of view.
+
+* Pea (Mendelian) vs. height (biometrician)
+
+\normalsize
+
+## Let's simulate GWAS data 
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r simulat_gwas_data, echo=TRUE}
+set.seed(47)
+xtot <- apply(X, 2, scale)
+
+## just remove missing values
+xtot[is.na(xtot)] <- 0
+
+## random subset 300
+rr <- sample(nrow(xtot), 300)
+xx <- xtot[-rr, , drop=F]
+
+sim <- simulate.pgs(xx, 0.2, 3)
+y <- sim$y
+```
+
+\large
+
+$$\mathbf{y} = \sum_{j \in \textsf{causal}} \mathbf{x}_{j} \beta_{j} + \epsilon $$
+
+\normalsize
+
+:::
+::: {.column width=.5}
+
+
+```{r fig.width=3.2, fig.height=3.5}
+.lm <- lm(y ~ xx[, sim$causal, drop = FALSE])
+plot(.lm$fitted.values, y, xlab="genetic effects", ylab="phenotypes", col="gray30", pch=19, cex=.5)
+```
+
+:::
+::::::
+
+
+## Run SuSiE to identify causal variants
+
+:::::: {.columns}
+::: {.column width=.5}
+
+
+```{r run_susie_full, echo=TRUE, size="large"}
+library(susieR)
+
+susie.full <-
+    susie(xx, y, L = 30,
+ compute_univariate_zscore=TRUE)
+```
+
+- `r nrow(xx)` $\times$ `r ncol(xx)` $X$ genotype
+
+- `r nrow(y)` $\times$ `r ncol(y)` $y$ response
+
+- Dashed lines: causal variants
+
+:::
+::: {.column width=.5}
+
+
+```{r fig.width=3.2, fig.height=3.5, only.plot="1"}
+susie_plot(susie.full, y="z_original")
+abline(v = sim$causal, lty=2, col=2)
+```
+
+```{r fig.width=3.2, fig.height=3.5, only.plot="2"}
+susie_plot(susie.full, y="z")
+abline(v = sim$causal, lty=2, col=2)
+```
+
+
+```{r fig.width=3.2, fig.height=3.5, only.plot="3"}
+susie_plot(susie.full, y="PIP")
+abline(v = sim$causal, lty=2, col=2)
+```
+
+:::
+::::::
+
+
+## What if we only have a summary statistics vector?
+
+
+```{r fig.width=5.5, fig.height=3.5}
+susie_plot(susie.full, y="z_original")
+abline(v = sim$causal, lty=2, col=2)
+```
+z-scores...
+
+
+## How can we calculate summary z-scores?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo = TRUE, size="large"}
+## compute X'y
+xty <- crossprod(xx, y)
+
+## compute x'x
+x2 <- colSums(xx^2)
+
+## Maximum likelihood
+beta.hat <- xty / x2
+se.hat <- 1/sqrt(x2)
+z <- beta.hat / se.hat
+```
+
+:::
+::: {.column width=.5}
+
+We can estimate z-scores...
+
+$$\hat{Z}_{j} = \sum_{i=1}^{n} X_{ij} Y_{i} / \sigma_{\epsilon} \sqrt{n}$$ for all $j \in [p]$.
+
+assuming $\sigma_{\epsilon} \approx 1$.
+
+$${}$$
+
+_Note:_ The above assumption is not bad because most genetic effects explain a relatively small portion of phenotypic variability, and phenotype vectors are standardized.
+
+:::
+::::::
+
+## Why do we model z-scores (or other summary statistics)?
+
+\Large
+
+- There is no privacy concern
+
+- Directly translate to GWAS p-values
+
+- A majority of GWAS variants are common 
+
+- LD structures are similar within each ancestry group
+
+\normalsize
+
+## Moreover, we normally don't have a full genotype matrix
+
+
+```{r size="large", echo = TRUE}
+## a random subset of individuals
+## rr <- sample(nrow(xx), 300)
+
+## genotype information of this subset
+xx.sub <- xtot[rr, , drop = FALSE]
+
+## true phenotype vector y not observed
+y.true <- xtot[rr, sim$causal, drop=F] %*% sim$theta
+```
+
+Let's say that we only have `r nrow(xx.sub)` individuals available independent of the full `r nrow(xx)` GWAS samples.
+
+## What do we have to carry out summary-based inference?
+
+\Large
+
+* $\mathbf{z}$: $p\times{1}$ z-score vector
+
+* $\hat{X}$: $m \times p$ genotype matrix $m \ll n$
+
+* Typically we have $\hat{R}$: $X^{\top}X/m$ LD matrix
+
+* If $\hat{X}$ is a submatrix of $X$, in-sample $\hat{R}$ LD
+
+* Otherwise, we can use an LD matrix computed in some reference cohorts (e.g., 1000G, UK Biobank)
+
+\normalsize
+
+
+## What if we had "true" phenotype values?
+
+We could have run `susie.out <- susie(xx.sub, y.true)`
+
+```{r fig.width=5.5, fig.height=3.5}
+susie.out <- susie(xx.sub, y.true, coverage = .95)
+susie_plot(susie.out, y="PIP")
+abline(v = sim$causal, lty=2, col=2, lwd=2)
+```
+
+## SuSiE-RSS (regression with summary statistics)
+
+\huge
+
+$$\mathbf{z} = \mathbf{\color{teal} R} {{\color{magenta} \frac{\sqrt{n}}{\sigma} \boldsymbol{\theta} }} + \tilde{\boldsymbol{\epsilon}},\quad  \tilde{\boldsymbol{\epsilon}} \sim \mathcal{N}\!\left(\mathbf{0}, \mathbf{\color{teal} R} \right)$$
+
+\normalsize
+
+\vfill
+
+Zou, Carbonetto, Wang, Stephens, \emph{PLoS Genetics} (2022)
+
+## SuSiE-RSS may produce so many false positives...
+
+```{r echo=TRUE, size="large"}
+susie.rss <- susie_rss(z, R=cov(xx.sub), n=nrow(xx))
+```
+
+```{r fig.width=5.5, fig.height=3}
+susie_plot(susie.rss, y="PIP")
+abline(v = sim$causal, lty=2, col=2, lwd=2)
+```
+
+## Can we simply predict unobserved Y?
+
+:::::: {.columns}
+::: {.column width=.4}
+
+```{r echo = TRUE}
+library(rsvd) # faster than svd
+
+## [U, D, V'] = svd(X/sqrt(n))
+nn <- nrow(xx.sub)
+.svd <- rsvd(xx.sub / sqrt(nn))
+
+## U * inv(D) * V'
+U <- .svd$u
+Vt <- t(.svd$v)
+D <- .svd$d + .01
+proj <-
+    sweep(U,2,D,`/`) %*% Vt
+y.hat <- proj %*% z
+```
+
+:::
+::: {.column width=.6}
+
+
+\only<1>{
+
+\large
+
+Polygenic risk prediction:
+
+\begin{enumerate}
+\item Roughly estimate parameter $\theta$
+
+$$\mathbf{z} \sim \mathcal{N}\!\left(\hat{R}\theta, \hat{R}\right)$$
+
+$$\theta \sim \mathcal{N}\!\left(\hat{R}^{-1} \mathbf{z}, \hat{R}^{-1}\right)$$
+
+\item We can then predict/project the effects
+
+$$\mathbf{y} \gets \hat{X} \hat\theta$$
+
+\end{enumerate}
+
+\normalsize
+
+}
+
+
+```{r fig.width=3.7, fig.height=3.5, only.plot=2}
+plot(y.hat, y.true, cex=.5)
+abline(a=0, b=1, col=2, lwd=2)
+```
+
+:::
+::::::
+
+Here, we used the pseudo-inverse of the sample covariance matrix $\hat{R}^{-1} = V D^{-2} V^{\top}$ followed by SVD, $[U,D,V^{\top}] = \operatorname{svd}(n^{-1/2}X)$. For matrix algebra, refer to Matrix Cookbook.
+
+## We can run the same `susie` method as if we observed phenotypes
+
+```{r echo=TRUE, size="large"}
+susie.prs <- susie(xx.sub, y.hat)
+```
+
+```{r fig.width=5, fig.height=3}
+susie_plot(susie.prs, y="PIP")
+abline(v = sim$causal, lty=2, col=2, lwd=2)
+```
+
+## Much fewer false discoveries and competitive power
+
+:::::: {.columns}
+::: {.column width=.5}
+
+Full data analysis
+
+```{r fig.width=3.25, fig.height=3}
+susie_plot(susie.full, y="PIP")
+abline(v = sim$causal, lty=2, col=2)
+```
+
+:::
+::: {.column width=.5}
+
+Summary-based with out-of-sample LD
+
+```{r fig.width=3.25, fig.height=3}
+susie_plot(susie.prs, y="PIP")
+abline(v = sim$causal, lty=2, col=2, lwd=2)
+```
+
+:::
+::::::
+ 
+
+
+# Stratified LD score regression
+
+
+## LD score (LDSC) regression to model $\chi^{2}$ statistics
+
+\normalsize
+
+What is a generative model for a $\chi_{j}^{2}$ ($= Z_{j}^{2}$) statistics vector?
+
+\only<1>{
+We have seen this relationship in the fine-mapping model:
+
+$$\underset{\textsf{\color{teal} univariate, summary stat}}{Z_{j}} = \frac{\sqrt{n}}{\sigma} \sum_{k} \underset{\textsf{\color{gray} LD between j and k}}{R_{jk}} \underset{\textsf{\color{magenta} multivariate, true effect}}{\theta_{k}}  + \epsilon_{j}$$
+
+where $\epsilon \sim \mathcal{N}\!\left(0,1\right)$.
+}
+
+\onslide<2->{
+Simply plugging $Z_{j}$ in the equation,
+$$\mathbb{E}\!\left[\chi_{j}^{2}\right] = \mathbb{E}\!\left[Z_{j}^{2}\right] = \mathbb{E} \left( \sqrt{n} \sum_{k} R_{jk} \theta_{k} + \epsilon_{j} \right)^{2}$$
+}
+
+\only<3>{
+If "true" multivariate effect for each variant is independent of other variants' effects, i.e., $\mathbb{E}\!\left[\theta_{k}\theta_{j}\right] = 0$ for all $k \neq j$, 
+
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] = n \underbrace{\sum_{k} R_{jk}^{2}}_{\textsf{\color{blue} LD-score}} \mathbb{E}\!\left[ \theta_{k}^{2} \right] + 1$$
+}
+
+\vfill
+\tiny
+
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014); Finucane *et al.*, \emph{Nature Genetics} (2015)
+
+## Baseline LD-score regression to measure polygenic heritability
+
+
+\large
+
+:::::: {.columns}
+::: {.column width=.48}
+
+(1) Assuming that all the variants equally contribute, 
+
+$$\mathbb{E}\!\left[\theta_{k}^{2}\right] = \tau / p,$$ 
+
+\only<1>{
+where $p$ is the total number of SNPs,
+}
+
+:::
+::: {.column width=.48}
+
+\onslide<2->{
+(2) defining an LD score for a variant/SNP $j$ as
+$$l_{j} \overset{\textsf{def}}{=} \sum_{k} R^{2}_{jk},$$ 
+}
+
+:::
+::::::
+
+\vfill
+
+\onslide<3->{We get}
+
+$$\onslide<3->{
+\mathbb{E}\!\left[\chi^{2}_{j}\right]  = n \underbrace{\sum_{k} R_{jk}^{2}}_{\textsf{\color{blue} LD-score}} \mathbb{E}\!\left[ \theta_{k}^{2} \right] + 1 }
+\onslide<4->{ = \underset{\textsf{\color{teal} sample size}}{n} \underset{\textsf{\color{blue} LD score}}{l_{j}} \underset{\textsf{\color{magenta}per SNP heritability}}{\frac{\tau}{p}} + 1}$$
+\only<4>{
+where $p$ is the total number of SNPs.
+}
+
+\vfill
+\tiny
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014)
+
+## Baseline LD-score regression to measure polygenic heritability
+
+\large
+
+We can treat the relationships as a regression model
+and find the heritability parameters by regressing the observed $\chi^{2}$ statistics on the reference LD scores $l_{j}$:
+$$
+\left(
+\begin{array}{c}
+\chi^{2}_{1} \\
+\vdots \\
+\chi^{2}_{j} \\
+\vdots
+\end{array}
+\right)
+\sim
+\frac{n}{p}
+\left(
+\begin{array}{l}
+l_{1} \\
+\vdots \\
+l_{j} \\
+\vdots
+\end{array} 
+\right)
+\underset{\textsf{\color{magenta}per SNP heritability}}{\tau}
++ \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
++ \underset{\textsf{\color{teal} null}}{1}
+$$
+
+If the intercept of $\{\chi^{2}_{j}\}$ deviate from $1$, we can interpret that the GWAS statistics are inflated by some unadjusted population structures or other confounding factors. 
+
+\vfill
+\tiny
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014)
+
+
+## Stratified LD-score regression to partition (stratify) total heritability into multiple genomic annotations
+
+\vfill
+
+
+\vfill
+
+E.g., How much heritability of a disease is explained by tissue-specific epigenomic signals?
+
+## Stratified LD-score regression in math
+
+When genome is partitioned by annotations (e.g., epigenetic tracks)
+
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] = \frac{n}{p} \sum_{t} l_{jt} \underset{\textsf{\color{magenta} stratified heritability}}{\tau_{t}} + \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
++ \underset{\textsf{\color{teal} null}}{1}$$
+where we use partitioned LD-scores for each annotation type $t$
+$$l_{jt} = \sum_{k} R^{2}_{jk} I\left\{ k \in \mathcal{A}_{t}\right\}.$$
+
+\only<2>{
+Instead of assuming a single parameter for the overall per-SNP heritability $\tau$, we can ``partition'' this total heritability into annotation-type-specific ones, $\{\tau_{t}\}$.
+}
+
+\onslide<3->{
+More explicitly,
+$$
+\left(
+\begin{array}{c}
+\chi^{2}_{1} \\
+\vdots \\
+\chi^{2}_{j} \\
+\vdots
+\end{array}
+\right)
+\sim
+\frac{n}{p} 
+\underset{\textsf{\color{blue} stratified LD scores}}{
+\left(
+\begin{array}{l l l l}
+l_{11} & l_{12} & l_{1t}& \ldots \\
+& \vdots & & \\
+l_{j1} & l_{j2} & l_{jt}& \ldots \\
+& \vdots & & \\
+\end{array} 
+\right)
+}
+\underset{\textsf{\color{magenta} stratified heritability}}{
+\left(
+\begin{array}{c}
+\tau_{1} \\
+\vdots \\
+\tau_{t} \\
+\vdots
+\end{array} 
+\right)
+}
++ \underset{\textsf{\color{brown} genomic inflation}}{n \phi}
++ \underset{\textsf{\color{teal} null}}{1}
+$$
+}
+\vfill
+\tiny
+Finucane *et al.*, \emph{Nature Genetics} (2015)
+
+## Stratified LD-score regression can identify tissue-specific heritability enrichment
+
+\vfill
+
+\vfill
+\tiny
+Finucane *et al.*, \emph{Nature Genetics} (2018)
+
+## Bivariate LD-score regression
+
+Instead of one $\chi^{2}$ vector, we need to deal with the element-wise product of two vectors of z-scores (between a trait 1 and 2):
+
+$$
+\left(
+\begin{array}{c}
+z^{(1)}_{1} z^{(2)}_{1} l_{1}\\
+\vdots \\
+z^{(1)}_{j} z^{(2)}_{j} l_{j}\\
+\vdots
+\end{array}
+\right)
+\sim
+\frac{\sqrt{N_{1} N_{2}}}{p}
+\left(
+\begin{array}{l}
+l_{1} \\
+\vdots \\
+l_{j} \\
+\vdots
+\end{array} 
+\right)
+\underset{\textsf{\color{magenta}genetic correlation}}{\rho}
++ \underset{\textsf{\color{teal} sample sharing}}{\frac{\rho_{0} N_{s}}{\sqrt{N_{1} N_{2}}}}
+$$
+where $N_{1}$ and $N_{2}$ count sample size of the GWAS 1 and 2; $N_{s}$ is the number of control individuals shared between the two traits.
+
+\vfill
+\tiny
+Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2015)
+
