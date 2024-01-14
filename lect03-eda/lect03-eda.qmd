@@ -21,7 +21,7 @@ format:
     show-notes: false
 ---
 
-## Today: Getting to know your data and understanding where it came from
+## Today: Getting to know your data, and why you need to understand where it came from
 
 ::: callout-tip
 # Learning objectives:
@@ -42,12 +42,27 @@ https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.qmd); it
 
 - [The companion notes (GitHub Markdown document)](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md) explore multiple ways of making these plots and more detailed info
   * Source Rmd for these notes [here](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.Rmd)
+  
+::: callout-tip
+
+# Instructions to create `.pdfs` from the `.html` slides:
+
+1. Open slides in Google Chrome or Chromium
+1. Toggle into print view by pressing the `E` key
+1. Open the print dialogue by pressing: `CTRL`/`CMD`+`P`
+1. Change the **Destination** setting to **Save as PDF**
+1. Change the **Layout** to **Landscape**
+1. Change the **Margins** to **None**
+1. Enable the **Background graphics** option
+1. Click **Save**
+
+:::
 
 ## CHD8 RNA-seq experiment
 
 - [Gompers et al. (Nature Neuroscience 2017)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6008102/) performed RNA-seq on mice from two different genotypes (18 WT vs 26 CHD8 mutant) and 5 developmental stages
 
-- "Using a statistical model that accounted for sex, developmental stage and sequencing batch, we tested for differential expression across 11,936 genes that were robustly expressed in our data sets"
+- "Using a statistical model that accounted for sex, developmental stage and sequencing batch, we tested for differential expression across 11,936 genes that were robustly expressed"
 
 - We'll use this dataset throughout this lecture to illustrate EDA
 
@@ -323,9 +338,9 @@ Overall: <span style="color: red;">_**recommended for downstream analysis (e.g. 
 ## These questions might lead to concerns
 
 
-- If you are the one generating the data, save yourself grief by paying attention to these issues up front. Document what you did and be consistent!
+- If you are the one generating the data, save yourself grief by paying attention to these issues up front - Document what you did and be consistent!
 
-- If you are the analyst, hopefully you were involved in the design stage so there will be fewer surprises.
+- If you are the analyst, hopefully you were involved in the design stage so there will be fewer surprises
 
 
 
@@ -347,7 +362,7 @@ Overall: <span style="color: red;">_**recommended for downstream analysis (e.g. 
 
 ## Variability: friend and foe
 
-- If there is no variability, you don't have any information. The key is controlling/understanding sources of *wanted vs. unwanted* variability. One person's noise may be another’s signal.
+- If there is no variability, you don't have any information - key is controlling/understanding sources of *wanted vs. unwanted* variability
 
 - First line of defense: Know the enemy
   - You can only "correct" for things you know about
@@ -366,7 +381,8 @@ Overall: <span style="color: red;">_**recommended for downstream analysis (e.g. 
 
 ## Biggest pitfall in (high-dimensional) data analysis
 
-
+::: columns
+::: column
 If you don't **look** at the data, you are likely going to miss important things
 
 - Not just at the beginning, but at every stage
@@ -376,8 +392,11 @@ If you don't **look** at the data, you are likely going to miss important things
 - "Sanity checks" should make up a lot of your early effort
 
 - Blindly following recipes/pipelines/vignettes/seminar code → trouble
-
-
+:::
+::: column
+![Epicycles of Analysis, from "Art of Data Science"](https://bookdown.org/rdpeng/artofdatascience/images/epicycle.png){width=600}
+:::
+:::
 
 ## First looks at the CHD8 expression data
 
@@ -416,6 +435,7 @@ range(assays(se)$logrpkm)
 ::: columns
 ::: column
 Sample info:
+
 - Age (Days Post-conception, DPC)
 
 - Sex
@@ -733,28 +753,6 @@ m %>% select(-Number, -Sample) %>%
 :::
 :::
 
-
-
-## EDA Summary
-
-Purpose:
-
-- Sanity checks
-- Visualization to spot patterns and/or oddities
-
-Three principles:
-
-- **Let the data speak for itself** - avoid dynamite plots in favor of boxplots, overlayed with points if feasible number
-- **Avoid over-plotting** points with transparency and/or 2D density plots
-- **Consider transformations** (e.g. log) for skewed distributions
-
-Additional exploratory techniques will be discussed later in the course:
-
-- Clustering
-- PCA
-
-
-
 ## Heatmaps
 
 ![](img/heatmaps.png){fig-align="center"}
@@ -939,9 +937,30 @@ pheatmap(hd, color = bcols,
 :::
 
 
+## EDA Summary
+
+Purpose: **Evaluate whether data aligns with expectations**:
+
+- Sanity checks
+- Visualization to spot patterns and/or oddities
+
+::: callout-note
+# Three principles of EDA:
+ 
+1. **Let the data speak for itself** - avoid dynamite plots in favor of boxplots, overlayed with points if feasible number
+
+2. **Avoid overplotting** - use transparency or 2D density in scatterplots; make sure heatmap cells aren't too small
+
+3. **Consider transformations** (e.g. log) for skewed distributions
+
+4. **Use colour intentionally** to convey information
+:::
+
+Additional exploratory techniques will be discussed later in the course (e.g. Clustering, PCA)
+
 ## Experimental design and quality
 
-![](https://media.springernature.com/lw685/springer-static/image/art%3A10.1038%2Fsj.ebd.6400436/MediaObjects/41432_2006_Article_BF6400436_Fig1_HTML.jpg?as=webp)
+![Fig 1, 10.1038/sj.ebd.6400436](https://media.springernature.com/lw685/springer-static/image/art%3A10.1038%2Fsj.ebd.6400436/MediaObjects/41432_2006_Article_BF6400436_Fig1_HTML.jpg?as=webp){fig-align="center"}
 
 ## Experimental design considerations
 
@@ -984,8 +1003,6 @@ Effects on the data:
 - Here I mean "Removing part of the data from a sample" and doing that to all samples
 
 - In many studies, especially gene expression, it is common to remove genes that have no or very low signal ("not expressed")
-
-- Similarly: Common to remove data that have "too many missing values" compared to other samples (if you actually have missing values)
 
 - Deciding what to remove is often not straighforward, but make a principled decision and stick with it (see next slide)
 
@@ -1050,7 +1067,7 @@ Features (e.g. genes) are not **usually** called "outliers" in the sense of "sho
   - "Low" correlation with most (or all) other samples from the same group
   - There may be technology-specific factors
   
-- If a sample is questionable, we might ask: Is there anything in the notebook that would make us suspect it? (e.g. "Sample dropped on floor")  
+- If a sample is questionable, we might ask: Is there anything suspect in the experimental process? (e.g. "Sample dropped on floor")  
   – this will help justify decisions to remove a sample beyond arbitrary criteria like ">1.5 IQR"
 
 
