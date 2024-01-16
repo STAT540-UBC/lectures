@@ -732,7 +732,7 @@ ggpairs(d[sample(nrow(d), n),6:11],
 
 ::: columns
 ::: {.column width="30%"}
-- Sex is not that well balanced; all but one of the adults is male 
+- Sex is not that well balanced
 
 - There is a batch confound: The stages were run in different batches (except 17.5 was split in two)
 
@@ -743,7 +743,7 @@ ggpairs(d[sample(nrow(d), n),6:11],
 ```{r}
 #| echo: FALSE
 #| fig.width: 12
-#| fig.height: 7
+#| fig.height: 9
 #| message: FALSE
 m %>% select(-Number, -Sample) %>%
   mutate(DPC = as.factor(DPC)) %>%
