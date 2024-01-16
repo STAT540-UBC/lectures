@@ -229,7 +229,7 @@ Overall: <span style="color: red;">_**recommended for EDA/visualization**_</span
 :::
 
 
-![](img/tidyway.png){.absolute bottom=0 right=50 width="475"}
+![](img/tidyway.png){.absolute bottom=0 right=50 width="525"}
 
 ## The Tidy way
 
@@ -945,7 +945,7 @@ Purpose: **Evaluate whether data aligns with expectations**:
 - Visualization to spot patterns and/or oddities
 
 ::: callout-note
-# Three principles of EDA:
+# Four principles of EDA:
  
 1. **Let the data speak for itself** - avoid dynamite plots in favor of boxplots, overlayed with points if feasible number
 
