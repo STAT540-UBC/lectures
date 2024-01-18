@@ -342,6 +342,15 @@ Keegan Korthauer
 </section>
 <section id="preview-of-next-6-lectures" class="slide level2">
 <h2>Preview of next 6 lectures</h2>
+<div class="callout callout-tip callout-titled callout-style-default">
+<div class="callout-body">
+<div class="callout-title">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Upcoming lecture series</strong></p>
+</div>
+<div class="callout-content">
 <ul>
 <li><p><strong>Lecture 4: Review of Probability and Statistics</strong></p></li>
 <li><p>Lecture 5: Statistical Inference - two group comparisons</p></li>
@@ -350,6 +359,9 @@ Keegan Korthauer
 <li><p>Lecture 8: Statistical Inference - continuous regression + limma</p></li>
 <li><p>Lecture 9: Statistical Inference - multiple testing</p></li>
 </ul>
+</div>
+</div>
+</div>
 </section>
 <section id="what-is-statistics" class="slide level2">
 <h2>What is Statistics?</h2>
@@ -394,8 +406,10 @@ Keegan Korthauer
 <p><strong>Learning objectives:</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;">1. <strong>Be familiar with the terminology</strong>: describe data as random variables with various types of sampling distributions</span></p>
-<p><span style="font-size: 1.5em;">2. <strong>Gain intuition for the central concepts</strong>: understand how statistical inference and modeling can help us learn about the properties of a population</span></p>
+<ol type="1">
+<li><p><strong>Be familiar with the terminology</strong>: describe data as random variables with various types of sampling distributions</p></li>
+<li><p><strong>Gain intuition for the central concepts</strong>: understand how statistical inference and modeling can help us learn about the properties of a population</p></li>
+</ol>
 </div>
 </div>
 </div>
@@ -421,7 +435,7 @@ Keegan Korthauer
 <p><strong>Definition</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;"><strong>Variable</strong>: an element, feature, or factor that is liable to vary or change</span></p>
+<p><strong>Variable</strong>: an element, feature, or factor that is liable to vary or change</p>
 </div>
 </div>
 </div>
@@ -441,7 +455,7 @@ Keegan Korthauer
 <p><strong>Definition</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;"><strong>Random Variable (RV)</strong>: A variable whose value results from the measurement of a quantity that is subject to variation (e.g.&nbsp;the <em>outcome</em> an experiment)</span></p>
+<p><strong>Random Variable (RV)</strong>: A variable whose value results from the measurement of a quantity that is subject to variation (e.g.&nbsp;the <em>outcome</em> an experiment)</p>
 </div>
 </div>
 </div>
@@ -461,7 +475,7 @@ Keegan Korthauer
 <p><strong>Definition</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;"><strong>Probability</strong>: A number assigned to an outcome/event that describes the extent to which it is likely to occur</span></p>
+<p><strong>Probability</strong>: A number assigned to an outcome/event that describes the extent to which it is likely to occur</p>
 </div>
 </div>
 </div>
@@ -478,7 +492,7 @@ Keegan Korthauer
 <p><strong>Definition</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;"><strong>Probability distribution</strong>: A mathematical function that maps outcomes/events to probabilities</span></p>
+<p><strong>Probability distribution</strong>: A mathematical function that maps outcomes/events to probabilities</p>
 </div>
 </div>
 </div>
@@ -622,6 +636,19 @@ Keegan Korthauer
 </tbody>
 </table>
 <p>Note on notation: <span class="math inline">\(P(X=x)\)</span> can also be written as <span class="math inline">\(P_X(x)\)</span></p>
+<aside class="notes">
+<p>P(X=x) also called the PMF</p>
+<style type="text/css">
+        span.MJX_Assistive_MathML {
+          position:absolute!important;
+          clip: rect(1px, 1px, 1px, 1px);
+          padding: 1px 0 0 0!important;
+          border: 0!important;
+          height: 1px!important;
+          width: 1px!important;
+          overflow: hidden!important;
+          display:block!important;
+      }</style></aside>
 </section>
 <section id="two-types-of-random-variables" class="slide level2">
 <h2>Two types of random variables</h2>
@@ -683,7 +710,7 @@ Keegan Korthauer
 <li><p>The <strong>parameter space</strong> is the set of all possible values of a parameter</p></li>
 <li><p>One major goal: to “figure out” (i.e.&nbsp;estimate) the <strong>parameter values</strong></p>
 <ul>
-<li>i.e.&nbsp;<em>“fit the model to the data”</em></li>
+<li>i.e.&nbsp;<em>fit the model to the data</em></li>
 </ul></li>
 </ul>
 <div class="callout callout-note callout-titled callout-style-default">
@@ -695,7 +722,7 @@ Keegan Korthauer
 <p><strong>Note</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;">A <strong>model</strong> is a representation that (we hope) approximates the data and (more importantly) the population that the data were sampled from</span></p>
+<p>A <strong>model</strong> is a representation that (we hope) approximates the data and (more importantly) the population that the data were sampled from</p>
 </div>
 </div>
 </div>
@@ -745,7 +772,7 @@ Keegan Korthauer
 <p><strong>Caution</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;">If our analysis relies on the assumption that our observations are independent and they are not, our conclusions might be misleading</span></p>
+<p>If our analysis relies on the assumption that our observations are independent and they are not, our conclusions might be misleading</p>
 </div>
 </div>
 </div>
@@ -947,14 +974,18 @@ Keegan Korthauer
 <p><strong>Warning</strong></p>
 </div>
 <div class="callout-content">
-<p><span style="font-size: 1.5em;">The standard deviation is not the same as the standard error</span></p>
+<p>The standard deviation is not the same as the standard error</p>
+<ul>
+<li><p><strong>Standard error</strong> describes <em>variability across multiple samples in a population</em></p></li>
+<li><p><strong>Standard deviation</strong> describes <em>variability within a single sample</em></p></li>
+</ul>
 </div>
 </div>
 </div>
 <div class="fragment">
 <ul>
 <li><p>The sampling distribution of the mean of <span class="math inline">\(n\)</span> observations (by CLT): <span class="math display">\[\bar{X} \sim N(\mu, \frac{\sigma^2}{n})\]</span></p></li>
-<li><p>The <em>standard error</em> of the mean is <span class="math inline">\(\frac{\sigma}{\sqrt{n}}\)</span></p></li>
+<li><p>The <em>standard error of the mean</em> is <span class="math inline">\(\frac{\sigma}{\sqrt{n}}\)</span></p></li>
 <li><p>The <em>standard deviation</em> of <span class="math inline">\(X\)</span> is <span class="math inline">\(\sigma\)</span></p></li>
 </ul>
 </div>

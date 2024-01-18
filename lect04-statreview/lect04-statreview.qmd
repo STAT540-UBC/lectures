@@ -26,6 +26,10 @@ html-math-method:
 
 ## Preview of next 6 lectures
 
+::: callout-tip
+
+# Upcoming lecture series
+
 -   **Lecture 4: Review of Probability and Statistics**
 
 -   Lecture 5: Statistical Inference - two group comparisons
@@ -38,6 +42,7 @@ html-math-method:
 
 -   Lecture 9: Statistical Inference - multiple testing
 
+:::
 
 ## What is Statistics?
 
@@ -71,9 +76,9 @@ html-math-method:
 ::: callout-tip
 # Learning objectives:
 
-[1.  **Be familiar with the terminology**: describe data as random variables with various types of sampling distributions]{style="font-size: 1.5em;"}
+1.  **Be familiar with the terminology**: describe data as random variables with various types of sampling distributions
 
-[2.  **Gain intuition for the central concepts**: understand how statistical inference and modeling can help us learn about the properties of a population]{style="font-size: 1.5em;"}
+2.  **Gain intuition for the central concepts**: understand how statistical inference and modeling can help us learn about the properties of a population
 :::
 
 ## Statistical Inference
@@ -91,7 +96,7 @@ A framework for generating conclusions about a population from a sample of noisy
 ::: callout-note
 # Definition
 
-[**Variable**: an element, feature, or factor that is liable to vary or change]{style="font-size: 1.5em;"}
+**Variable**: an element, feature, or factor that is liable to vary or change
 :::
 
 -   In statistical terminology, a **variable** is an unknown quantity that we'd like to study
@@ -103,7 +108,7 @@ A framework for generating conclusions about a population from a sample of noisy
 ::: callout-note
 # Definition
 
-[**Random Variable (RV)**: A variable whose value results from the measurement of a quantity that is subject to variation (e.g. the *outcome* an experiment)]{style="font-size: 1.5em;"}
+**Random Variable (RV)**: A variable whose value results from the measurement of a quantity that is subject to variation (e.g. the *outcome* an experiment)
 :::
 
 -   Examples: a coin flip, a dice throw, the expression level of gene X
@@ -115,7 +120,7 @@ A framework for generating conclusions about a population from a sample of noisy
 ::: callout-note
 # Definition
 
-[**Probability**: A number assigned to an outcome/event that describes the extent to which it is likely to occur]{style="font-size: 1.5em;"}
+**Probability**: A number assigned to an outcome/event that describes the extent to which it is likely to occur
 :::
 
 -   Probability must satisfy certain rules (e.g. be between 0 and 1)
@@ -125,7 +130,7 @@ A framework for generating conclusions about a population from a sample of noisy
 ::: callout-note
 # Definition
 
-[**Probability distribution**: A mathematical function that maps outcomes/events to probabilities]{style="font-size: 1.5em;"}
+**Probability distribution**: A mathematical function that maps outcomes/events to probabilities
 :::
 
 ## Example experiment: Two coin tosses
@@ -187,6 +192,11 @@ The probability distribution of the Random Variable $X$ tells us how likely each
 |                    ![](img/heads.png) ![](img/heads.png)                     |  2  |   0.25   |
 
 Note on notation: $P(X=x)$ can also be written as $P_X(x)$
+
+
+::: {.notes}
+P(X=x) also called the PMF
+:::
 
 ## Two types of random variables
 
@@ -269,10 +279,10 @@ ggplot(data.frame(x = c(x_lower, x_upper)), aes(x = x)) + xlim(x_lower, x_upper)
 
 -   One major goal: to "figure out" (i.e. estimate) the **parameter values**
 
-    -   i.e. *"fit the model to the data"*
+    -   i.e. *fit the model to the data*
 
 ::: callout-note
-[A **model** is a representation that (we hope) approximates the data and (more importantly) the population that the data were sampled from]{style="font-size: 1.5em;"}
+A **model** is a representation that (we hope) approximates the data and (more importantly) the population that the data were sampled from
 :::
 
 . . .
@@ -304,7 +314,7 @@ ggplot(data.frame(x = c(x_lower, x_upper)), aes(x = x)) + xlim(x_lower, x_upper)
 ::: callout-caution
 # Caution
 
-[If our analysis relies on the assumption that our observations are independent and they are not, our conclusions might be misleading]{style="font-size: 1.5em;"}
+If our analysis relies on the assumption that our observations are independent and they are not, our conclusions might be misleading
 :::
 
 -   Experimental design is in part about trying to avoid unwanted dependence
@@ -426,14 +436,18 @@ By the *Central Limit Theorem (CLT)*, we know that the sampling distribution of 
 ## Standard deviation vs standard error
 
 ::: callout-warning
-[The standard deviation is not the same as the standard error]{style="font-size: 1.5em;"}
+The standard deviation is not the same as the standard error
+
+* **Standard error** describes _variability across multiple samples in a population_
+
+* **Standard deviation** describes _variability within a single sample_
 :::
 
 . . .
 
 -   The sampling distribution of the mean of $n$ observations (by CLT): $$\bar{X} \sim N(\mu, \frac{\sigma^2}{n})$$
 
--   The *standard error* of the mean is $\frac{\sigma}{\sqrt{n}}$
+-   The *standard error of the mean* is $\frac{\sigma}{\sqrt{n}}$
 
 -   The *standard deviation* of $X$ is $\sigma$
 
