@@ -175,6 +175,14 @@ filter(twoGenes, gene == "Irs4") %>%
 
 * What is generally more important for results interpretation: the effect size or the p-value?
 
+::: {.callout-important}
+
+# Key question
+
+Why should I bother with the assumptions of the t-test, which aren't necessary for the Wilcoxon or KS?
+
+:::
+
 ::: {.notes}
 What test should I use?
 
