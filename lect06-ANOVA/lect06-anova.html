@@ -1326,7 +1326,7 @@ Levels: WT NrlKO</code></pre>
 <p><strong>Check your understanding</strong></p>
 </div>
 <div class="callout-content">
-<p>Can you guess the size of the <span class="math inline">\(X\)</span> matrix needed to test for any time differences? How many indicator variables do we need?</p>
+<p>Can you guess the size of the <span class="math inline">\(X\)</span> matrix needed to test for any time differences compared to E16? How many indicator variables do we need?</p>
 </div>
 </div>
 </div>
@@ -1334,7 +1334,7 @@ Levels: WT NrlKO</code></pre>
 </section>
 <section id="gene-bb114814-with-notable-time-effect" class="slide level2">
 <h2>Gene BB114814 with notable time effect</h2>
-<p>We need <code>__</code> indicator variables to estimate and test <code>__</code> time differences (between <code>__</code> time points):</p>
+<p>We need <code>__</code> indicator variables to estimate and test <code>__</code> time differences (between <code>__</code> time points), and our design matrix will have <code>__</code> columns:</p>
 <aside class="notes">
 <p>We need 4 indicator variables to estimate and test 4 time differences (between 5 time points): - <span class="math inline">\(x_{P2}\)</span>: P2 vs E16 - <span class="math inline">\(x_{P6}\)</span>: P6 vs E16 - <span class="math inline">\(x_{P10}\)</span>: P10 vs E16 - <span class="math inline">\(x_{P28}\)</span>: P28 vs E16</p>
 <style type="text/css">
@@ -1604,7 +1604,7 @@ dev_stageP28 3.6323772  0.1398829 25.967276 5.303201e-24</code></pre>
 <p><span class="math display">\[Y = X \alpha + \varepsilon\]</span> <span class="math display">\[\alpha = (\theta, \tau_{P2}, \tau_{P6}, \tau_{P10}, \tau_{P28})\]</span></p>
 <div class="columns">
 <div class="column">
-<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_0: \tau_j \neq 0\)</span></p>
+<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_1: \tau_j \neq 0\)</span></p>
 <p><strong>for each <em>j</em> individually</strong></p>
 <p>For example: Is gene <em>A</em> differentially expressed 2 days after birth (compared to embryonic day 16)?</p>
 <p><span class="math display">\[H_0: \tau_{P2}=0\]</span></p>
@@ -1624,7 +1624,7 @@ dev_stageP28 3.6323772  0.1398829 25.967276 5.303201e-24</code></pre>
 </div>
 </div>
 </div><div class="column">
-<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_0: \tau_j \neq 0\)</span></p>
+<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_1: \tau_j \neq 0\)</span></p>
 <p><strong>for all <em>j</em> at the same time</strong></p>
 <p>For example: Is gene <em>A</em> significantly affected by time? In other words, is gene <em>A</em> differentially expressed at <em>any</em> time point?</p>
 <p><span class="math display">\[H_0: \tau_{P2}=\tau_{P6}=\tau_{P10}=\tau_{P28}=0\]</span></p>
@@ -1660,8 +1660,8 @@ dev_stageP28 3.6323772  0.1398829 25.967276 5.303201e-24</code></pre>
 <section id="single-and-joint-tests-in-lm-output" class="slide level2">
 <h2>Single and joint tests in <code>lm</code> output</h2>
 <p>Can you locate the results of each type of test in the <code>lm</code> output?</p>
-<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_0: \tau_j \neq 0\)</span> for each <span class="math inline">\(j\)</span> <strong>individually</strong></p>
-<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_0: \tau_j \neq 0\)</span> for all <span class="math inline">\(j\)</span> <strong>together</strong></p>
+<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_1: \tau_j \neq 0\)</span> for each <span class="math inline">\(j\)</span> <strong>individually</strong></p>
+<p><span class="math inline">\(H_0: \tau_j = 0\)</span> vs <span class="math inline">\(H_1: \tau_j \neq 0\)</span> for all <span class="math inline">\(j\)</span> <strong>together</strong></p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb53"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1"></a>twoGenes <span class="sc">%&gt;%</span> <span class="fu">filter</span>(gene <span class="sc">==</span> <span class="st">"BB114814"</span>) <span class="sc">%&gt;%</span></span>
 <span id="cb53-2"><a href="#cb53-2"></a>  <span class="fu">lm</span>(expression <span class="sc">~</span> dev_stage, <span class="at">data =</span> .) <span class="sc">%&gt;%</span></span>

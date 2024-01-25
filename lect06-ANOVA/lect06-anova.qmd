@@ -817,12 +817,12 @@ twoGenes %>% filter(gene == "BB114814") %>%
 
 ::: {.callout-tip}
 # Check your understanding
-Can you guess the size of the $X$ matrix needed to test for any time differences? How many indicator variables do we need?
+Can you guess the size of the $X$ matrix needed to test for any time differences compared to E16? How many indicator variables do we need?
 :::
 
 ## Gene BB114814 with notable time effect
 
-We need `__` indicator variables to estimate and test `__` time differences (between `__` time points):
+We need `__` indicator variables to estimate and test `__` time differences (between `__` time points), and our design matrix will have `__` columns:
 
 ::: {.notes}
 We need 4 indicator variables to estimate and test 4 time differences (between 5 time points):
@@ -950,7 +950,7 @@ $$\alpha = (\theta, \tau_{P2}, \tau_{P6}, \tau_{P10}, \tau_{P28})$$
 ::: column
 $H_0: \tau_j = 0$
 vs
-$H_0: \tau_j \neq 0$
+$H_1: \tau_j \neq 0$
 
 **for each *j* individually**
           
@@ -971,7 +971,7 @@ This single hypothesis can be tested with a **t-test**
 ::: column
 $H_0: \tau_j = 0$
         vs
-$H_0: \tau_j \neq 0$
+$H_1: \tau_j \neq 0$
 
 **for all *j* at the same time**
         
@@ -1008,9 +1008,9 @@ How do we test this joint hypothesis?
 
 Can you locate the results of  each type of test in the `lm` output?
 
-$H_0: \tau_j = 0$ vs $H_0: \tau_j \neq 0$ for each $j$ **individually**
+$H_0: \tau_j = 0$ vs $H_1: \tau_j \neq 0$ for each $j$ **individually**
 
-$H_0: \tau_j = 0$ vs $H_0: \tau_j \neq 0$ for all $j$ **together**
+$H_0: \tau_j = 0$ vs $H_1: \tau_j \neq 0$ for all $j$ **together**
 
 ```{r}
 twoGenes %>% filter(gene == "BB114814") %>%
