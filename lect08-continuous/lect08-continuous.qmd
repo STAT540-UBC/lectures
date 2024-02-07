@@ -419,7 +419,7 @@ $$=(\mathbf{y}-\mathbf{X}\boldsymbol\alpha)^T(\mathbf{y}-\mathbf{X}\boldsymbol\a
 
 ::: columns
 ::: column
-$$\small \frac{\partial S}{\partial\alpha_0}=\begin{bmatrix}
+$$\small \frac{\partial S}{\partial\boldsymbol\alpha}=\begin{bmatrix}
   \frac{\partial S}{\partial\alpha_0} \\
   \frac{\partial S}{\partial\alpha_1} \\
   \vdots\\
@@ -1006,14 +1006,14 @@ allGenes %>% head(10)
 
 ::: column
 ```{r}
-system.time(lmfits <- allGenes %>%
+(t.limma <- system.time(lmfits <- allGenes %>%
     filter(gene %in% unique(allGenes$gene)[1:2000]) %>%
     group_by(gene) %>% 
     group_modify(~ tidy(lm(expression ~ age + genotype, 
                            data = .x))) %>%
     select(gene, term, estimate) %>%
     pivot_wider(names_from = term, 
-                values_from = estimate)) 
+                values_from = estimate)))
 lmfits %>% head() 
 ```
 :::
@@ -1023,8 +1023,8 @@ lmfits %>% head()
 ## OLS of **all** genes at once, using `limma`:
 
 ```{r}
-system.time( limmafits <- 
-  lmFit(eset, model.matrix(~ age + genotype, data = pData(eset))))
+(t.ols <- system.time( limmafits <- 
+  lmFit(eset, model.matrix(~ age + genotype, data = pData(eset)))))
 limmafits$coefficients %>% head()
 ```
 
@@ -1034,7 +1034,7 @@ So far, no shrinkage.
 
 
 :::{.callout-tip}
-Avoiding repetitive calculations involving $\mathbf{X}$ leads to ~30X faster computation in this example
+Avoiding repetitive calculations involving $\mathbf{X}$ leads to ~`r signif(7.4/0.18*45101/2000,2)`X faster computation in this example
 :::
 
 

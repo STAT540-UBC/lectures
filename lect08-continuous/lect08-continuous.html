@@ -751,7 +751,7 @@ Keegan Korthauer
 </ul>
 <div class="columns">
 <div class="column">
-<p><span class="math display">\[\small \frac{\partial S}{\partial\alpha_0}=\begin{bmatrix}
+<p><span class="math display">\[\small \frac{\partial S}{\partial\boldsymbol\alpha}=\begin{bmatrix}
   \frac{\partial S}{\partial\alpha_0} \\
   \frac{\partial S}{\partial\alpha_1} \\
   \vdots\\
@@ -1504,17 +1504,17 @@ Annotation: GPL1261 </code></pre>
 </div>
 </div><div class="column">
 <div class="cell">
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1"></a><span class="fu">system.time</span>(lmfits <span class="ot">&lt;-</span> allGenes <span class="sc">%&gt;%</span></span>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1"></a>(t.limma <span class="ot">&lt;-</span> <span class="fu">system.time</span>(lmfits <span class="ot">&lt;-</span> allGenes <span class="sc">%&gt;%</span></span>
 <span id="cb33-2"><a href="#cb33-2"></a>    <span class="fu">filter</span>(gene <span class="sc">%in%</span> <span class="fu">unique</span>(allGenes<span class="sc">$</span>gene)[<span class="dv">1</span><span class="sc">:</span><span class="dv">2000</span>]) <span class="sc">%&gt;%</span></span>
 <span id="cb33-3"><a href="#cb33-3"></a>    <span class="fu">group_by</span>(gene) <span class="sc">%&gt;%</span> </span>
 <span id="cb33-4"><a href="#cb33-4"></a>    <span class="fu">group_modify</span>(<span class="sc">~</span> <span class="fu">tidy</span>(<span class="fu">lm</span>(expression <span class="sc">~</span> age <span class="sc">+</span> genotype, </span>
 <span id="cb33-5"><a href="#cb33-5"></a>                           <span class="at">data =</span> .x))) <span class="sc">%&gt;%</span></span>
 <span id="cb33-6"><a href="#cb33-6"></a>    <span class="fu">select</span>(gene, term, estimate) <span class="sc">%&gt;%</span></span>
 <span id="cb33-7"><a href="#cb33-7"></a>    <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> term, </span>
-<span id="cb33-8"><a href="#cb33-8"></a>                <span class="at">values_from =</span> estimate)) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb33-8"><a href="#cb33-8"></a>                <span class="at">values_from =</span> estimate)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  4.532   0.032   4.708 </code></pre>
+  6.369   0.062   6.447 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1"></a>lmfits <span class="sc">%&gt;%</span> <span class="fu">head</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -1536,11 +1536,11 @@ Annotation: GPL1261 </code></pre>
 <section id="ols-of-all-genes-at-once-using-limma" class="slide level2">
 <h2>OLS of <strong>all</strong> genes at once, using <code>limma</code>:</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1"></a><span class="fu">system.time</span>( limmafits <span class="ot">&lt;-</span> </span>
-<span id="cb37-2"><a href="#cb37-2"></a>  <span class="fu">lmFit</span>(eset, <span class="fu">model.matrix</span>(<span class="sc">~</span> age <span class="sc">+</span> genotype, <span class="at">data =</span> <span class="fu">pData</span>(eset))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1"></a>(t.ols <span class="ot">&lt;-</span> <span class="fu">system.time</span>( limmafits <span class="ot">&lt;-</span> </span>
+<span id="cb37-2"><a href="#cb37-2"></a>  <span class="fu">lmFit</span>(eset, <span class="fu">model.matrix</span>(<span class="sc">~</span> age <span class="sc">+</span> genotype, <span class="at">data =</span> <span class="fu">pData</span>(eset)))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.121   0.034   0.155 </code></pre>
+  0.152   0.039   0.190 </code></pre>
 </div>
 <div class="sourceCode cell-code" id="cb39"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1"></a>limmafits<span class="sc">$</span>coefficients <span class="sc">%&gt;%</span> <span class="fu">head</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
@@ -1564,7 +1564,7 @@ Annotation: GPL1261 </code></pre>
 <p><strong>Tip</strong></p>
 </div>
 <div class="callout-content">
-<p>Avoiding repetitive calculations involving <span class="math inline">\(\mathbf{X}\)</span> leads to ~30X faster computation in this example</p>
+<p>Avoiding repetitive calculations involving <span class="math inline">\(\mathbf{X}\)</span> leads to ~930X faster computation in this example</p>
 </div>
 </div>
 </div>
