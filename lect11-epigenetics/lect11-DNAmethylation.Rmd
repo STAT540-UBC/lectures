@@ -1,0 +1,262 @@
+---
+title: "Statistical Inference for DNA methylation analysis"
+author: |
+    | Keegan Korthauer
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+classoption: "aspectratio=169"
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        colortheme: "orchid"
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \usepackage{multirow}
+  - \usepackage{wrapfig}
+  - \usepackage{float}
+  - \usepackage{colortbl}
+  - \usepackage{pdflscape}
+  - \usepackage{tabu}
+  - \usepackage{threeparttable}
+  - \usepackage{threeparttablex}
+  - \usepackage[normalem]{ulem}
+  - \usepackage{makecell}
+  - \usepackage{xcolor}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(data.table)
+library(patchwork)
+
+source("Setup.R")
+fig.dir <- "../Fig/Meth/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("./data", showWarnings=FALSE)
+theme_set(theme_classic())
+
+library(gridExtra)
+library(broom)
+library(latex2exp)
+library(limma)
+library(minfi)
+library(RColorBrewer)
+```
+
+
+##  Beta values and M values
+
+\Large
+
+Need some way to summarize the two relative measures for each probe:
+
+1. methylated intensity
+
+2. unmethylated intensity
+
+
+##  Beta $(\beta)$ values
+
+* Combine two measurements for each probe, and measure level of methylation: $$\beta = \frac{\text{methylated intensity}}{(\text{methylated intensity} + \text{unmeth intensity})}$$
+* Range from 0 to 1
+* Easily interpretable as a methylation proportion
+* Best used for visualization
+
+
+##  M-values
+
+* Transformed $\beta$ values: $$M= \log_2\left(\frac{\text{methylated intensity}}{\text{unmethylated intensity}}\right) = \log_2\left(\frac{\beta}{1-\beta}\right)$$
+
+* This type of transformation is referred to as the *logit*
+  * maps a proportion onto real line
+
+* alleviate heteroscedasticity of $\beta$ values (recall that Binomial(n,p) variance = np(1-p))
+
+\vfill
+
+[Du et al. (2010)](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-11-587)
+
+## Methylation array analysis
+
+* Analysis strategy: linear regression on M-values
+* R Packages:
+   * [minfi](http://bioconductor.org/packages/minfi/) for preprocessing and normalization
+   * [limma](http://bioconductor.org/packages/limma/) for individual cytosine analysis
+   * [bumphunter](http://bioconductor.org/packages/bumphunter/) or [dmrcate](https://bioconductor.org/packages/release/bioc/html/DMRcate.html) for region-level analysis
+   * Workflow that combines these: [methylationArrayAnalysis]( 	https://bioconductor.org/packages/methylationArrayAnalysis/) - explore in Seminar 7^[Note that this seminar requires installation of a couple of packages that download data and can take some time - please try run the installation step before class time!]
+
+## A working Example - DNA Methylation Arrays in sorted T cells
+
+"Genome-wide DNA methylation analysis identifies hypomethylated genes regulated by FOXP3 in human regulatory T cells" from [Zhang et al. (2013)](https://www.ncbi.nlm.nih.gov/pubmed/23974203)
+
+* [GEO accession GSE49667](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667)
+
+* Here we use filtered and normalized Bioc objects that were created by [this workflow](https://f1000research.com/articles/5-1281), with details described in Seminar 7
+
+```{r echo = T}
+mSet <- readRDS("data/mSet.rds")       # see Seminar 7
+targets <- readRDS("data/targets.rds") #
+```
+
+```{r}
+mSet
+```
+
+##  Metadata values
+
+```{r}
+head(targets[c(1:5)])
+table(targets$Sample_Label)
+```
+
+
+
+##  Beta values
+
+```{r}
+bVals <- getBeta(mSet)
+dim(bVals)
+head(bVals)
+```
+
+
+
+##  M values
+
+```{r}
+mVals <- getM(mSet)
+dim(mVals)
+head(mVals)
+```
+
+
+##  Comparing beta and M values
+
+```{r fig.width=6, fig.height=3}
+pal <- brewer.pal(8,"Dark2")
+par(mfrow=c(1,2), cex=.5)
+
+# plot beta values
+densityPlot(bVals,
+            sampGroups = targets$Sample_Group,
+            main = "Beta values",
+            legend = FALSE,
+            xlab = "Beta values")
+legend("top",
+       legend = levels(factor(targets$Sample_Group)),
+       text.col =brewer.pal(8,"Dark2"))
+
+# plot M values
+densityPlot(mVals,
+            sampGroups = targets$Sample_Group,
+            main = "M-values",
+            legend = FALSE,
+            xlab = "M values")
+legend("topleft",
+       legend = levels(factor(targets$Sample_Group)),
+       text.col = brewer.pal(8,"Dark2"))
+```
+
+
+##  Differentially methylated cytosines (DMC)
+
+Which cytosines/probes are differentially methylated between naive & activated naive T cells?
+
+```{r echo = T}
+## this is the factor of interest
+cellType <- factor(targets$Sample_Group)
+
+## this is the individual effect that we need to account for
+individual <- factor(targets$Sample_Source)
+
+## use the above to create a design matrix
+design <- model.matrix( ~ cellType + individual,
+                       data = targets)
+design
+```
+
+##  Differential methylation: limma on M-values
+
+Here, the reference cell type is `act_naive` cells
+
+```{r echo = T}
+## fit the linear model (one for each probe)
+mfit <- lmFit(mVals, design)
+cfit <- eBayes(mfit)
+
+## look at top DM CpGs between naive and ref (act_naive)
+topTable(cfit, coef="cellTypenaive")
+```
+
+
+##  Summary for all coefficients
+
+Significant tests (BH-adjusted p-value less than 0.05) of the null hypotheses: each coefficient equal to zero
+
+```{r}
+## look at the numbers of DM CpGs at FDR < 0.05
+summary(decideTests(cfit))
+```
+
+Note that the first column tests whether the reference group (`act_naive`) has an M value of zero (not usually of interest)
+
+
+
+##  Interpretation of parameters and effect sizes
+
+* To interpret parameter estimates from M-values on $\beta$ scale, need to back-transform:
+
+  * Recall: $M= log_2\big(\frac{\text{methylated intensity}}{\text{unmethylated intensity}}\big) = log_2(\beta/(1-\beta))$
+
+  * Solving for beta gives $\beta = 2^M/(1+2^M)$
+
+```{r echo = T}
+# fitted mean M-value for cg15459165 in ref group:
+(M_act_naive <- cfit$coefficients["cg15459165", "(Intercept)"])
+(M_naive <- M_act_naive + cfit$coefficients["cg15459165", "cellTypenaive"])
+
+# back transform to beta values
+inv_logit <- function(x){ 2^x / (1+2^x) }
+inv_logit(M_act_naive)
+inv_logit(M_naive)
+
+# check against observed bVals
+bVals["cg15459165",]
+```
+
+
+##  Summary of array DMC analysis
+
+
+* **Just like for limma analysis of gene expression microarray**: Can use additive models, models with interactions, continuous and categorical variables
+
+  * **interpretation of hypothesis tests, contrasts** with `makeContrasts` (for other comparisons not represented by coefficients in our design matrix): follows as before
+
+  * **interpretation of parameters/effect sizes**: keep in mind that M-values are *transformed* proportions
+
+
+. . .
+
+
+* Annotation packages (e.g. `IlluminaHumanMethylation450kanno.ilmn12.hg19`) allow for adding information about each CpG
+  * chromosome and position
+  * strand
+  * whether in CpG Island
