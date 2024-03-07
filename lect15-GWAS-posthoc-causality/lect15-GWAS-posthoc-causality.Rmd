@@ -1,0 +1,1373 @@
+---
+title: "Post GWAS analysis and Causal Inference"
+author: "Yongjin Park, UBC Path + Stat, BC Cancer"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mainfont: Roboto
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+setwd("~/work/teaching/stat540_lectures/lect15-GWAS-posthoc-causality/")
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+source("Setup.R")
+fig.dir <- "../Fig/postGWAS/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+library(extrafont)
+library(xkcd)
+extrafont::font_import(pattern="[X/x]kcd", prompt=F)
+extrafont::loadfonts()
+theme_set(theme_xkcd() +
+          theme(title = element_text(size=10),
+                legend.background = element_blank())
+          )
+```
+
+## Learning objectives
+
+
+* Understand the basic idea of summary-based post-GWAS analysis.
+
+* Understand when and how we can bring causal interpretation.
+
+```{r download_1000g_data}
+dir.create("../data/genotype/", recursive=TRUE, showWarnings=FALSE)
+## bigsnpr
+library(bigsnpr)
+.bed.file <- "../data/genotype/1000G_phase3_common_norel.bed"
+if.needed(.bed.file, {
+    download_1000G("../data/genotype/")
+})
+## backup file
+.bk.file <- "../data/genotype/1000G_phase3_common_norel.rds"
+if.needed(.bk.file, {
+    BED <- snp_readBed(.bed.file)
+})
+## bring back the data
+data <- snp_attach(.bk.file)
+pop.info.file <- "../data/genotype/1000G_phase3_common_norel.fam2"
+pop.info <- fread(pop.info.file)
+```
+
+## TL; DR
+
+\large
+
+* Mendelian Randomization
+
+```{r echo = T, size = "large", eval = F}
+library(MendelianRandomization)
+```
+
+* Establish causal relationship: $M \to Y$ using genotype $X$
+
+* Given $X \to M \to Y$, the MR effect size is
+  
+$$\beta_{M{\to}Y} \approx \frac{\beta_{X{\to}Y}}{\beta_{X{\to}M}}$$
+
+```{r}
+library(MendelianRandomization)
+```
+
+## GWAS (previous lecture), *then*, what's next?
+
+\Large
+
+- GWAS until 2010s: heavy focuses on **mapping**
+
+    - GWAS map: genetic variants $\to$ a phenotype
+
+    - Stringent genome-wide p-value cutoff
+
+    - Study design, meta analysis
+
+- NHGRI-EBI GWAS Catalog: [`https://www.ebi.ac.uk/gwas/`](https://www.ebi.ac.uk/gwas/)
+
+
+## GWAS (previous lecture), then, *what's next?*
+
+\Large
+
+- GWAS since 2010s: more emphases on what to do with GWAS
+
+	- Can we turn GWAS results to a prediction model?
+
+	- Can we elucidate **the mechanisms** implicated by GWAS?
+
+    - Machine learning, data integration, **causal inference**
+
+```{r}
+.rnorm <- function(d1, d2) matrix(rnorm(d1*d2), d1, d2)
+
+#' @param X genotype matrix
+#' @param W population structure
+#' @param h2 heritability
+#' @param pve.w population PVe
+#' @param n.causal
+#' @param n.traits
+simulate.pgs <- function(X, W, h2, pve.w, n.causal, n.traits = 1) {
+    causal.snp <- sample(ncol(X), n.causal)
+    xx.causal <- apply(X[, causal.snp, drop=FALSE], 2, scale)
+    xx.causal[is.na(xx.causal)] <- 0
+
+    .beta <- .rnorm(n.causal, n.traits)
+    n.ind <- nrow(X)
+    y.true <- apply(xx.causal %*% .beta, 2, scale)
+
+    if(pve.w > 0){
+        y.pop <- apply(W %*% .rnorm(ncol(W), n.traits), 2, scale)
+    }else{
+        y.pop <- 0
+    }
+    y.err <- apply(.rnorm(n.ind, n.traits), 2, scale)
+
+    y.obs <- y.true * sqrt(h2) + y.pop * sqrt(pve.w)
+    y.obs <- y.obs + y.err * sqrt(1 - h2 - pve.w)
+
+    prop <- 1/(1+ exp(-y.obs))
+    y.cc <- matrix(rbinom(length(prop), 1, prop), ncol = n.traits)
+
+    list(y.q = y.obs, y.cc = y.cc, pgs = y.true,
+         x = X, w = W, causal = causal.snp,
+         causal.effect = .beta)
+}
+```
+
+```{r}
+## Take first chromosome
+chr19 <- which(data$map$chromosome==19)
+X.tot <- data$genotypes[, chr19]
+rownames(X.tot) <- data$fam$sample.ID
+colnames(X.tot) <- data$map$physical.pos[chr19]
+
+## population structure
+W.tot <-
+    pop.info %>%
+    mutate(one = 1) %>%
+    dcast(`sample.ID` ~ `Super Population`, value.var = "one", fill = 0) %>%
+    (function(x) left_join(data$fam[, "sample.ID", drop = F], x)) %>%
+    column_to_rownames("sample.ID") %>%
+    as.matrix()
+```
+
+```{r}
+## Simulate GWAS
+set.seed(13)
+.sim <- simulate.pgs(X.tot, W.tot, h2=.2, pve.w=0, n.causal=10)
+Y <- .sim$y.q
+X <- .sim$x
+```
+
+```{r}
+set.seed(1)
+h2.med <- 0.8
+h2.other <- 0.1
+n.causal <- 3
+
+## Simulate other GWAS
+Y1 <- scale(Y) * sqrt(h2.med) + scale(.sim$x[, sample(ncol(.sim$x), n.causal)] %*% .rnorm(n.causal, 1)) * sqrt(h2.other) + .rnorm(nrow(Y), 1) * sqrt(1 - h2.other - h2.med) 
+Y1.cc <- rbinom(nrow(Y), 1, 1/(1+ exp(-Y1)))
+
+Y0 <- .sim$x[, sample(ncol(.sim$x), n.causal)] %*% .rnorm(n.causal, 1)
+Y0 <- scale(Y0) * sqrt(h2.other) + .rnorm(nrow(Y0), 1) * sqrt(1 - h2.other)
+Y0 <- matrix(lm(Y0 ~ Y)$residuals, ncol = 1)
+Y0.cc <- rbinom(nrow(Y0), 1, 1/(1+ exp(-Y0)))
+```
+
+# Summary Statistics-based post-GWAS 
+
+## We may not have a full data (especially phenotypes)
+
+Instead, we could have just summary statistics (e.g., Manhattan plot).
+
+```{r}
+.file <- "sumstat.csv.gz"
+
+if.needed(.file, {
+
+    .gwas <- col_t_welch(.sim$x[.sim$y.cc == 1, ],
+                         .sim$x[.sim$y.cc == 0, ])
+
+    .gwas.0 <- col_t_welch(.sim$x[Y0.cc == 1, ],
+                           .sim$x[Y0.cc == 0, ])
+
+    .gwas.1 <- col_t_welch(.sim$x[Y1.cc == 1, ],
+                           .sim$x[Y1.cc == 0, ])
+
+    beta.vec <- .gwas$mean.diff
+    se.vec <- .gwas$mean.diff / .gwas$statistic
+
+    beta1.vec <- .gwas.1$mean.diff
+    se1.vec <- .gwas.1$mean.diff / .gwas.1$statistic
+
+    beta0.vec <- .gwas.0$mean.diff
+    se0.vec <- .gwas.0$mean.diff / .gwas.0$statistic
+
+    sumstat.dt <- cbind(data$map[chr19,],
+                        data.table(beta = as.numeric(beta.vec),
+                                   beta1 = as.numeric(beta1.vec),
+                                   beta0 = as.numeric(beta0.vec),
+                                   se = as.numeric(se.vec),
+                                   se1 = as.numeric(se1.vec),
+                                   se0 = as.numeric(se0.vec),
+                                   pv = .gwas$pvalue,
+                                   pv.1 = .gwas.1$pvalue,
+                                   pv.0 = .gwas.0$pvalue)) %>%
+        as.data.table()
+
+    fwrite(sumstat.dt, .file)
+})
+sumstat.dt <- fread(.file)
+```
+
+```{r fig.width=6, fig.height=2.5}
+.causal.pos <- as.integer(colnames(.sim$x)[.sim$causal])
+
+ggplot(sumstat.dt, aes(physical.pos, -log10(pv))) +
+    ggrastr::rasterise(geom_point(stroke = 0, color="gray40"), dpi=300) +
+    geom_point(data=sumstat.dt[physical.pos %in% .causal.pos],
+               col = 2, pch = 21, stroke = 1, size = 2) +
+    xlab("genomic position (chr19)") +
+    ylab("-log10 p-value")
+```
+
+## We could have full access to univariate stats
+
+```{r echo = T}
+head(sumstat.dt[,.(chromosome, marker.ID, physical.pos, beta, se, pv)])
+```
+
+## Figure out how these univariate stats were calculated
+
+\onslide<1->{
+A variant-by-variant model:
+\large
+$$Y_{i} \sim X_{ij} \beta_{j} + \epsilon, \quad \epsilon \sim \mathcal{N}\!\left(0, \sigma^{2}\right)$$
+}
+
+\onslide<2>{
+\normalsize
+Summary statistics for each variant $j$:
+$$\hat{\beta}_{j} = \frac{\sum_{i} X_{ij} Y_{i}}{\sum_{i} X_{ij}^{2}}, \quad \hat{\mathbb{V}}\!\left[\beta_{j}\right] = \frac{\hat{\sigma}_{\epsilon}^{2}}{\sum_{i=1}X_{ij}^{2}}, \quad Z_{j} = \frac{\hat{\beta}_{j}}{\sqrt{\hat{\mathbb{V}}\!\left[\beta_{j}\right]}}$$
+}
+
+## We know that a phenotype is polygenic
+
+Thus, we assume there are multivariate effects
+
+\Large
+
+$$Y_{i} = \sum_{j=1}^{p} X_{ij} \theta_{j} + \epsilon, \quad \forall i \in [n], \textsf{ or}$$
+
+$$\mathbf{y} = X \boldsymbol{\theta} + \boldsymbol{\epsilon},$$
+
+\normalsize
+where $\theta_{j} \neq \beta_{j}$
+
+## Goal: How can we recover the multivariate one?
+
+Data:
+$$\hat{Z}_{j} = \sum_{i=1}^{n} X_{ij} Y_{i} / \sigma_{\epsilon} \sqrt{n}$$ for all $j \in [p]$.
+
+Goal: Recover $p{\times}1$ multivariate effect size vector $\boldsymbol{\theta}$.
+
+## Inference $\approx$ reversing the generative process
+
+\only<1>{
+Data:
+$$\hat{Z}_{j} = \sum_{i=1}^{n} X_{ij} Y_{i} / \sigma_{\epsilon} \sqrt{n}$$ for all $j \in [p]$.
+}
+
+\only<2>{
+With a matrix-vector notation (to save space),
+}
+
+\begin{eqnarray*}
+\onslide<2->{
+    \underset{\textsf{\color{teal} $p \times 1$ univariate}}{\mathbf{z}} &=& \frac{1}{\sigma \sqrt{n}} X^{\top}\underset{\textsf{\color{magenta} $n{\times}1$ phenotype}}{\mathbf{y}}
+}
+\onslide<3->{
+    = \frac{1}{\sigma \sqrt{n}} X^{\top}\underbrace{\left(X\boldsymbol{\theta} + \boldsymbol{\epsilon}\right)}_{\textsf{\color{magenta} a multivariate model}}
+} \\
+\only<4>{
+&=& \frac{\sqrt{n}}{\sigma} \underbrace{\left( \frac{1}{n} X^{\top}X \right)}_{\textsf{\color{teal} LD}} \boldsymbol{\theta} + \frac{1}{\sigma\sqrt{n}} X^{\top} \boldsymbol{\epsilon}
+}
+\only<5>{
+&=& \mathbf{\color{teal} R} {{\color{magenta} \frac{\sqrt{n}}{\sigma} \boldsymbol{\theta} }} + \tilde{\boldsymbol{\epsilon}},\quad  \tilde{\boldsymbol{\epsilon}} \sim \mathcal{N}\!\left(\mathbf{0}, \mathbf{\color{teal} R} \right)
+}
+\end{eqnarray*}
+
+\only<5>{
+\normalsize
+where $\mathbf{\color{teal} R} = n^{-1} X^{\top}X$ is an empirical LD matrix.
+}
+
+\vfill
+
+\small
+
+Hormozdiari \textit{et al.}, Genetics (2014); Zhu and Stephens, Annals of Applied Statistics (2017)
+
+## Running SuSiE in a summary statistics mode
+
+The underlying model:
+
+\Large
+
+\only<1>{$$\mathbf{z} \sim \mathcal{N}\!\left( \frac{\sqrt{n}}{\sigma} R {\color{magenta} \boldsymbol{\theta}}, R \right)$$
+}
+
+\only<2>{
+$$\underset{\textbf{\color{teal}univariate z}}{\mathbf{z}} \sim \mathcal{N}\!\left( \underbrace{\frac{\sqrt{n}}{\sigma} R}_{\textbf{\color{brown}LD}} \underbrace{\color{magenta} \boldsymbol{\theta}}_{\textbf{multivariate effect}}, \underset{\textbf{\color{brown}LD}}{R} \right)$$
+}
+
+\large
+
+```{r echo=T, eval=F, size="large"}
+library(susieR)
+z <- sumstat.dt$beta/sumstat.dt$se
+R <- cov(X)
+susie.out <- susie_rss(z, R, n=nrow(X))
+```
+
+## LD-score: another type of summary-based analysis
+
+What is a generative model for a $\chi_{j}^{2}$, which is $(= Z_{j}^{2})$, statistics vector?
+
+\only<1>{
+We have seen this relationship in the fine-mapping model:
+
+$$\underset{\textsf{\color{teal} univariate, summary stat}}{Z_{j}} = \frac{\sqrt{n}}{\sigma} \sum_{k} \underset{\textsf{\color{gray} LD between j and k}}{R_{jk}} \underset{\textsf{\color{magenta} multivariate, true effect}}{\theta_{k}}  + \epsilon_{j}$$
+
+where $\epsilon \sim \mathcal{N}\!\left(0,1\right)$.
+}
+
+\onslide<2->{
+$$\mathbb{E}\!\left[\chi_{j}^{2}\right] = \mathbb{E}\!\left[Z_{j}^{2}\right] = \mathbb{E} \left( \sqrt{n} \sum_{k} R_{jk} \theta_{k} + \epsilon_{j} \right)^{2}$$
+}
+
+\only<3>{
+If the effects are independent of each other, i.e., $\mathbb{E}\!\left[\theta_{k}\theta_{j}\right] = 0$ for all $k \neq j$, 
+
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] = n \underbrace{\sum_{k} R_{jk}^{2}}_{\textsf{\color{blue} LD-score}} \mathbb{E}\!\left[ \theta_{k}^{2} \right] + 1$$
+}
+
+\vfill
+\tiny
+
+Bulik-Sullivan \emph{et al.}, \emph{Nature Genetics} (2014); Finucane \emph{et al.}, \emph{Nature Genetics} (2015)
+
+## What we need to know in this section
+
+\large
+
+1. GWAS summary statistics contain good amount of information
+
+2. In the summary data, we need to deal with LD structure $R$
+
+# Intro to causal inference
+
+## Why causal inference?
+
+\Huge
+
+\only<1>{$$\textsf{Mendelian} + \textsf{Randomization}$$}
+
+\only<2>{$$\underbrace{\textsf{Mendelian}}_{\textsf{\color{gray} genetics}} + \underbrace{\textsf{Randomization}}_{\textsf{\color{teal} causal inference}}$$}
+
+
+## Background: What is causal inference?
+
+```{r out.width=".9\\textwidth", results="asis"}
+knitr::include_graphics("img_causality/causal_inference_two.pdf")
+```
+
+## The Nobel Prize 2021 in Economical Sciences
+
+```{r out.width=".4\\linewidth", results="asis"}
+knitr::include_graphics("img_causality/nobelprize_card_angrist_imbens-3_2-992x656.jpg")
+```
+
+$$
+\textsf{David Card}, \underbrace{\textsf{\color{blue} Joshua Angrist}}_{\textsf{instrumental variable}}, \underbrace{\textsf{\color{blue} Guido Imbens}}_{\textsf{matching, propensity}}
+$$
+
+> "For the methodological contributions to the analysis of causal relationships"
+
+\tiny
+`https://www.nobelprize.org/prizes/economic-sciences/2021`
+
+
+
+## The goal of causal effect inference
+
+\large
+
+\begin{enumerate}
+\item<1-> Instead of \textbf{\color{teal} "seeing"} what happened (data analysis), we want to measure \textbf{\color{magenta} the effect of "doing"} an experiment (intervention).
+\item<2-> Because correlation is not causation.
+\item<3> If it is not causation, then what is it?
+\end{enumerate}
+
+## Common misconception - correlation implies causation
+
+:::::: {.columns}
+::: {.column width=.8}
+
+\Large
+
+Henry Niles also wrote, *"To contrast 'causation' and 'correlation' is unwarranted \textbf{\color{magenta} because causation is simply perfect correlation}"* 
+
+:::
+::: {.column width=.2}
+
+```{r out.width="\\linewidth", results="asis"}
+knitr::include_graphics("img_causality/munch_the_scream.jpg")
+```
+
+:::
+::::::
+
+\vfill
+
+\small
+Pearl, *The Book of Why*, p.78
+
+- How do we measure causal effects? Will any experiment do?
+
+## A working example: Why correlation is not causation
+
+* $U_{i}$: The age at which a person $i$ enrolled to this study.
+
+* $X_{i}$: An indicator variable for a physician decided to administer this new preventative drug $X_{i}=1$ or not $X_{i}=0$.
+
+* $Y_{i}$: Biomarker protein concentration (e.g., Amyloid-beta protein disrupts normal brain functions).
+
+## A working example: How the data had been generated.
+
+\large
+
+* A person $i$'s age $U_{i}$.
+
+\large
+
+1. Prescribe the preventative drug based on the subject's age $U_{i}$ (as they might need one):
+
+$$
+P(X_{i}=1|U_{i}) = \sigma \left( U_{i} \delta \right)
+$$
+
+2. A biomarker protein concentration:
+
+$$\mathbb{E}\!\left[ Y_{i}\middle| X, U \right] =  X_{i} \tau + U_{i} \beta$$
+
+
+## Directed Acyclic Graph as a language of causal inference
+
+```{r out.width=".4\\textwidth", results="asis"}
+knitr::include_graphics("img_causality/causalDAG/DAG_x_to_z_to_y.pdf")
+```
+
+$$p(X,Y,Z) = 
+\underset{\textsf{\color{blue}first edge}}{p(Y|X)}\quad
+\underset{\textsf{\color{magenta}second edge}}{p(Z|Y)}\quad
+\underset{\textsf{\color{teal}first node}}{p(X)}$$
+
+## DAG: Causal path/trail and reachability
+
+```{r out.width=".4\\textwidth", results="asis"}
+knitr::include_graphics("img_causality/causalDAG/DAG_x_to_z_to_y.pdf")
+```
+
+* There is a path between $X$ and $Y$
+
+* Also between $Y$ and $Z$
+
+* Also from $X$ to $Z$
+
+## DAG: Conditioning (and/or adjustment)
+
+```{r out.width=".4\\textwidth", results="asis"}
+knitr::include_graphics("img_causality/causalDAG/DAG_x_to_z_to_y_cond.pdf")
+```
+
+* A shaded node = conditioning like $P(Z|Y=y^\star)$ and $P(Y=y^\star|X)$
+
+* There is a path between $X$ and $Y$
+
+* Also between $Y$ and $Z$
+
+* **But** no path from $X$ to $Z$
+
+## d-separation: testing conditional independence (flow vs. no flow)
+
+\normalsize
+
+:::::: {.columns}
+::: {.column width=.3}
+
+```{r}
+.add.fig <- function(x) {
+    knitr::include_graphics("img_causality/backdoor_exercise/" %&% x %&% ".pdf")
+}
+```
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="1-"}
+.add.fig("dag_x_y_z_1")
+```
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="4-"}
+.add.fig("dag_x_y_z_1_block")
+```
+
+\vfill
+
+\only<1-3>{
+\textbf{\color{teal} Flow}: The outcome of $Z$ depends on the effect of X
+}
+\only<4->{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ solely depends on $Y=y^*$, not $X$
+}
+
+:::
+::: {.column width=.3}
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="2-"}
+## X <- Y -> Z
+.add.fig("dag_x_y_z_2")
+```
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="5-"}
+## X <- Y -> Z
+.add.fig("dag_x_y_z_2_block")
+```
+
+\vfill
+
+\only<2-3>{
+\textbf{\color{teal} Flow}: The outcome of $Z$ depends on the effect of $Y$; so does the outcome of $X$ on that of $Y$
+}
+\only<5->{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ solely depends on $Y=y^*$, not $X$
+}
+
+:::
+::: {.column width=.3}
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="3-"}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3")
+```
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="6"}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3_block")
+```
+
+\only<7>{
+\textbf{\color{teal} Flow}: deeper v-structure
+}
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="7"}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3_deep")
+```
+
+\vfill
+
+\only<3>{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ only affects $Y$; do does $X$
+}
+\only<6>{
+\textbf{\color{teal} Flow}: The observed outcome $Y=y^*$ could stem from $X$ or/and $Z$
+}
+
+:::
+::::::
+
+
+## Going back to the same working example
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+set.seed(1)
+```
+
+```{r sim_1, echo = T}
+## Simulation parameters
+n = 200; .delta = 2; .tau = -1; .beta = 2; .eps = .3
+sgm <- function(x) 1/(1+ exp(-x))
+
+## A generative scheme
+uu <- rnorm(n) # standardized age
+xx <- rbinom(n=n, size=1, prob=sgm(uu * .delta))
+yy <- xx * .tau + uu * .beta + rnorm(n) * .eps
+```
+
+${}$
+
+**If there were** no confounding:
+
+```{r echo=T}
+yy.unc <- xx * .tau + rnorm(n) * .eps
+```
+
+:::
+::: {.column width=.55}
+
+$${}$$
+
+* The variable $U$ confounds $X$ and $Y$.
+
+* How can we represent it graphically?
+
+
+```{r out.width=".4\\linewidth", results="asis", only.plot="3-4"}
+knitr::include_graphics("img_causality/DAG_confounded.pdf")
+```
+
+```{r out.width=".4\\linewidth", results="asis", only.plot="5"}
+knitr::include_graphics("img_causality/DAG_confounded_backdoor.pdf")
+```
+
+\begin{enumerate}
+\item<3-> How can we identify the causal effect, $X{\to}Y$?
+\item<4-> Why can't we just report the correlation/association between $X$ and $Y$?
+\end{enumerate}
+
+:::
+::::::
+
+
+## It happened because 
+
+\large
+
+**Question:** Which nodes should be "conditioned" and/or "adjusted" to block a reverse path from $Y$ to $X$?
+
+```{r out.height=".5\\textheight", results="asis", only.plot="1"}
+knitr::include_graphics("img_causality/backdoor_exercise/bd_concept_1.pdf")
+```
+
+```{r out.height=".5\\textheight", results="asis", only.plot="2"}
+knitr::include_graphics("img_causality/backdoor_exercise/bd_concept_2.pdf")
+```
+
+## Differential biomarker analysis suggests that our drug can exacerbate AD
+
+<!-- $$ -->
+<!-- P(X_{i} | U_{i}) = \frac{1}{1 + \exp\left( U_{i} \beta \right)} -->
+<!-- $$ -->
+
+
+```{r}
+## Propensity scores estimated by
+## a logistic regression model
+e.hat <- glm(xx ~ uu, family="binomial") %>%
+  predict %>%
+  sgm
+```
+
+```{r}
+## Treatment assignment variable
+x.f <- factor(xx, c(0,1), c("untreated", "treated"))
+
+.df <- tibble(x = x.f,
+              u = uu,
+              y = yy,
+              y.unc = yy.unc,
+              e = e.hat)
+```
+
+```{r echo = FALSE, fig.width=3, fig.height=2.5}
+ggplot(.df, aes(x, y)) +
+  geom_violin(fill = "gray") +
+  geom_boxplot(width = .25) +
+  ylab("Amyloid beta (Y)") +
+  xlab("Drug treated (X)")
+```
+
+## Prevalence of AD increase with age
+
+:::::: {.columns}
+::: {.column width=.7}
+
+
+```{r echo = FALSE, fig.width=4, fig.height=2.5, only.plot="1"}
+ggplot(.df, aes(u, y)) +
+  geom_point() +
+  xlab("Standardized age (U)") +
+  ylab("biomarker--Amyloid beta (Y)")
+```
+
+```{r fig.width=4, fig.height = 2.5, only.plot="2"}
+ggplot(.df, aes(u, y, colour=x)) +
+  geom_point() +
+  theme(legend.title = element_blank()) +
+  scale_colour_brewer(palette="Paired") +
+  xlab("Standardized age (U)") +
+  ylab("biomarker--Amyloid beta (Y)")
+```
+
+:::
+::: {.column width=.3}
+
+> Doctors could have prescribed our drug more frequently to older people because the prevalence of AD tends to increase with age.
+
+:::
+::::::
+
+
+## Only if we could observe the unconfounded data
+
+```{r show_sim_data_1_y, echo=FALSE, fig.width=5, fig.height=2.3}
+p1 <- 
+    ggplot(.df, aes(x, y)) +
+    ylab("Confounded Y") +
+    xlab("X") +
+    scale_fill_brewer(guide=FALSE) +
+    geom_violin(aes(fill=x)) +
+    geom_boxplot(width=.2, outlier.size=0, outlier.stroke=0) +
+    ggtitle("observed in current study design")
+
+p2 <- ggplot(.df, aes(x, y.unc)) +
+    ylab("Unconfounded Y") +
+    xlab("X") +
+    scale_fill_brewer(guide=FALSE) +
+    geom_violin(aes(fill=x)) +
+    geom_boxplot(width=.2, outlier.size=0, outlier.stroke=0) +
+    ggtitle("an ideal (unconfounded) study design")
+
+p1 | p2
+```
+
+## What could have been an ideal experimental design?
+
+\large
+
+:::::: {.columns}
+::: {.column width=.6}
+
+> There is no "backdoor" between a putative cause variable ($X$) and outcome variable ($Y$).
+
+:::
+::: {.column width=.4}
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="1"}
+knitr::include_graphics("img_causality/DAG_confounded_ideal.pdf")
+```
+
+\only<2>{
+At least...
+}
+```{r out.width=".8\\linewidth", results="asis", only.plot="2"}
+knitr::include_graphics("img_causality/DAG_confounded_backdoor_controlled.pdf")
+```
+
+:::
+::::::
+
+
+## RCT: an ideal experiment (feat. RA Fisher)
+
+```{r out.height=".7\\textheight", results="asis", only.plot="1"}
+knitr::include_graphics("img_causality/RCT_Fisher_1.pdf")
+```
+
+\only<1>{
+\vfill
+\tiny
+Image source: `www.adelaide.edu.au`
+}
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\only<2-4>{
+
+\centerline{\textbf{Crops grown in the plots}}
+
+${}$}
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="2-4"}
+knitr::include_graphics("img_causality/RCT_Fisher_1.pdf")
+```
+
+\only<5>{
+\centerline{\textbf{Randomized Control Trial} $\implies$ \textbf{\color{magenta} "doing"}}
+}
+
+$${}$$
+
+```{r out.height=".5\\textheight", results="asis", onslide.plot="5"}
+knitr::include_graphics("img_causality/RCT_DAG.pdf")
+```
+
+:::
+::: {.column width=.48}
+
+\only<2>{
+\centerline{\textbf{Experimental design}}
+
+${}$}
+
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="2"}
+knitr::include_graphics("img_causality/RCT_Fisher_2.pdf")
+```
+
+\only<3>{
+\centerline{\textbf{Random assignment of fertilizer}}
+
+${}$}
+
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="3"}
+knitr::include_graphics("img_causality/RCT_Fisher_3.pdf")
+```
+
+\only<4-5>{
+\centerline{\textbf{The treated vs. untreated}}
+
+${}$}
+
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="4-5"}
+knitr::include_graphics("img_causality/RCT_Fisher_4.pdf")
+```
+
+:::
+::::::
+
+## Going back to the toy example: Can we save the study?
+
+Had there been any systematic bias, thou shall adjust it.
+
+```{r show_sim_data_1_w, echo=FALSE, fig.width=6, fig.height=2}
+p1 <-
+  ggplot(.df, aes(u, x)) +
+  geom_jitter(height=.1) +
+  xlab("U (standardized age)") +
+  ylab("X (treatment assignment)")
+
+p2 <- 
+  ggplot(.df, aes(u, e)) +
+  geom_point() +
+  geom_smooth(se=FALSE, color="red", formula="y ~ x", method="loess") +
+  xlab("U (standardized age)") +
+  ylab("Propensity: P(X=1|U)")
+
+wrap_plots(p1, p2, nrow = 1, widths=c(3,4))
+```
+
+## Inverse Propensity Weighting "reverse" confounding
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="1"}
+knitr::include_graphics("img_causality/DAG_confounded_backdoor_controlled.pdf")
+```
+
+\only<2->{
+$$\hat{Y}_{i}^{(1)} = \frac{X_{i} Y_{i}}{\hat{p}(X_{i}=1|U_{i})}$$
+
+$$\hat{Y}_{i}^{(0)} = \frac{(1-X_{i}) Y_{i}}{1 - \hat{p}(X_{i}=1|U_{i})}$$
+}
+
+\only<3>{
+equivalently give weights for $\forall$ i
+$$
+W_{i} \propto \left\{ \begin{array}{l l}
+1/\hat{p}(X_{i}=1|U_{i}) & X_{i} = 1\\
+1/\hat{p}(X_{i}=0|U_{i}) & X_{i} = 0\\
+\end{array}
+\right.
+$$
+}
+
+:::
+::: {.column width=.5}
+
+```{r}
+sigmoid <- function(x) 1/(1+exp(-x))
+clamp <- function(x, lb = .1, ub = .9)
+    pmin(pmax(x, lb), ub)
+```
+
+```{r}
+x <- as.integer(.df$x == "treated")
+y <- .df$y
+u <- .df$u
+```
+
+```{r echo=TRUE}
+p.xu <-
+    glm(x~u, family="binomial") %>%
+    predict() %>%
+    sigmoid() %>%
+    clamp() # avoid strict 0/1
+
+ww <- x / p.xu + (1-x) / (1-p.xu)
+```
+
+${}$
+
+Propensity: Pr. of assignment $X=1$:
+
+$$\log\frac{p(X|U)}{1-p(X|U)} \approx \beta_{0} + \beta_{1} U$$
+
+:::
+::::::
+
+
+## Take samples inversely proportional to propensity
+
+```{r}
+.df$w <- ww
+```
+
+:::::: {.columns}
+::: {.column width=.4}
+
+```{r fig.width=2.5, fig.height=2.5, onslide.plot="1-"}
+ggplot(.df, aes(x,y)) +
+    geom_jitter(height=0, width=.1, color="gray40") +
+    ggtitle("observed")
+```
+
+:::
+::: {.column width=.6}
+
+```{r fig.width=3.5, fig.height=2.5, onslide.plot="2"}
+ggplot(.df, aes(x,y,size=w)) +
+    geom_jitter(height=0, width=.1, alpha=.5) +
+    scale_size_continuous("W", range=c(0,5)) +
+    ggtitle("sample ~ 1/propensity")
+```
+
+:::
+::::::
+
+## If we bootstrap (sample with replacement)...
+
+```{r fig.width=5, fig.height=2.5}
+set.seed(1)
+.idx <- sample(1:nrow(.df), 500, replace=TRUE)
+.df.0 <- .df[.idx, ]
+.idx <- sample(1:nrow(.df), 500, replace=TRUE, prob = .df$w)
+.df.bootstrap <- .df[.idx, ]
+
+p1 <-
+    ggplot(.df, aes(x,y,fill=x,group=x)) +
+    theme(legend.position = "none") +
+    geom_violin(alpha=.5, linewidth=0) +
+    geom_boxplot(width = .3, outlier.size=0, outlier.stroke=0, fill="white") +
+    ylab("observed outcome") + xlab("treatment") +
+    ggpubr::stat_compare_means(vjust=1, hjust=0, size=3)
+p2 <-
+    ggplot(.df.bootstrap, aes(x,y,fill=x,group=x)) +
+    theme(legend.position = "none") +
+    geom_violin(alpha=.5, linewidth=0) +
+    geom_boxplot(width = .3, outlier.size=0, outlier.stroke=0, fill="white") +
+    ylab("resampled by IPW") + xlab("treatment") +
+    ggpubr::stat_compare_means(vjust=1, hjust=0, size=3)
+p1 | p2
+```
+
+
+
+# Mendelian Randomization
+
+## 
+
+\large
+
+* Can we learn causality from observational data?
+
+* What's so special about genetic variants?
+
+## Mendelian Randomization
+
+```{r out.height=".5\\textheight", results="asis", onslide.plot="1-"}
+knitr::include_graphics("img_causality/MR_DAG.pdf")
+```
+
+\vfill
+
+\only<1>{
+We will use a genetic variable $G$ to mimic RCT
+}
+
+\only<2>{
+If a genetic variable $G$ is a valid instrumental variable...
+}
+
+## MR in modern epidemiology studies
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\Large
+\begin{itemize}
+\item G: genotype
+\item X: APOE protein
+\item Y: cancer
+\end{itemize}
+
+$$G \to X \to Y$$
+
+```{r out.height=".2\\textheight", results="asis", onslide.plot="2"}
+knitr::include_graphics("img_causality/MR_GDS.pdf")
+```
+
+:::
+::: {.column width=.5}
+
+```{r out.height=".5\\textheight", results="asis", onslide.plot="1-"}
+knitr::include_graphics("img_causality/MR_APOE.pdf")
+```
+
+:::
+::::::
+
+
+## MR in action: *FTO* $\to$ fat mass $\to$ obesity, diabetes
+
+:::::: {.columns}
+::: {.column width=.25}
+
+```{r out.width="\\linewidth", results="asis", onslide.plot="1-"}
+knitr::include_graphics("img_causality/MR_FTO_BMI_T2D.jpeg")
+```
+
+:::
+::: {.column width=.25}
+
+```{r out.width="\\linewidth", results="asis", onslide.plot="2-"}
+knitr::include_graphics("img_causality/MR_FTO_BMI_T2D_2.jpeg")
+```
+
+:::
+::: {.column width=.45}
+
+$${}$$
+
+Using genotype as an instrumental variable, we test causality between
+other exposure variables and downstream phenotypes.
+
+$${}$$
+
+\begin{itemize}[<+-| alert@+>]
+\item Genotype in \textit{FTO} locus $\to$ T2D
+\item \textit{FTO} locus $\to$ fat mass
+\item Using \textit{FTO} as "instrumental variable", we can ask other MR questions
+\end{itemize}
+
+:::
+::::::
+
+\tiny
+
+Frayling .. McCarthy, *Science* (2007)
+
+## Why doing Mendelian Randomization?
+
+:::::: {.columns}
+::: {.column width=.6}
+
+```{r out.width="\\linewidth", results="asis"}
+knitr::include_graphics("img_causality/MR_DAG.pdf")
+```
+
+:::
+::: {.column width=.4}
+
+\Large
+
+1. We do not have enough knowledge of $U$
+
+2. We do not have a way to make interventions on $do(X=x)$
+
+:::
+::::::
+
+\vfill
+
+> "Genotypes are beautifully randomized" - Fisher (1951)
+
+## Toy example: How can we learn causality between genetic disorders?
+
+Three disorders (just for demonstration)
+
+* OGD: Obsessive `ggplot` disorder
+
+* PTRS: Post-traumatic `R` session stress syndrome
+
+* CIS: Chronic indentation syndrome (as a result of `Python` coding)
+
+## How can we learn causality between genetic traits?
+
+In previous longitudinal studies, we found some relationship.
+
+```{r fig.width=5.5, fig.height=2}
+.dt <- data.table(OGD=as.numeric(Y1),
+                  CIS=as.numeric(Y0),
+                  PTRS=as.numeric(Y))
+
+p1 <-
+    ggplot(.dt, aes(CIS, PTRS)) +
+    geom_point(stroke=0, col="gray") +
+    geom_smooth(method="lm", se=F, col=2, linewidth=1)
+
+p2 <-
+    ggplot(.dt, aes(OGD, PTRS)) +
+    geom_point(stroke=0, col="gray") +
+    geom_smooth(method="lm", se=F, col=2, linewidth=1)
+
+p3 <-
+    ggplot(.dt, aes(CIS, OGD)) +
+    geom_point(stroke=0, col="gray") +
+    geom_smooth(method="lm", se=F, col=2, linewidth=1)
+
+p1 | p2 | p3
+```
+
+## Can we recover such relationships from GWAS data?
+
+```{r fig.width=5.5, fig.height=2.8, only.plot="1"}
+ggplot(sumstat.dt, aes(physical.pos, -log10(pmax(pv, 1e-20)))) +
+    ggrastr::rasterise(geom_point(stroke = 0, color="gray40"), dpi=300) +
+    xlab("genomic position (chr19)") +
+    ylab("-log10 p-value for PTRS")
+```
+
+```{r fig.width=5.5, fig.height=2.8, only.plot="2"}
+ggplot(sumstat.dt, aes(physical.pos, -log10(pmax(pv.1, 1e-20)))) +
+    ggrastr::rasterise(geom_point(stroke = 0, color="gray40"), dpi=300) +
+    xlab("genomic position (chr19)") +
+    ylab("-log10 p-value for OGD")
+```
+
+```{r fig.width=5.5, fig.height=2.8, only.plot="3"}
+ggplot(sumstat.dt, aes(physical.pos, -log10(pmax(pv.0, 1e-20)))) +
+    ggrastr::rasterise(geom_point(stroke = 0, color="gray40"), dpi=300) +
+    xlab("genomic position (chr19)") +
+    ylab("-log10 p-value for CIS")
+```
+
+## MR measures mediation effects of $X$ to $Y$
+
+\textsf{\color{teal} Given that $G$ is a valid instrumental variable...}
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\small
+
+*Example*: 
+
+- $X$: gene expression
+
+- $Y$: disease phenotype
+
+Suppose we have estimated
+
+\onslide<1->{
+\begin{eqnarray*}
+G &\overset{\alpha}{\to}& X \\
+X &=& G \hat{\color{teal}\boldsymbol{\alpha}} + \epsilon_{X}
+\end{eqnarray*}
+}
+\onslide<2->{
+and
+\begin{eqnarray*}
+G &\overset{\gamma}{\to}& Y \\
+Y &=& G \hat{\color{magenta}\boldsymbol{\gamma}} + \epsilon_{Y}
+\end{eqnarray*}
+}
+
+:::
+::: {.column width=.48}
+
+\onslide<3->{
+\textbf{Goal}: What is the causal effect $\beta$ in $X \overset{\beta}{\to} Y$?
+}
+
+\begin{eqnarray*}
+\onslide<3->{
+Y &=& X \beta + \epsilon' \\
+}
+\onslide<4->{
+G \hat{\color{magenta}\boldsymbol{\gamma}} + \epsilon_{Y} 
+&=& 
+(G \hat{\color{teal}\boldsymbol{\alpha}} + \epsilon_{X}) \beta + \epsilon' \\
+}
+\onslide<5->{
+G \hat{\color{magenta}\boldsymbol{\gamma}}
+&=& 
+G \hat{\color{teal}\boldsymbol{\alpha}} {\color{red} \boldsymbol{\beta}} + \cdots
+}
+\end{eqnarray*}
+
+\onslide<6>{
+The answer is as simple as
+\begin{eqnarray*}
+\mathbb{E}\!\left[{\color{red} \beta}\right] &=& 
+\frac{{\color{magenta}\boldsymbol{\gamma}}}
+{{\color{teal}\boldsymbol{\alpha}}}
+\end{eqnarray*}
+
+We will revisit this problem in the GWAS lectures
+}
+:::
+::::::
+
+## Will any genetic variable work for MR analysis?
+
+Goal: Is PTRS $\to$ OGD or PTRS $\to$ CIS?
+
+```{r}
+set.seed(1331)
+.dt <- sumstat.dt[sample(.N, 10)]
+.pos <- match(.dt$physical.pos, colnames(X)) 
+xx <- apply(X[, .pos, drop = F], 2, scale)
+R <- cor(xx)
+```
+
+```{r fig.width=5, fig.height=2.3}
+p1 <-
+    ggplot(.dt) +
+    geom_vline(xintercept = 0, col = "gray") +
+    geom_hline(yintercept = 0, col = "gray") +
+    xlab("genetic association with PTRS") +
+    ylab("genetic association with OGD") +
+    geom_linerange(aes(beta,ymin=beta1- se1,ymax=beta1+ se1)) +
+    geom_segment(aes(x=beta- se, xend=beta+ se,y=beta1,yend=beta1)) +
+    geom_point(aes(beta, beta1))
+
+p0 <-
+    ggplot(.dt) +
+    geom_vline(xintercept = 0, col = "gray") +
+    geom_hline(yintercept = 0, col = "gray") +
+    xlab("genetic association with PTRS") +
+    ylab("genetic association with CIS") +
+    geom_linerange(aes(beta, ymin=beta0- se0,ymax=beta0+ se0), col=2) +
+    geom_segment(aes(x=beta- se, xend=beta+ se,y=beta0,yend=beta0), col=2) +
+    geom_point(aes(beta, beta0), col=2)
+
+p1 | p0
+```
+
+## How about selecting causal variants of exposure (PTRS)?
+
+Goal: Is PTRS $\to$ OGD or PTRS $\to$ CIS?
+
+```{r}
+.dt <- sumstat.dt[physical.pos %in% as.integer(colnames(.sim$x)[.sim$causal])]
+.pos <- match(.dt$physical.pos, colnames(X)) 
+xx <- apply(X[, .pos, drop = F], 2, scale)
+R <- cor(xx)
+```
+
+```{r fig.width=5, fig.height=2.3}
+p1 <-
+    ggplot(.dt) +
+    geom_vline(xintercept = 0, col = "gray") +
+    geom_hline(yintercept = 0, col = "gray") +
+    xlab("genetic association with PTRS") +
+    ylab("genetic association with OGD") +
+    geom_linerange(aes(beta,ymin=beta1- se1,ymax=beta1 + se1)) +
+    geom_segment(aes(x=beta- se, xend=beta+ se,y=beta1,yend=beta1)) +
+    geom_point(aes(beta, beta1))
+
+p0 <-
+    ggplot(.dt) +
+    geom_vline(xintercept = 0, col = "gray") +
+    geom_hline(yintercept = 0, col = "gray") +
+    xlab("genetic association with PTRS") +
+    ylab("genetic association with CIS") +
+    geom_linerange(aes(beta, ymin=beta0- se0,ymax=beta0+ se0), col=2) +
+    geom_segment(aes(x=beta- se, xend=beta+ se,y=beta0,yend=beta0), col=2) +
+    geom_point(aes(beta, beta0), col=2)
+
+p1 | p0
+```
+
+## Definition of instrumental variable in MR study
+
+:::::: {.columns}
+::: {.column width=.55}
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="1-"}
+knitr::include_graphics("img_causality/MR_DAG_IV.pdf")
+```
+
+:::
+::: {.column width=.45}
+
+\begin{itemize}
+\item<1-> IV1: The genetic variant $G$ is independent of the potential confounder variable $U$
+\item<2-> IV2: The genetic variant is associated with the exposure $X$
+\item<3-> IV3: The genetic variant is independent of the outcome $Y$ conditioning on $X$
+\end{itemize}
+
+:::
+::::::
+
+\vfill
+
+Bowden _et al._ (2015)
+
+
+## Today's lecture
+
+\large
+
+* Summary-based GWAS
+
+* Causal inference methods
+
+* Mendelian Randomization
+
+
