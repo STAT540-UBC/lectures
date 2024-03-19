@@ -1,0 +1,1497 @@
+---
+title: "Statistical Methods for single cell data analysis 3"
+author: "Yongjin Park, UBC Path + Stat, BC Cancer"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mainfont: Roboto
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+setwd("~/work/teaching/stat540_lectures/lect18-scRNA-vae/")
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(mmutilR)
+library(asapR)
+source("Setup.R")
+source("Util.R")
+fig.dir <- "../Fig/scRNA_vae/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+library(extrafont)
+library(xkcd)
+extrafont::font_import(pattern="[X/x]kcd", prompt=F)
+extrafont::loadfonts()
+theme_set(theme_xkcd() +
+          theme(title = element_text(size=10),
+                legend.background = element_blank())
+          )
+```
+
+##
+
+\large
+
+Source code available:
+
+`https://github.com/stat540-UBC/lectures`
+
+## Overview of single-cell data analysis
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_overview/Karchenko_1.pdf}}
+
+\vfill
+
+\flushright
+\tiny
+Karchenko, \emph{Nature Methods} (2021)
+
+## Overview of single-cell data analysis cont'd
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_overview/Karchenko_2.pdf}}
+
+\vfill
+
+\flushright
+\tiny
+Karchenko, \emph{Nature Methods} (2021)
+
+## The goal of modelling in high-dimensional space
+
+The goal is to model two types of relationships:
+
+\large
+
+1. Relationship between dimensions/features (genes)
+
+2. Relationship between samples/data points (cells)
+
+\normalsize
+
+\vfill
+
+* One of the most fundamental relationships is co-variation.
+
+## Covariance calculation in high-dimensional space
+
+Covariance between cell $i$ and $j$ across genes:
+
+$$\mathsf{cov}(X_{i}, X_{j}) = \mathbb{E}\!\left[X_{i} \, X_{j}\right] - \mathbb{E}\!\left[X_{i}\right] \mathbb{E}\!\left[X_{j}\right]$$
+
+If $\mathbb{E}\!\left[X_{i}\right] = \mathbb{E}\!\left[X_{j}\right] = 0$ (e.g., standardization),
+$$\mathsf{cov}(X_{i}, X_{j}) = \mathbb{E}\!\left[X_{i}\, X_{j}\right] \approx \frac{1}{p} \sum_{g=1}^{p} X_{gi} X_{gj}$$
+
+## Covariance calculation in high-dimensional space - 2
+
+Letting $\mathbf{x}_{i}^{\top} \equiv \left(X_{1i}, \ldots, X_{gi},\ldots, X_{pi} \right)$ and $\mathbb{E}\!\left[X_{gi}\right] \approx p^{-1} \sum_{g} X_{gi} = 0$
+
+\onslide<2->{$$\mathsf{cov}(X_{i}, X_{j}) = \mathbb{E}\!\left[X_{i} X_{j}\right]
+\approx \frac{1}{p} \sum_{g=1}^{p} X_{gi} X_{gj} = \frac{1}{p} \mathbf{x}_{i}^{\top} \mathbf{x}_{j}$$}
+\onslide<3>{
+Full sample covariance:
+$$\frac{1}{p} X^{\top} X =
+\frac{1}{p}
+\left(
+\begin{array}{l l l}
+\mathbf{x}_{1}^{\top} \mathbf{x}_{1} & \cdots & \mathbf{x}_{1}^{\top}\mathbf{x}_{n} \\
+\mathbf{x}_{2}^{\top}\mathbf{x}_{1} & \cdots & \mathbf{x}_{2}^{\top}\mathbf{x}_{n} \\
+& \vdots & \\
+\mathbf{x}_{n}^{\top}\mathbf{x}_{1} & \cdots & \mathbf{x}_{n}^{\top}\mathbf{x}_{n}
+\end{array}
+\right)$$}
+
+## Singular value decomposition simplifies covariance
+
+$$X = U D V^{\top}$$
+
+\only<1>{
+Gene covarince
+\begin{eqnarray*}
+XX^{\top}
+&=& U D V^{\top} (U D V^{\top})^{\top} \\
+&=& U D V^{\top} ((V^{\top})^{\top} D^{\top} U^{\top}) \\
+&=& U D \cancelto{I}{V^{\top} V} D U^{\top} \\
+&=& U D^{2} U^{\top}
+\end{eqnarray*}}
+
+\only<2>{
+Sample covarince
+\begin{eqnarray*}
+X^{\top} X
+&=& (U D V^{\top})^{\top} U D V^{\top} \\
+&=& ((V^{\top})^{\top} D^{\top} U^{\top}) U D V^{\top} \\
+&=& V D \cancelto{I}{U^{\top} U} D V^{\top} \\
+&=& V D^{2} V^{\top}
+\end{eqnarray*}}
+
+* The Matrix Cookbook: [https://www2.imm.dtu.dk/pubdb/pubs/3274-full.html](https://www2.imm.dtu.dk/pubdb/pubs/3274-full.html)
+
+
+## Example: scRNA-seq data of human pancreatic cells
+
+```{r}
+raw.data <- fileset.list("../data/GSE85241/GSE85241")
+.info <- rcpp_mmutil_info(raw.data$mtx)
+```
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\centerline{\includegraphics[height=.7\textheight]{img/Muraro_GSE85241.png}}
+
+:::
+::: {.column width=.45}
+
+\large
+
+* `r num.int(.info$max.row)` genes/features/rows
+
+* `r num.int(.info$max.col)` cells/columns
+
+* `r num.int(.info$max.elem)` non-zero elements
+
+* $\approx$ `r round(100 * .info$max.elem / .info$max.col / .info$max.row)` % non-zero elements
+
+:::
+::::::
+
+\tiny
+Muraro \textit{et al.} \emph{Cell Systems} (2016)
+
+
+# Recent developments in latent factor modelling
+
+## Recap: How can we learn patterns in unsupervised learning from single cell count data?
+
+\centerline{\includegraphics[width=.75\linewidth]{img/scRNA_ETM/Matrix_Factorization.pdf}}
+
+* Goal: Find the factor-specific gene dictionary $\beta$ and hidden factor loading $H$.
+
+## Can we "encode" high-dim data to low-dim hidden variables?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\only<1>{\centerline{\includegraphics[width=.85\linewidth]{img/scRNA_ETM/encoder_1.pdf}}}
+
+\only<2>{\centerline{\includegraphics[width=\linewidth]{img/scRNA_ETM/encoder_deep1.pdf}}}
+
+:::
+::: {.column width=.5}
+
+* Take one cell as a long vector $\mathbf{x}_{i}$
+
+* Apply an encoding function $f(\mathbf{x}_{i})$
+
+* Neural network architectures capture relationships between variables
+
+\onslide<2>{
+$$h_{i}^{(l)} \gets f(\sum_{j} \underset{\textsf{\color{magenta} connections}}{W_{ij}} h_{j}^{(l-1)} + \underset{\textsf{\color{teal} bias}}{b_{i}})$$
+}
+
+* no connection within each layer
+
+:::
+::::::
+
+##
+
+\Large
+
+Unsupervised learning of a good encoder model is fundamentally challenging because ...
+
+\vfill
+
+\onslide<2>{we don't have good encoding ``examples'' beforehand.}
+
+## How can we "supervise" how well we encoded?
+
+\centerline{\includegraphics[width=.6\linewidth]{img/scRNA_ETM/autoencoder_with_nodes.pdf}}
+
+## "Supervise" unsupervised learning by self reconstruction
+
+\centerline{\includegraphics[width=.5\linewidth]{img/scRNA_ETM/autoencoder.pdf}}
+
+
+## Deep autoencoder first proposed in computer vision
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\centerline{\includegraphics[width=.9\linewidth]{img/scRNA_ETM/Autoencoder_DL.pdf}}
+
+:::
+::: {.column width=.4}
+
+* [Hinton & Salakhutdinov, Science (2006)](https://www.science.org/doi/10.1126/science.1127647)
+
+* One of the first "deep learning" idea
+
+* Learning the latent representation of an image helps subsequent classification tasks.
+
+* To train a deep autoencoder architecture, they pretrained the model layer by layer.
+
+:::
+::::::
+
+## Let's build a simple autoencoder model using `torch`
+
+```{r eval=F, echo = T}
+###############################################################
+## R wrapper library for `libtorch` (C++ engine for PyTorch) ##
+###############################################################
+
+library(torch)
+
+############################################
+## We can use GPU (NVIDIA Cuda), optional ##
+############################################
+
+GPU <- torch_device("cuda")
+```
+
+* See this online book if you are interested in building your own deep learning model: **Deep Learning and Scientific Computing with R torch**
+
+\small
+
+* [https://skeydan.github.io/Deep-Learning-and-Scientific-Computing-with-R-torch/](https://skeydan.github.io/Deep-Learning-and-Scientific-Computing-with-R-torch/)
+
+```{r read_full_data}
+library(torch)
+GPU <- torch_device("cuda")
+
+read.full.data <- function(.data, .dev = GPU){
+
+    .info <- rcpp_mmutil_info(.data$mtx)
+    .idx <- rcpp_mmutil_read_index(.data$idx)
+    .mtx <- .data$mtx
+    .out <- mmutilR::rcpp_mmutil_read_columns_sparse(.mtx, .idx, 1:.info$max.col)
+
+    .inds <- rbind(.out$col, .out$row) # column is row & vice versa
+    .dims <- c(.out$max.col, .out$max.row) # dimensionality
+
+    xx <- torch_sparse_coo_tensor(indices = .inds,
+                                  values = .out$val,
+                                  size = .dims,
+                                  dtype = torch_float(),
+                                  device = .dev)
+
+    return(xx$to_dense()$to(device=.dev))
+}
+
+raw.data <- fileset.list("../data/GSE85241/GSE85241")
+x.torch <- read.full.data(raw.data)
+```
+
+## Why do we use some Deep Learning library?
+
+\large
+
+* Built-in functions for scientific computing
+
+    * `log`, `log1p`, `exp`, `softmax`, `sigmoid`, `softplus`
+
+* Faster computation both in CPU and GPU (in general)
+
+* **No need to work on differentiation** by hands
+
+* Trouble shooting by ML community
+
+## Encoder: high-dim data $\to$ low-dim latent space
+
+```{r echo = T}
+build.linear.encoder <-
+    nn_module(
+        ## How do we want to build this module ##
+        classname = "linear encoder",
+        initialize = function(d.in, K){
+            self$K <- K # number of hidden factors
+            self$func.z <- nn_linear(d.in, K) # a linear neural net layer
+            self$bn <- nn_batch_norm1d(d.in) # batch norm
+        },
+        ## Define how do we propate infomration ##
+        forward = function(x.b){
+            self$get.latent(x.b)
+        },
+        get.latent = function(x.b){
+            x.b <- torch_log1p(x.b) # log1p transformation
+            x.b <- self$bn(x.b) # to expedite training
+            self$func.z(x.b) # take linear combinations
+        })
+```
+
+## Check if this encoder module works okay
+
+```{r echo = T}
+lin.encoder <- build.linear.encoder(ncol(x.torch), 7)$to(dev = GPU)
+lin.encoder
+
+##########################################
+## Test using the first five cells/data ##
+##########################################
+
+lin.encoder(x.torch[1:5, ])
+```
+
+## Decoder: low-dim latent space $\to$ high-dim data
+
+```{r echo=T}
+build.linear.decoder <-
+    nn_module(
+        classname = "linear decoder",
+        ## Define how we want to build this module
+        initialize = function(n.out, K) {
+            self$K <- K
+            self$func.logX <- nn_linear(K, n.out) # latent dim -> data dim
+        },
+        ## Define how do get back high-dim data
+        forward = function(z.b){
+            .num <- self$func.logX(z.b)
+            .denom <- torch_logsumexp(.num, dim = -1, keepdim = T)
+            return(.num - .denom)
+        },
+        ## Helper function
+        get.weight = function(){
+            self$func.logX$weight
+        })
+```
+
+## Check flow from the encoder to decoder
+
+```{r echo = T}
+lin.decoder <- build.linear.decoder(ncol(x.torch), K=7)$to(device=GPU)
+
+x.input <- x.torch[1:5, ]
+z.b <- lin.encoder(x.input)
+
+#############################################
+## reconstruction of x based on the latent ##
+#############################################
+logx.recon <- lin.decoder(z.b)
+logx.recon[, 1:7]
+```
+
+* Note: the reconstructed data matrix is in logarithm scale
+
+## What's really going on in terms of functions?
+
+For each sample/cell $i$,
+
+* Encoder:
+
+$$\mathbf{z}_{i} \gets \log(\mathsf{normalize}(\mathbf{x}_{i}) + 1) \cdot \mathbf{W}^{(z)} + \mathbf{b}^{(z)}$$
+
+* Decoder:
+
+$$\hat{\mathbf{x}}_{i} \gets \mathbf{z}_{i} \cdot \mathbf{W}^{(x)} + \mathbf{b}^{(x)}$$
+
+
+## Goal: to make the reconstructed data $\approx$ the input
+
+* Gene expression frequency:
+$$\rho_{ig} = \frac{\exp( \widehat{{\log}X}_{ig} )}{\sum_{g'} \exp( \widehat{{\log}X}_{ig'} )}$$
+
+* Multinomial log-likelihood:
+$$L_{i} \overset{\mathsf{def}}{=} \sum_{g=1}^{p} X_{ig} \log \rho_{ig}$$
+
+\only<1>{$$\log \rho_{ig} = \widehat{{\log}X}_{ig} - \log \sum_{g'} \exp(\widehat{{\log}X}_{ig'})$$}
+
+\only<2>{$$L_{i} = \sum_{g=1}^{p} X_{ig} \left[ \widehat{\log X}_{ig} - \mathsf{logSumExp}(\widehat{\log \mathbf{x}}_{i}) \right]$$}
+
+## Goal: to make the reconstructed data $\approx$ the input
+
+:::::: {.columns}
+::: {.column width=.6}
+
+```{r echo = T}
+multinom.llik <- function(x.input, logx.recon){
+    torch_sum(x.input * logx.recon, dim = -1)
+}
+
+multinom.llik(x.input, logx.recon)
+```
+
+:::
+::: {.column width=.4}
+
+* We need to maximize this with respect to all the parameters in the encoder and decoder layers.
+
+* Maximizing log-likelihood $\iff$ minimizing *negative* log-likelihood
+
+:::
+::::::
+
+## `Torch` provides a convenient way to "differentiate"
+
+```{r echo = T, size="large"}
+loss <- -torch_mean(multinom.llik(x.input, logx.recon))
+loss
+loss$backward()
+```
+
+## Put the encoder and decoder together (so that gradients flow)
+
+```{r echo = T}
+build.linear.autoenc <-
+    nn_module(
+        classname = "linear autoencoder",
+        initialize = function(d.data, K){
+            self$enc <- build.linear.encoder(d.data, K)
+            self$dec <- build.linear.decoder(d.data, K)
+        },
+        forward = function(x){
+            z <- self$enc(x)
+            x.hat <- self$dec(z)
+            .loss <- - multinom.llik(x, x.hat)
+            list(loss = .loss)
+        })
+```
+
+```{r}
+linear.autoenc <- build.linear.autoenc(ncol(x.torch), K=12)
+linear.autoenc$to(device=GPU)
+```
+
+## A bit more formal definition
+
+Minimize the total loss
+
+$$L \overset{\textsf{def}}{=} \sum_{i=1}^{n}\mathsf{Loss}(\mathbf{x}_{i}, \widehat{\mathbf{x}}_{i})$$
+
+where
+
+$$\hat{\mathbf{x}}_{i} = \mathsf{Decoder}(\mathsf{Encoder}(\mathbf{x}_{i}; \theta^{(\textsf{enc})}); \theta^{(\textsf{dec})})$$
+
+with respect to the parameters $\theta$.
+
+## Update by stochastic gradient steps
+
+Take gradient (direction to minimize the loss) for each parameter:
+
+$$\nabla L \equiv \left( \frac{\partial L}{\partial \theta_{1}}, \frac{\partial L}{\partial \theta_{2}}, \ldots \right)$$
+
+Update parameters:
+
+$$\theta^{(t)} \gets \underset{\textsf{\color{blue} the previous}}{\theta^{(t-1)}} - \underset{\textsf{\color{teal} learning rate}}{\rho_{t}} \underbrace{\nabla L}_{\textsf{\color{magenta} gradient at $t-1$}}$$
+
+## Update by stochastic gradient steps
+
+```{r echo = T}
+## register parameters to ADAM optimizer
+.params <- linear.autoenc$parameters
+adam <- optim_adam(.params, lr = 1e-2)
+adam$zero_grad()
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo = T}
+x.b <- x.torch[1:3, ]      # Select minibatch data
+out <- linear.autoenc(x.b) # data -> latent -> recon.
+out$loss                   # loss evalulated on X.b
+```
+
+:::
+::: {.column width=.5}
+
+1. Take minibatch $X^{(b)}$
+
+2. Recon. $\hat{X}^{(b)} = \mathsf{Dec}(\mathsf{Enc}(X^{(b)}))$
+
+3. Evaluate $\mathsf{Loss}(X^{(b)}, \hat{X}^{(b)})$
+
+:::
+::::::
+
+## Update by stochastic gradient steps
+
+:::::: {.columns}
+::: {.column width=.6}
+
+```{r echo = T}
+loss.b <- torch_sum(out$loss) #
+loss.b$backward()             # numerically
+                              # differentiate
+
+## Before we take one SGD step
+head(adam$param_groups[[1]]$params$enc.func.z.bias, 2)
+adam$step() -> .
+## After we take one SGD step
+head(adam$param_groups[[1]]$params$enc.func.z.bias, 2)
+```
+
+:::
+::: {.column width=.4}
+
+\onslide<2->{$\star$ Aggregate training loss across samples in this minibatch:
+
+$\sum_{i \in \mathsf{minibatch}(b)} \mathsf{loss}(\mathbf{x}_{i}, \hat{\mathbf{x}_{i}})$}
+
+${}$
+
+\onslide<3->{$\star$ Take gradient with respect to encoder and decoder parameters}
+
+${}$
+
+\onslide<4>{$\star$ Update the parameters by taking one (stochastic) gradient descent step
+
+$\theta^{(t)} \gets \theta^{(t-1)} + \rho \nabla L$}
+
+:::
+::::::
+
+
+
+## Training algorithm: Repeat SGD steps many times
+
+\large
+
+* For many epochs
+
+    1. Sample mini batch data
+
+	2. Evaluate loss function $L(\mathbf{x}_{i}, \hat{\mathbf{x}}_{i})$
+
+	3. Compute gradient $\nabla_{\theta} L$
+
+	4. Update parameters by SGD
+
+* Report encoding results
+
+```{r include = F}
+train.model <- function(xx, model, rds.file,
+                        max.epoch = 200,
+                        batch.size = 128,
+                        learning.rate = 1e-3,
+                        record = 10){
+
+    GPU <- torch_device("cuda")
+    CPU <- torch_device("cpu")
+
+    adam <- optim_adam(model$parameters, lr = learning.rate)
+
+    loss.vec <- c()
+
+    ntot <- nrow(xx)
+    nbatch <- ceiling(ntot /batch.size)
+    nn <- batch.size * nbatch
+
+    hh.list <- list()
+    hh <- matrix(NA, nrow = ntot, ncol = model$enc$K)
+
+    ww.list <- list()
+    ww <- matrix(NA, nrow = ncol(xx), ncol = model$enc$K)
+
+    for(tt in seq(0, max.epoch)){
+        .shuffle <- sample(ntot, nn)
+        .loss.tot <- 0
+
+        for(b in seq(0, nbatch-1)){
+            .idx <- seq(1 + b * batch.size, (b+1) * batch.size)
+            .idx <- .shuffle[.idx]
+            xx.b <- xx[.idx, ]
+
+            model$train()
+            adam$zero_grad()
+            out <- model(xx.b)
+            loss.b <- torch_sum(out$loss)$to(device=CPU)$item()
+            torch_mean(out$loss)$backward()
+            adam$step() -> .
+            .loss.tot <- .loss.tot + loss.b
+
+            cat(tt, " ", loss.b, "\r", file = stderr())
+            flush(stderr())
+        }
+
+        loss.vec <- c(loss.vec, .loss.tot/nn)
+
+        if(tt %% record == 0){
+            model$eval()
+
+            for(b in seq(0, nbatch-1)){
+                .idx <- seq(1 + b * batch.size, min(ntot, (b+1) * batch.size))
+                xx.b <- xx[.idx, ]
+                hh.b <- model$enc$get.latent(xx.b)$to(device=CPU)
+                hh[.idx, ] <- as.matrix(hh.b)
+            }
+
+            ww <- as.matrix(model$dec$get.weight()$to(device=CPU))
+            hh.list <- c(hh.list, list(hh))
+            ww.list <- c(ww.list, list(ww))
+        }
+    }
+    saveRDS(list(loss = loss.vec, latent = hh.list, weights = ww.list), file = rds.file)
+}
+```
+
+```{r run_linear_autoencoder}
+.file <- fig.dir %&% "/linear_autoencodeer.rds"
+if.needed(.file, {
+    train.model(x.torch, linear.autoenc, .file, max.epoch = 1000, record=25)
+})
+```
+
+## Results: SGD minimized the loss function
+
+```{r}
+.result <- readRDS(.file)
+```
+
+```{r fig.width=5, fig.height = 3}
+nepoch <- length(.result$loss)
+.df <- data.frame(epoch = seq(0, nepoch - 1), loss = .result$loss)
+ggplot(.df, aes(epoch, loss)) +
+    geom_point(stroke = 0)
+```
+
+## Hidden representations (factor $\times$ cell)
+
+```{r fig.width=5, fig.height=2.5, only.plot="1"}
+tt <- 1
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="2"}
+tt <- 2
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="3"}
+tt <- 10
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="4"}
+tt <- 20
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="5"}
+tt <- 30
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="6"}
+tt <- 40
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+## Latent dimensions estimated by the encoder model
+
+```{r}
+tt <- 41
+.df <- as.data.frame(.result$latent[[tt]])
+```
+
+```{r fig.width=6, fig.height=2.2, only.plot="1"}
+p1 <- ggplot(.df, aes(V1, V2)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p2 <- ggplot(.df, aes(V3, V4)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p3 <- ggplot(.df, aes(V5, V6)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p1 | p2 | p3
+```
+
+```{r fig.width=6, fig.height=2.2, only.plot="2"}
+p1 <- ggplot(.df, aes(V7, V8)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p2 <- ggplot(.df, aes(V9, V10)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p3 <- ggplot(.df, aes(V11, V12)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p1 | p2 | p3
+```
+
+## Variational autoencoder (VAE)
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\centerline{A classical autoencoder:}
+
+${}$
+
+\centerline{\includegraphics[width=\linewidth]{img/scRNA_ETM/autoencoder.pdf}}
+
+:::
+::: {.column width=.5}
+
+\centerline{Variational autoencoder:}
+
+${}$
+
+\centerline{\includegraphics[width=\linewidth]{img/scRNA_ETM/VAE.pdf}}
+
+:::
+::::::
+
+\vfill
+
+* Define relationships between variables (auto generative process)
+
+* Usually, the decoder side captures our scientific hypothesis
+
+<!-- * We can use an "auto-diff" algorithm (e.g., Facebook `torch` or Google `tensorflow`) to calculate gradients for the model parameters to optimize. -->
+
+## VAE approximates Bayesian inference
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\centerline{\includegraphics[width=\linewidth]{img/scRNA_ETM/VAE_paper.pdf}}
+
+:::
+::: {.column width=.5}
+
+\large
+
+Prior:
+
+$$Z \sim p(Z| \psi)$$
+
+Data likelihood:
+
+$$X \sim p(X|Z, \theta)$$
+
+Variational Encoder:
+
+$$q(Z|X) = \mathsf{NN}(X)$$
+
+:::
+::::::
+
+## SCVI: deep generative model for scRNA-seq
+
+\vfill
+
+\centerline{\includegraphics[height=.65\textheight]{img/scRNA_ETM/scVI.pdf}}
+
+\vfill
+
+Generative model: zero-inflated negative binomial distribution
+
+\vfill
+\tiny
+
+Lopez, .., Jordan, Yosef, \emph{Nature Methods} (2018)
+
+## A new encoder as a posterior inference machine
+
+\centerline{\includegraphics[width=.45\linewidth]{img/scRNA_ETM/VAE.pdf}}
+
+We need to define functions (neural networks) that maps from the data vector $\mathbf{x}$ to
+
+* the mean of latent embedding: $\mu$
+
+* the log variance of latent embedding: $\sigma$
+
+* $z_{ig} \gets \mu_{ig} + \sigma_{ig} \epsilon,\quad \epsilon \sim \mathcal{N}\!\left(0, 1\right)$
+
+## A new encoder as a posterior inference machine
+
+```{r echo = T}
+build.vae.encoder <- nn_module(
+        classname = "vae encoder",
+        initialize = function(d.in, K){
+            self$K <- K                                        # number of hidden vars.
+            self$z.mean <- nn_linear(d.in, K)                  # mean function
+            self$z.logvar <- nn_linear(d.in, K)                # log variance function
+            self$bn <- nn_batch_norm1d(d.in)                   # batch norm
+        },
+        forward = function(x.b){
+            x.b <- self$normalize(x.b)
+            mm <- self$z.mean(x.b)                             # mean evaluated
+            lv <- torch_clamp(self$z.logvar(x.b), -4.0, 4.0)   # log-var evaluated
+            z <- mm + torch_randn_like(lv) * torch_exp(lv/ 2.) # stochastic z
+            list(z = z, z.mean = mm, z.logvar = lv)
+        },
+        normalize = function(x.b){                             # normalization
+            x.b <- torch_log1p(x.b)                            # log1p transformation
+            self$bn(x.b)                                       # to expedite training
+        }, ## helper function
+        get.latent = function(x.b){ self$z.mean(self$normalize(x.b)) })
+```
+
+## We will have two types of loss functions
+
+:::::: {.columns}
+::: {.column width=.5}
+
+Data log likelihood (a generative model)
+
+$$\log \prod_{i=1}^{n} \underset{\textsf{\color{teal} multinomial}}{p(\mathbf{x}_{i}|\mathbf{z}_{i})}$$
+
+```{r echo = T}
+multinom.llik <- function(x.input, logx.recon){
+    torch_sum(x.input * logx.recon, dim = -1)
+}
+```
+
+:::
+::: {.column width=.5}
+
+Divergence between prior and posterior
+
+$$D_{\mathsf{KL}}\left(\underset{\textsf{\color{teal} posterior}}{q(\mathbf{z})} \middle\| \underset{\textsf{\color{magenta} prior}}{p(\mathbf{z})}\right)$$
+
+```{r echo = T}
+kl.loss <- function(.mean, .lnvar) {
+    -0.5 * torch_sum(1. + .lnvar
+                     - torch_pow(.mean, 2.)
+                     - torch_exp(.lnvar),
+                     dim = -1)
+}
+```
+
+:::
+::::::
+
+:::::: {.columns}
+::: {.column width=.5}
+
+* The log-likelihood is the same as before
+
+* KL loss will work like regularization
+
+:::
+::: {.column width=.5}
+
+* We assume both $q$ and $p$ follows Gaussian distribution
+
+:::
+::::::
+
+## A complete definition of our VAE model
+
+```{r echo = T}
+build.vae <-
+    nn_module(
+        classname = "variational autoencoder",
+        initialize = function(d.data, K){
+            self$enc <- build.vae.encoder(d.data, K)    # encoder model
+            self$dec <- build.linear.decoder(d.data, K) # decoder model
+        },
+        forward = function(x){
+            .enc <- self$enc(x)                         #
+            x.hat <- self$dec(.enc$z)                   # reconstruction
+            .llik <- multinom.llik(x, x.hat)            # data likelihood
+            .kl <- kl.loss(.enc$z.mean, .enc$z.logvar)  # KL divergence
+            .loss <- .kl - .llik                        # combined loss
+            list(loss = .loss, kl=.kl)
+        }
+    )
+```
+
+* What do you want to change?
+
+## VAE: Check flow from the encoder to decoder
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo = T}
+vae <- build.vae(ncol(x.torch), K=12)
+vae$to(device = GPU)
+
+x.input <- x.torch[1:5, ]
+out <- vae(x.input)
+out$loss
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo = T}
+#############################################
+## reconstruction of x based on the latent ##
+#############################################
+z.b <- vae$enc(x.input)
+logx.recon <- vae$dec(z.b$z)
+logx.recon[, 1:5]
+```
+
+:::
+::::::
+
+* Note: the reconstructed data matrix is in logarithm scale
+
+```{r}
+.file <- fig.dir %&% "/vae.rds"
+if.needed(.file, {
+    train.model(x.torch, vae, .file, max.epoch = 1000, record=21)
+})
+```
+
+## Results: SGD minimized the VAE loss function
+
+```{r}
+.result <- readRDS(.file)
+```
+
+```{r fig.width=5, fig.height = 3}
+nepoch <- length(.result$loss)
+.df <- data.frame(epoch = seq(0, nepoch - 1), loss = .result$loss)
+ggplot(.df, aes(epoch, loss)) +
+    geom_point(stroke = 0)
+```
+
+## Latent dimensions in the VAE model
+
+```{r}
+tt <- 41
+.df <- as.data.frame(.result$latent[[tt]])
+```
+
+```{r fig.width=6, fig.height=2.2, only.plot="1"}
+p1 <- ggplot(.df, aes(V1, V2)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p2 <- ggplot(.df, aes(V3, V4)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p3 <- ggplot(.df, aes(V5, V6)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p1 | p2 | p3
+```
+
+```{r fig.width=6, fig.height=2.2, only.plot="2"}
+p1 <- ggplot(.df, aes(V7, V8)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p2 <- ggplot(.df, aes(V9, V10)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p3 <- ggplot(.df, aes(V11, V12)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p1 | p2 | p3
+```
+
+## Hidden representations (factor $\times$ cell)
+
+```{r fig.width=5, fig.height=2.5, only.plot="1"}
+tt <- 1
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="2"}
+tt <- 2
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="3"}
+tt <- 10
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="4"}
+tt <- 20
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="5"}
+tt <- 30
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="6"}
+tt <- 40
+.temp <- apply(.result$latent[[tt]], 2, scale)
+.matshow(.sort.matrix(t(.temp))) + ggtitle("epoch = " %&% (1 + (tt - 1) * 25))
+```
+
+## Annotate factors to cell types by enrichment (`fgsea`)
+
+```{r run_gsea_beta}
+.beta <- apply(.result$weights[[tt]], 2, scale)
+.rows <- fread(raw.data$row, header=F)
+.rows[, c("gene","chr") := tstrsplit(`V1`, split="[_]+", keep=1:2)]
+rownames(.beta) <- .rows$gene
+
+.db <- read.panglao("Pancreas")
+.genes <- unique(unlist(.db))
+.dt <- sort.beta(.beta, genes.selected = .genes)
+.gsea <- run.beta.gsea(.dt, .db)
+.show <- select.gsea.beta(.gsea, .dt, sd.cutoff = 1e-4)
+```
+
+```{r}
+p1 <-
+    .gg.plot(.show$beta, aes(row, variable, fill=`value`)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(legend.position = "none") +
+    ggrastr::rasterise(geom_tile(), dpi=300) +
+    ylab("VAE factors") + xlab("genes") +
+    scale_fill_distiller(direction=-1, palette="RdBu")
+
+p2 <-
+    .gg.plot(.show$leading.edges, aes(row, ct)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(panel.grid = element_blank()) +
+    geom_tile(linewidth=0) +
+    ylab("cell types")
+
+p3 <-
+    .gg.plot(.show$gsea, aes(variable, ct, fill=-log10(pmax(padj, 1e-4)))) +
+    xlab("NMF factors") + ylab("") +
+    scale_y_discrete(position = "right") +
+    geom_tile(linewidth=.1, color="black") +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(legend.text = element_text(size=4)) +
+    scale_fill_distiller("Padj", palette = "YlGnBu", direction=1, labels=function(x) num.sci(10^(-x)))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+print(p1/p2)
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+C <- length(unique(.show$gsea$ct))
+K <- length(unique(.show$beta$variable))
+p0 <- ggplot() + theme_void()
+wrap_plots(p1, p0, p2, p3, nrow = 2, heights=c(K,C), widths=c(4,1))
+```
+
+##
+
+\large
+
+Can we improve model interpretation?
+
+\begin{enumerate}
+\item<2-> The decoder part is open to modelling in many different ways.
+\item<3> Can we define latent factors by gene expression frequencies?
+\end{enumerate}
+
+## Single-cell Embedded Topic Model
+
+\centerline{\includegraphics[width=\linewidth]{img/scRNA_ETM/scETM.pdf}}
+
+\vfill
+
+Zhao .. Li, Nature Comm. (2021)
+
+## Document topic modelling
+
+\centerline{\includegraphics[width=.8\linewidth]{img/scRNA_ETM/BleiTopicLDA_0.pdf}}
+
+\vfill
+\tiny
+\flushright
+Slide credit: David Blei
+
+## Word frequencies define topics in documents
+
+\centerline{\includegraphics[width=.8\linewidth]{img/scRNA_ETM/BleiTopicLDA_1.pdf}}
+
+\vfill
+\tiny
+\flushright
+Slide credit: David Blei
+
+## Multinomial topic model for scRNA-seq data
+
+Can we simply model scRNA-seq counts by multinomial distribution?
+
+\only<1>{
+\centerline{\includegraphics[height=.4\textheight]{img/scRNA_ETM/ETM.pdf}}
+}
+
+\vfill
+
+\only<2>{
+Likelihood model:
+
+$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\sum_{k} H_{ik} \beta_{kg}\right)^{X_{ij}}$$
+}
+
+\only<3>{
+Likelihood model:
+
+$$\mathcal{L} = \prod_{i=1}^{n}\prod_{g=1}^{\textsf{genes}} \left(\underset{\textsf{\color{magenta} a gene $g$'s probability in a cell $i$} \equiv \rho_{ig}}{\sum_{k} H_{ik} \beta_{kg}}\right)^{X_{ij}}$$}
+
+\normalsize
+
+* $X_{ig}$: gene expression of a gene $g$ in a single cell $i$
+
+* $H_{ik}$: latent topic proportion of a cell $i$ to a topic $k$
+
+* $\beta_{kg}$: topic $k$-specific gene probability
+
+
+## Topic modelling for single-cell data
+
+\vfill
+
+\centerline{\includegraphics[height=.4\textheight]{img/scRNA_ETM/ETM.pdf}}
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.5}
+
+Probability of gene $g$ in  a cell $i$:
+
+$$\rho_{ig} = \sum_{k \in \textsf{topics}} H_{ik} \beta_{kg}$$
+
+:::
+::: {.column width=.45}
+
+By **not** normalizing the probability of each cell, we do not worry about modelling sequencing depths.
+
+:::
+::::::
+
+
+## Document topic modelling vs. single-cell ETM
+
+```{r echo = FALSE, results="asis"}
+.dt <- data.table(
+    variables = c("$D$",
+                  "$d$",
+                  "$N_{d}$",
+                  "$j$",
+                  "$K$",
+                  "$k$",
+                  "$V$",
+                  "$v$",
+                  "$W_{dj}^{v}$",
+                  "$X_{dv}$"),
+    `in document topic model` = c("Total number of documents (corpus)",
+                    "Document index",
+                    "Number of words in a document $d$",
+                    "Word index, $j \\in [N_{d}]$",
+                    "Total number of topics",
+                    "Topic index, $k \\in [K]$",
+                    "Size of vocabulary",
+                    "Vocabulary index $v \\in [V]$",
+                    "Indicator for a word to vocabulary $\\in \\{0, 1\\}$",
+                    "Vocabulary $v$ occurrence in a document $d$"),
+    `in single cell ETM` = c("Total number of cells",
+                   "Cell index",
+                   "Number of read counts in a cell $d$",
+                   "Read index",
+                   "Total number of cell type topics",
+                   "Cell topic index",
+                   "Total number of genes",
+                   "Gene index",
+                   "Indicator for a read to a gene $\\in \\{0, 1\\}$",
+                   "Gene expression of a gene $v$ in a cell $d$ $\\in [0, N_{d}]$"))
+
+knitr::kable(.dt)
+```
+
+
+##
+
+```{r echo = FALSE, results = "asis"}
+.dt.param <- data.table(
+    variables = c("$Z_{dj}^{k}$",
+                  "$H_{dk}$",
+                  "$\\beta_{kv}$"),
+    `in document topic model` = c("Indicator for assigning a word to a topic $k$",
+                         "Hidden state $k$ of a document $d$",
+                         "topic $k$-specific vocabulary $v$ frequency"),
+    `in single cell ETM` = c("Indicator for assigning a read to a topic $k$",
+                         "Hidden state $k$ of a cell $d$",
+                         "topic $k$-specific, a gene $v$'s exression"))
+
+knitr::kable(.dt.param)
+```
+
+* In Latent Dirichlet Allocation: $\sum_{k=1}^{K} H_{dk} = 1$ and $H_{dk} > 0$, and $\mathbf{h}_{d} \sim \mathsf{Dirichlet}(\alpha/K, \ldots, \alpha/K)$ _a priori_. Approximately, we have $\hat{H}_{dk} = \sum_{j}^{N_{d}} Z_{dj}^{k} / N_{d}$.
+
+* In Embedded Topic model, $H_{dk}$ with the simplex constraints; $H_{dk} = \exp(\delta_{dk}) / \sum_{k'} \exp(\delta_{dk'})$ where $\delta_{dk} \sim \mathcal{N}\!\left(0,1\right)$ _a priori_.
+
+* Additional constraints: $\beta_{kv} > 0$ and $\sum_{v} \beta_{kv} = 1$, meaning that only a handful of vocabulary $v$ contribute to a topic $k$.
+
+## Let's modify the decoder part
+
+```{r echo = T}
+build.etm.decoder <-
+    nn_module(classname = "ETM decoder",
+        initialize = function(n.out, K, jitter = 1e-2) {
+            self$lbeta <- nn_parameter(torch_randn(K, n.out) * jitter)
+            self$beta <- nn_log_softmax(2) # topic x variant (softmax for each topic)
+            self$hid <- nn_log_softmax(2)  # sample x topic (softmax for each sample)
+        },
+        ## Define how do get back high-dim data
+        forward = function(z.b, eps = 1e-8){
+            .beta <- self$get.weight()
+            h.b <- self$hid(z.b)
+            torch_log(torch_mm(torch_exp(h.b), torch_exp(.beta)) + eps)
+        },
+        ## Helper function
+        get.weight = function(){
+            self$beta(self$lbeta)
+        })
+```
+
+## ETM: putting the encoder and decoder together
+
+```{r echo = T}
+build.etm <-
+    nn_module(
+        classname = "embedded topic model",
+        initialize = function(d.data, K){
+            self$enc <- build.vae.encoder(d.data, K)
+            self$dec <- build.etm.decoder(d.data, K)
+        },
+        forward = function(x){
+            .enc <- self$enc(x)
+            x.hat <- self$dec(.enc$z)
+            .llik <- multinom.llik(x, x.hat)
+            .kl <- kl.loss(.enc$z.mean, .enc$z.logvar)
+            .loss <- .kl - .llik
+            list(loss = .loss, kl = .kl, latent = .enc$z.mean)
+        })
+```
+
+## ETM: Check flow from the encoder to decoder
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo = T}
+etm <- build.etm(ncol(x.torch), K=12)
+etm$to(device = GPU)
+
+x.input <- x.torch[1:5, ]
+out <- etm(x.input)
+
+out <- vae(x.input)
+out$loss
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo = T}
+#############################################
+## reconstruction of x based on the latent ##
+#############################################
+z.b <- etm$enc(x.input)
+logx.recon <- etm$dec(z.b$z)
+logx.recon[, 1:5]
+```
+
+:::
+::::::
+
+* Note: the reconstructed data matrix is in logarithm scale
+
+## Results: SGD minimized the loss function
+
+```{r}
+.file <- fig.dir %&% "/etm.rds"
+if.needed(.file, {
+    train.model(x.torch, etm, .file, max.epoch = 2000, record=50)
+})
+```
+
+```{r}
+.result <- readRDS(.file)
+```
+
+```{r fig.width=5, fig.height = 3}
+nepoch <- length(.result$loss)
+.df <- data.frame(epoch = seq(0, nepoch - 1), loss = .result$loss)
+ggplot(.df, aes(epoch, loss)) +
+    geom_point(stroke = 0)
+```
+
+```{r}
+show.struct <- function(.zz){
+    .hh <- t(apply(t(.zz), 2, function(z) {
+        pr <- exp(z - max(z))
+        pr/sum(pr)
+        }))
+    .K <- ncol(.zz)
+    .dt <- reshape2::melt(.hh) %>%
+        mutate(row = Var2, col = Var1, weight=value) %>%
+        col.order(.ro=rev(1:.K), ret.tab=TRUE) %>%
+        as.data.table()
+
+    .gg.plot(.dt, aes(`col`, `weight`, fill=factor(`Var2`, 1:.K))) +
+        ylab("topic proportion") +
+        xlab("cells") +
+        theme(legend.position = "top") +
+        theme(axis.text.x = element_blank()) +
+        theme(axis.ticks.x = element_blank()) +
+        geom_bar(stat="identity", linewidth=0) +
+        scale_fill_brewer("latent topic", palette = "Paired")
+}
+```
+
+
+## Latent dimensions in the ETM model
+
+```{r}
+tt <- 41
+.df <- as.data.frame(.result$latent[[tt]])
+```
+
+```{r fig.width=6, fig.height=2.2, only.plot="1"}
+p1 <- ggplot(.df, aes(V1, V2)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p2 <- ggplot(.df, aes(V3, V4)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p3 <- ggplot(.df, aes(V5, V6)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p1 | p2 | p3
+```
+
+```{r fig.width=6, fig.height=2.2, only.plot="2"}
+p1 <- ggplot(.df, aes(V7, V8)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p2 <- ggplot(.df, aes(V9, V10)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p3 <- ggplot(.df, aes(V11, V12)) + ggrastr::rasterise(geom_point(stroke=0, alpha=.5, size=.5),dpi=300)
+p1 | p2 | p3
+```
+
+## In ETM, the hidden dimensions are not independent
+
+\large
+
+$$H_{ik} = \frac{\exp(Z_{ik})}{\sum_{k'} \exp(Z_{ik'})}$$
+
+
+## Hidden representations (mixing proportions)
+
+```{r fig.width=5, fig.height=2.5, only.plot="1"}
+tt <- 1
+.temp <- .result$latent[[tt]]
+show.struct(.temp) + ggtitle("epoch = " %&% (1 + (tt - 1) * 50))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="2"}
+tt <- 2
+.temp <- .result$latent[[tt]]
+show.struct(.temp) + ggtitle("epoch = " %&% (1 + (tt - 1) * 50))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="3"}
+tt <- 5
+.temp <- .result$latent[[tt]]
+show.struct(.temp) + ggtitle("epoch = " %&% (1 + (tt - 1) * 50))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="4"}
+tt <- 10
+.temp <- .result$latent[[tt]]
+show.struct(.temp) + ggtitle("epoch = " %&% (1 + (tt - 1) * 50))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="5"}
+tt <- 20
+.temp <- .result$latent[[tt]]
+show.struct(.temp) + ggtitle("epoch = " %&% (1 + (tt - 1) * 50))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="6"}
+tt <- 30
+.temp <- .result$latent[[tt]]
+show.struct(.temp) + ggtitle("epoch = " %&% (1 + (tt - 1) * 50))
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="7"}
+tt <- 41
+.temp <- .result$latent[[tt]]
+show.struct(.temp) + ggtitle("epoch = " %&% (1 + (tt - 1) * 50))
+```
+
+## Annotate factors to cell types by enrichment (`fgsea`)
+
+```{r run_gsea_etm_beta}
+.beta <- exp(t(.result$weights[[tt]]))
+.rows <- fread(raw.data$row, header=F)
+.rows[, c("gene","chr") := tstrsplit(`V1`, split="[_]+", keep=1:2)]
+rownames(.beta) <- .rows$gene
+
+.db <- read.panglao("Pancreas")
+.genes <- unique(unlist(.db))
+.dt <- sort.beta(.beta, genes.selected = .genes)
+.gsea <- run.beta.gsea(.dt, .db)
+.show <- select.gsea.beta(.gsea, .dt, sd.cutoff = 1e-4)
+```
+
+```{r}
+p1 <-
+    .gg.plot(.show$beta, aes(row, variable, fill=pmin(`value`, 1e-2))) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(legend.position = "none") +
+    ggrastr::rasterise(geom_tile(), dpi=300) +
+    ylab("ETM topics") + xlab("genes") +
+    scale_fill_distiller(direction=1, palette="PuRd", trans="sqrt")
+
+p2 <-
+    .gg.plot(.show$leading.edges, aes(row, ct)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(panel.grid = element_blank()) +
+    geom_tile(linewidth=0) +
+    ylab("cell types")
+
+p3 <-
+    .gg.plot(.show$gsea, aes(variable, ct, fill=-log10(pmax(padj, 1e-4)))) +
+    xlab("NMF factors") + ylab("") +
+    scale_y_discrete(position = "right") +
+    geom_tile(linewidth=.1, color="black") +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(legend.text = element_text(size=4)) +
+    scale_fill_distiller("Padj", palette = "YlGnBu", direction=1, labels=function(x) num.sci(10^(-x)))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+print(p1/p2)
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+C <- length(unique(.show$gsea$ct))
+K <- length(unique(.show$beta$variable))
+p0 <- ggplot() + theme_void()
+wrap_plots(p1, p0, p2, p3, nrow = 2, heights=c(K,C), widths=c(4,1))
+```
+
+## Discussions on latent topic modelling
+
+* Most cells predominantly belong to one topic (one colour). Why?
+
+* If we model cells as a mixture of cell topics, we can capture doublets or triplets.
+
+* The underlying generative model assumes no sequencing depth! This can help avoid batch-specific differences in practice.
+
+* VAE offers a flexible framework with which our scientific hypothesis can be formulated in a probabilistic language (`torch`).
+
+* Potentially, this purely-unsupervised learning framework can be combined with supervised, semi-supervised learning models.
