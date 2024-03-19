@@ -415,7 +415,7 @@ For each sample/cell $i$,
 
 * Encoder:
 
-$$\mathbf{z}_{i} \gets \log(\mathsf{normalize}(\mathbf{x}_{i}) + 1) \cdot \mathbf{W}^{(z)} + \mathbf{b}^{(z)}$$
+$$\mathbf{z}_{i} \gets \mathsf{normalize}(\log(\mathbf{x}_{i} + 1)) \cdot \mathbf{W}^{(z)} + \mathbf{b}^{(z)}$$
 
 * Decoder:
 
