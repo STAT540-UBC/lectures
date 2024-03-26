@@ -1,0 +1,797 @@
+---
+title: "Spatial Transcriptomics -- deconvolution"
+author: "Yongjin Park, UBC Path + Stat, BC Cancer"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mainfont: Roboto
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+setwd("~/work/teaching/stat540_lectures/lect20-spatial")
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+source("Setup.R")
+source("Util.R")
+fig.dir <- "../Fig/scRNA_spatial/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+library(extrafont)
+library(xkcd)
+extrafont::font_import(pattern="[X/x]kcd", prompt=F)
+extrafont::loadfonts()
+theme_set(theme_xkcd() +
+          theme(title = element_text(size=10),
+                legend.background = element_blank())
+          )
+```
+
+##
+
+\Large
+
+Source code available:
+
+`https://github.com/stat540-UBC/lectures`
+
+## What is a cell type deconvolution problem?
+
+```{r}
+.file <- fig.dir %&% "/music_bulk_data.rds"
+if.needed(.file, {
+    GSE50244.bulk.eset <- readRDS(gzcon(url('https://xuranw.github.io/MuSiC/data/GSE50244bulkeset.rds')))
+    saveRDS(GSE50244.bulk.eset, .file)
+})
+GSE50244.bulk.eset <- readRDS(.file)
+
+.file <- fig.dir %&% "/music_sce_data.rds"
+if.needed(.file, {
+    EMTAB.sce <- readRDS(gzcon(url('https://xuranw.github.io/MuSiC/data/EMTABsce_healthy.rds')))
+    saveRDS(EMTAB.sce, .file)
+})
+EMTAB.sce <- readRDS(.file)
+
+.file <- fig.dir %&% "/nb_demo_file.rds"
+if.needed(.file, {
+
+    Y <- Biobase::exprs(GSE50244.bulk.eset)
+    y.pheno <- Biobase::pData(GSE50244.bulk.eset)
+    xx <- EMTAB.sce@assays@data[[1]]
+
+    .celltypes <- c("alpha","beta","gamma","delta", "ductal","acinar")
+
+    .pheno <-
+        as.data.frame(EMTAB.sce@colData) %>%
+        rownames_to_column("Var2") %>%
+        filter(cellType %in% .celltypes) %>%
+        as.data.table
+
+    x.melt <-
+        reshape2::melt(xx) %>%
+        as.data.table %>%
+        left_join(.pheno, by = "Var2") %>%
+        filter(`Var1` %in% rownames(Y)) %>%
+        na.omit %>%
+        as.data.table
+
+    X <- x.melt[, .(x = mean(value)), by = .(Var1, cellType)] %>%
+        filter(x >= 10) %>%
+        dcast(Var1 ~ cellType, value.var = "x", fill = 0)
+
+    .common <- na.omit(intersect(rownames(Y), as.character(X$Var1)))
+
+    Y <- Y[rownames(Y) %in% .common, , drop = FALSE]
+
+    X <- X %>% filter(Var1 %in% .common)
+    Y <- Y[match(as.character(X$Var1), rownames(Y)), , drop = FALSE]
+
+    X <- X %>% column_to_rownames("Var1") %>% as.matrix
+
+    saveRDS(list(Y,X, y.pheno), .file)
+})
+
+demo.data <- readRDS(.file)
+Y <- demo.data[[1]]
+X <- demo.data[[2]]
+pheno <- demo.data[[3]]
+```
+
+## Deconv Data 1. bulk RNA-seq data
+
+- Human pancreatic islet gene expression data: [GSE50244](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE50244)
+
+```{r echo = T}
+GSE50244.bulk.eset
+```
+
+## Deconv Data 2. single-cell RNA-seq data
+
+- Single-cell RNA-seq data in the same tissue: [E-MTAB-5061](https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-5061/)
+
+```{r echo = T}
+EMTAB.sce
+```
+
+## Cell type deconvolution of the bulk RNA-seq data
+
+::: {.block}
+### Problem definition
+
+* $\mathbf{y}$: bulk gene expression (gene $\times$ sample)
+
+* $X$: cell-type-specific single-cell expression (gene $\times$ cell type)
+
+**Goal**
+
+1. Fit a model regressing the bulk profile $\mathbf{y}_{i}$ of a sample $i$ on the single-cell-type-specific matrix $X$.
+
+2. What are the estimated cell type fractions in the bulk sample?
+
+:::
+
+
+## 100 most expressed genes within each cell type
+
+```{r}
+genes <-
+    apply(X, 2, function(x) head(order(x), 100)) %>%
+    as.numeric %>%
+    unique
+
+gene.names <- rownames(X)[genes]
+
+Y.sub <- Y[genes, , drop = FALSE] %>%
+    .sort.matrix()
+
+X.sub <- X[genes, , drop = FALSE] %>%
+    (function(.) { .[match(rownames(Y.sub), rownames(.)), ] })
+```
+
+```{r fig.width=5.5, fig.height=2.8}
+.y <-
+    apply(log1p(Y.sub), 2, scale) %>%
+    apply(1, scale) %>%
+    t() %>%
+    (function(y) { rownames(y) <- 1:nrow(y); y })
+
+p1 <-
+    .matshow(.y) +
+    ggtitle("Y")
+
+.x <-
+    apply(log1p(X.sub), 2, scale) %>%
+    apply(1, scale) %>%
+    t() %>%
+    (function(.) { rownames(.) <- 1:nrow(.); . }) %>%
+    (function(.) { .[match(rownames(.), rownames(.y)), ] })
+
+p2 <-
+    .matshow(.x) +
+    ggtitle("X")
+
+p0 <- ggplot() + theme_void()
+
+wrap_plots(p1, p0, p2, widths=c(5.5, .5, 1))
+```
+
+* What are $Y$ and $X$?
+
+## Negative Binomial distribution
+
+Poisson and Gamma distributions are the building blocks of NB.
+
+\large
+
+$$\lambda \sim \mathsf{Gamma}(a,b)$$
+
+$$Y \sim \mathsf{Poisson}(\lambda)$$
+
+\vfill
+
+$$Y \sim \mathsf{NB}(\underset{\textsf{\color{magenta}mean}}{\mu = a/b}, \underset{\textsf{\color{teal}over dispersion}}{\phi = 1/a})$$
+
+## Poisson-Gamma offers flexibility in modelling variance
+
+```{r include = F}
+hist.pois <- function(lam){
+    .df <- data.frame(x = rpois(1000, lam))
+    .brk <- unique(pmax(round(lam + sqrt(lam) * c(-2, -1, 0, 1, 2, 3)), 0))
+    ggplot(.df, aes(x)) +
+        geom_histogram(bins=30, fill="gray", linewidth=.1, color="black") +
+        geom_vline(xintercept = lam, lty=2, col=2) +
+        scale_x_continuous(breaks = .brk) +
+        ggtitle("x~Poisson(" %&% lam %&% "), sd[x]=" %&% round(sqrt(lam)))
+}
+hist.nb <- function(a, b){
+    lam <- rgamma(1000, shape=a, rate=b)
+    .df <- data.frame(x=sapply(lam, rpois, n=1))
+    mu <- round(a/b)
+    sig <- round(sqrt(a/b/b))
+    .brk <- unique(pmax(round(mu + sig* c(-2, -1, 0, 1, 2, 3, 4, 5)), 0))
+    ggplot(.df, aes(x)) +
+        geom_histogram(bins=30, fill="gray", linewidth=.1, color="black") +
+        geom_vline(xintercept = mu, lty=2, col=2) +
+        scale_x_continuous(breaks = .brk) +
+        ggtitle("x~Pois(Gamma(" %&% a %&% ", " %&% b %&% ")), sd[x]=" %&% sig)
+}
+```
+
+```{r fig.width=6, fig.height=2.5, only.plot=1}
+a <- 2
+b <- 2
+hist.nb(a, b) | hist.pois(a/b)
+```
+
+```{r fig.width=6, fig.height=2.5, only.plot=2}
+a <- 2
+b <- 1
+hist.nb(a, b) | hist.pois(a/b)
+```
+
+```{r fig.width=6, fig.height=2.5, only.plot=3}
+a <- 2
+b <- .5
+hist.nb(a, b) | hist.pois(a/b)
+```
+
+```{r fig.width=6, fig.height=2.5, only.plot=4}
+a <- 2
+b <- .1
+hist.nb(a, b) | hist.pois(a/b)
+```
+
+```{r fig.width=6, fig.height=2.5, only.plot=5}
+a <- 2
+b <- .01
+hist.nb(a, b) | hist.pois(a/b)
+```
+
+## Negative Binomial GLM for modelling RNA-seq count
+
+\begin{eqnarray*}
+p(Y_{i}|\mu_{i},\phi)
+&=& \int \overbrace{p(Y_{i}|\lambda_{i})}^{\textsf{\color{red} Poisson}} \underbrace{p(\lambda_{i}|\mu_{i},\phi)}_{\textsf{\color{blue} Gamma}} d\lambda_{i} \\
+\onslide<2->{
+&=&
+\underbrace{
+\frac{\Gamma(Y_{i} + 1/\phi)}{\Gamma(Y_{i}+1)\Gamma(1/\phi)}
+}_{\textsf{\color{magenta} negative binomial}}
+\underbrace{\left(
+\frac{\mu_{i}}{1/\phi + \mu_{i}}
+\right)^{Y_{i}}
+}_{\textsf{\color{magenta} success rate}}
+\underbrace{
+\left(
+\frac{1/\phi}{1/\phi + \mu_{i}}
+\right)^{1/\phi}
+}_{\textsf{\color{magenta} failure rate}}
+}
+\end{eqnarray*}
+
+where we model
+\centerline{$\mu_{i} = \exp\left(\sum_{k=1}^{p} X_{ik} \beta_{k}\right).$}
+
+## Negative Binomial GLM for modelling RNA-seq count
+
+* $Y$: number of successfully "observed" reads in RNA-seq (~targeting)
+* $r$: number of permitted "dropped" reads until $Y$ observed (~budget)
+* $\rho$: success rate
+
+\begin{eqnarray*}
+\onslide<1->{
+p(Y_{i}|\mu_{i},\phi)
+&=&
+\underbrace{{Y_{i} + r - 1 \choose Y_{i}}}_{\textsf{\color{magenta} negative binomial}}
+\underbrace{\rho_{i}^{Y_{i}}}_{\textsf{\color{magenta} success rate}}
+\underbrace{(1-\rho_{i})^{r}}_{\textsf{\color{magenta} drop rate}} \\
+}
+\onslide<2->{
+&=& \textsf{NB}(Y_{i}|r = \phi^{-1}, \rho_{i} = \mu_{i}/(\phi^{-1} + \mu_{i})) \\
+}
+\onslide<3->{
+\textsf{or}
+&=& \textsf{NB}(Y_{i}| \textsf{mean} = \mu_{i}, \textsf{overdispersion} = \phi)
+}
+\end{eqnarray*}
+
+\onslide<4>{
+We can check:
+
+mean: $\mathbb{E}\!\left[Y_{i}|r,\rho\right] = \rho r / (1 - \rho) = \mu_{i}$
+
+variance: $\mathbb{V}\!\left[Y_{i}|r,\rho\right] = \rho r / (1 - \rho)^{2} = \mu_{i} + \mu_{i}^{2} \phi$ (overdispersed mean-variance)
+}
+
+## NB GLM is useful for deconvolution
+
+**Q:** Can we estimate cell type fractions in tissue-level *bulk* data?
+
+$$\overset{\textsf{\color{magenta} bulk}}{\mathbf{y}_{i}}
+\sim
+\textsf{NB}\left(\textsf{mean} = \overset{\textsf{\color{gray} scale factor}}{s_{i}} \underset{\textsf{\color{blue} cell-type-sorted}}{\sum_{t} X_{gt}}
+\overset{\textsf{\color{red} GOAL}}{\theta_{ti}},
+\textsf{overdispersion} = \phi \right)$$
+
+* We use the same data set used in the vignette of [MuSic](https://github.com/xuranw/MuSiC/blob/master/vignettes/vignette.Rmd) package (Wang _et al._, Nature Comm., 2019)
+
+
+## Fit the NB GLM model to the data
+
+```{r}
+library(torch)
+```
+
+```{r include=F}
+nb.llik <- function(logit.theta, log.scale, log.phi){
+
+    theta <- torch_exp(nnf_log_softmax(logit.theta, dim=1))
+
+    log.mu <- torch_log(torch_mm(xx, theta) * torch_exp(log.scale))
+
+    od <- torch_exp(-log.phi) + 1e-8
+    .term1 <- torch_lgamma(yy + od) - torch_lgamma(yy + 1) - torch_lgamma(od)
+
+    ## log(mu) - log(mu + 1/phi)
+    ## log(mu / (mu + 1/phi))
+    ## log(1 / (1 + 1/mu phi))
+    ## - log(1 + 1/mu phi)
+    ## - log(1 + exp(- log.mu - log.phi))
+    .term2 <- - nnf_softplus(-log.mu - log.phi) * yy
+
+    ## log(1/phi) - log(1/phi + mu)
+    ## log(1 / (1 + mu * phi))
+    ## - log(1 + mu * phi)
+    ## - log(1 + exp(log.mu + log.phi))
+    .term3 <- - nnf_softplus(log.mu + log.phi) * od
+
+    llik <- .term1 + .term2 + .term3
+    torch_sum(llik, dim=1)
+}
+```
+
+```{r echo = T}
+nb.glm <- nn_module(
+    classname = "NB GLM",
+    initialize = function(n, p, m) { # parameters
+        self$logit.theta <- nn_parameter(torch_randn(p, m) * 0.01)
+        self$log.scale <- nn_parameter(torch_zeros(1, m))
+        self$log.phi <- nn_parameter(torch_zeros(n, 1))
+    },
+    forward = function(xx, yy) { # -log-likelihood
+        theta <- torch_exp(nnf_log_softmax(self$logit.theta, dim=1))
+        log.mu <- torch_log(torch_mm(xx, theta) * torch_exp(self$log.scale))
+        od <- torch_exp(-self$log.phi) + 1e-8
+
+        .term1 <- (torch_lgamma(yy + od) -
+                   torch_lgamma(yy + 1) -
+                   torch_lgamma(od))
+        .term2 <- - nnf_softplus(-log.mu - self$log.phi) * yy
+        .term3 <- - nnf_softplus(log.mu + self$log.phi) * od
+
+        llik <- .term1 + .term2 + .term3
+        torch_sum(llik, dim=1)
+    })
+```
+
+## Fit the NB GLM model to the data
+
+```{r train_nb_glm}
+.file <- fig.dir %&% "/NB_deconvolution.rds"
+if.needed(.file, {
+
+    GPU <- torch_device("cuda")
+    CPU <- torch_device("cpu")
+
+    yy <- torch_tensor(Y.sub)$to(device=GPU)
+    xx <- torch_tensor(X.sub)$to(device=GPU)
+
+    glm <- nb.glm(nrow(yy), ncol(xx), ncol(yy))$to(device=GPU)
+
+    opt <- optim_adam(glm$parameters, lr = 5e-3)
+    record <- 33
+
+    loss.vec <- c()
+    theta.trace <- list()
+
+    max.iter <- 7777
+
+    for(iter in 1:max.iter){
+        opt$zero_grad()
+        llik <- glm(xx, yy)
+        loss <- torch_mean(-llik)
+        loss$backward()
+        loss.vec <- c(loss.vec, loss$sum()$item())
+        opt$step() -> .
+        cat(loss$mean()$item(), "\r", file=stderr())
+        flush(stderr())
+
+        if((iter %% record) == 0 || iter == max.iter){
+            .theta <- as.matrix(torch_exp(nnf_log_softmax(glm$logit.theta, dim = 1))$to(device=CPU))
+            rownames(.theta) <- colnames(X.sub)
+            colnames(.theta) <- colnames(Y.sub)
+            .list <- list(.theta)
+            names(.list) <- iter
+            theta.trace <- c(theta.trace, .list)
+        }
+    }
+
+    saveRDS(list(theta = theta.trace, loss = loss.vec), .file)
+})
+.out <- readRDS(.file)
+theta.trace <- .out$theta
+loss.vec <- .out$loss
+```
+
+```{r fig.width=6, fig.height=3.2}
+plot(loss.vec, pch=19, cex=.2, type = "b", ylab = "loss", xlab = "iteration", log="x")
+```
+
+## Show the cell type fraction estimates
+
+```{r}
+show.theta <- function(theta){
+
+    ind.order <-
+        order(theta["acinar", ]) %>%
+        (function(x) colnames(theta)[x])
+
+    .df <-
+        reshape2::melt(theta) %>%
+        as_tibble() %>%
+        dplyr::rename(row = Var2, col = Var1, weight = value) %>%
+        col.order(.ro=ind.order, ret.tab=T)
+
+    ggplot(.df, aes(`row`, `weight`, fill = `col`)) +
+        geom_bar(stat="identity") +
+        scale_fill_brewer("cell type",palette = "Paired") +
+        ylab("cell type fraction") +
+        xlab("bulk samples") +
+        theme(axis.text.x = element_blank()) +
+        theme(axis.ticks.x = element_blank())
+}
+```
+
+```{r fig.width=5.5, fig.height=2.5, overlay.plot=11}
+nn <- ceiling(length(theta.trace)/10)
+.snapshots <- c(seq(1, length(theta.trace), nn), length(theta.trace))
+for(s in .snapshots){
+    ss <- names(theta.trace)[s]
+    print(show.theta(theta.trace[[s]]) + ggtitle("epoch " %&% ss))
+}
+```
+
+##
+
+```{r fig.width=6, fig.height=3}
+.theta <- theta.trace[[length(theta.trace)]]
+
+yy <- apply(apply(log1p(Y.sub), 1, scale), 2, scale)
+
+.tsne <- Rtsne::Rtsne(yy, perplexity=5)
+
+.df <-
+    t(.theta) %>%
+    as.data.frame() %>%
+    cbind(tSNE=.tsne$Y) %>%
+    rownames_to_column("subj") %>%
+    reshape2::melt(id.vars = c("tSNE.1","tSNE.2","subj")) %>%
+    as_tibble() %>%
+    dplyr::group_by(variable) %>%
+    dplyr::mutate(value = as.numeric(scale(log10(`value`)))) %>%
+    ungroup()
+
+ggplot(.df, aes(tSNE.1, tSNE.2, fill=value)) +
+    facet_wrap(~variable) +
+    geom_point(stroke=.1, pch=21, size=1) +
+    scale_fill_distiller("relative\ncontribution", palette = "RdBu", direction = -1, labels=function(x) round(10^x, 2)) +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(axis.text = element_blank()) +
+    theme(axis.ticks = element_blank())
+```
+
+## MuSiC: Multi-subject Single-cell Deconvolution
+
+```{r echo = T}
+library(MuSiC)
+
+bulk.mtx <- exprs(GSE50244.bulk.eset) # Bulk expression
+
+est.prop <- music_prop(bulk.mtx = bulk.mtx,
+                       sc.sce = EMTAB.sce,
+                       clusters = 'cellType', samples = 'sampleID',
+                       select.ct = c('alpha', 'beta', 'delta', 'gamma', 'acinar', 'ductal'),
+                       verbose = F)
+
+names(est.prop)
+```
+
+##
+
+```{r}
+.df <-
+    t(.theta) %>%
+    as.data.frame() %>%
+    cbind(tSNE=.tsne$Y) %>%
+    rownames_to_column("subj") %>%
+    reshape2::melt(id.vars = c("tSNE.1","tSNE.2","subj")) %>%
+    as_tibble()
+
+.df.combined <-
+    reshape2::melt(est.prop$Est.prop.weighted) %>%
+    dplyr::rename(subj = Var1, variable = Var2, music = value) %>%
+    left_join(.df) %>%
+    dplyr::group_by(variable) %>%
+    dplyr::mutate(value = as.numeric(scale(log1p(`value`)))) %>%
+    dplyr::mutate(music = as.numeric(scale(log1p(`music`)))) %>%
+    ungroup()
+```
+
+```{r fig.width=6, fig.height=3, only.plot=1}
+ggplot(.df.combined, aes(music, value, color=variable)) +
+    facet_wrap(~variable, scales = "free") +
+    geom_point(stroke = 0) +
+    ylab("our NB glm") + xlab("music") +
+    theme(axis.text = element_text(size=6)) +
+    scale_color_brewer("cell type", palette = "Paired")
+```
+
+```{r fig.width=6, fig.height=3, only.plot=2}
+ggplot(.df.combined, aes(tSNE.1, tSNE.2, fill=pmin(pmax(value, -2), 2))) +
+    facet_wrap(~variable) +
+    geom_point(stroke=.1, pch=21, size=1) +
+    scale_fill_distiller("relative\ncontribution", palette = "RdBu", direction = -1, labels=function(x) round(exp(x), 2)) +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(axis.text = element_blank()) +
+    theme(axis.ticks = element_blank()) +
+    ggtitle("NB glm")
+```
+
+```{r fig.width=6, fig.height=3, only.plot=3}
+ggplot(.df.combined, aes(tSNE.1, tSNE.2, fill=pmin(pmax(music, -2), 2))) +
+    facet_wrap(~variable) +
+    geom_point(stroke=.1, pch=21, size=1) +
+    scale_fill_distiller("relative\ncontribution", palette = "RdBu", direction = -1, labels=function(x) round(exp(x), 2)) +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(axis.text = element_blank()) +
+    theme(axis.ticks = element_blank()) +
+    ggtitle("music")
+```
+
+## Can we bring spatial contexts to deconvolution?
+
+We will take a look at one spatial deconvolution method.
+
+\Large
+
+`https://yma-lab.github.io/CARD/`
+
+```{r}
+load("../data/CARD/spatial_count.RData")
+load("../data/CARD/spatial_location.RData")
+load("../data/CARD/sc_count.RData")
+load("../data/CARD/sc_meta.RData")
+```
+
+## What are the data matrices in spatial deconvolution?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+1. Count data for spots:
+
+```{r echo = T}
+dim(spatial_count)
+spatial_count[1:3, 1:5]
+```
+
+:::
+::: {.column width=.5}
+
+2. Spot coordinates:
+
+```{r echo = T}
+dim(spatial_location)
+spatial_location[1:3,]
+```
+
+:::
+::::::
+
+## Spatial coordinates of spots in 2D
+
+```{r}
+X.sp <- as.matrix(spatial_count)[!str_starts(rownames(spatial_count), "MT"), ,drop=F]
+x.sp.mean <- apply(t(log1p(X.sp)), 2, mean)
+top.genes <- order(x.sp.mean, decreasing = T)[1:7]
+```
+
+```{r fig.width = 3.75, fig.height = 2.5}
+ggplot(data.frame(spatial_location), aes(x,y)) +
+    geom_point(stroke = 0) +
+    scale_y_reverse() +
+    xlab("Sp 1") + ylab("Sp 2") +
+    ggtitle("Spatial coordinates")
+```
+
+## Spatial transcriptomic data = expression within each spot
+
+```{r fig.width = 4, fig.height = 2.5, overlay.plot=7}
+for(g in top.genes){
+    gg <- rownames(X.sp)[g]
+    xx.g <- X.sp[g, ]
+    p <- ggplot(data.frame(spatial_location, g = xx.g), aes(x,y,fill=`g`)) +
+        geom_point(stroke=.1, pch=21) +
+        scale_y_reverse() +
+        scale_fill_distiller("", palette = "RdBu", direction=-1, trans="sqrt") +
+        xlab("Sp 1") + ylab("Sp 2") +
+        ggtitle(gg)
+
+    print(p)
+}
+```
+
+## ST technology also provides scRNA-seq matrix
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo = T}
+dim(sc_count)
+sc_count[1:5, 1:5]
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo = T}
+head(sc_meta)
+```
+
+:::
+::::::
+
+## CARD deconvolves cell types in spatial contexts
+
+```{r echo = T}
+library(CARD)
+CARD_obj = createCARDObject(
+	sc_count = sc_count,
+	sc_meta = sc_meta,
+	spatial_count = spatial_count,
+	spatial_location = spatial_location,
+	ct.varname = "cellType",
+	ct.select = unique(sc_meta$cellType),
+	sample.varname = "sampleInfo",
+	minCountGene = 100,
+	minCountSpot = 5)
+```
+
+```{r echo = T}
+CARD_obj = CARD_deconvolution(CARD_object = CARD_obj)
+```
+
+## Spatial pie charts using `scatterpie`
+
+```{r}
+colors <- .more.colors(length(unique(sc_meta$cellType)), nc.pal=7, .palette="Set1")
+```
+
+```{r echo = T, eval = F}
+CARD.visualize.pie(
+	proportion = CARD_obj@Proportion_CARD,
+	spatial_location = CARD_obj@spatial_location,
+ 	colors = colors,
+  	radius = 0.52)
+```
+
+## Spatial pie charts using `scatterpie`
+
+```{r fig.width=5, fig.height=3.2}
+CARD.visualize.pie(
+	proportion = CARD_obj@Proportion_CARD,
+	spatial_location = CARD_obj@spatial_location,
+ 	colors = colors,
+  	radius = 0.52) +
+    scale_y_reverse() +
+    theme(legend.position = "right",
+          legend.text = element_text(size=6),
+          legend.title = element_text(size=8),
+          legend.key.size = unit(.25,"lines"))
+```
+
+## Show multiple cell types' spatial distributions
+
+```{r fig.width=6, fig.height=3}
+ct.visualize = c("Acinar_cells","Cancer_clone_A","Cancer_clone_B","Ductal_terminal_ductal_like","Ductal_CRISP3_high-centroacinar_like","Ductal_MHC_Class_II","Ductal_APOL1_high-hypoxic","Fibroblasts")
+CARD.visualize.prop(
+	proportion = CARD_obj@Proportion_CARD,
+	spatial_location = CARD_obj@spatial_location,
+	ct.visualize = ct.visualize,                 ### selected cell types to visualize
+	colors = c("lightblue","lightyellow","red"), ### if not provide, we will use the default colors
+	NumCols = 4,                                 ### number of columns in the figure panel
+    pointSize = 1) +
+    scale_y_reverse() +
+    theme(legend.text = element_text(size=4),
+          legend.title = element_text(size=6),
+          legend.key.width = unit(.25,"lines"),
+          strip.text = element_text(size=5))
+```
+
+## Improve spatial resolution by interpolation
+
+```{r echo = T}
+CARD_obj <- CARD.imputation(CARD_obj, NumGrids = 2000, ineibor = 10, exclude = NULL)
+```
+
+## Improve spatial resolution in a finer grid system
+
+```{r fig.width=4, fig.height=3}
+location_imputation <-
+    cbind.data.frame(x=as.numeric(sapply(strsplit(rownames(CARD_obj@refined_prop),split="x"),"[",1)),
+                     y=as.numeric(sapply(strsplit(rownames(CARD_obj@refined_prop),split="x"),"[",2)))
+
+rownames(location_imputation) <- rownames(CARD_obj@refined_prop)
+
+ggplot(location_imputation, aes(x = x, y = y)) +
+    geom_point(shape=22,color = "#7dc7f5")+
+    scale_y_reverse() +
+    theme(plot.margin = margin(0.1, 0.1, 0.1, 0.1, "cm"),
+          legend.position="bottom",
+          panel.background = element_blank(),
+          plot.background = element_blank(),
+          panel.border = element_rect(colour = "grey89", fill=NA, linewidth=0.5))
+```
+
+## Improve spatial resolution
+
+```{r fig.width=6.2, fig.height=3.2}
+CARD.visualize.prop(
+	proportion = CARD_obj@refined_prop,
+	spatial_location = location_imputation,
+	ct.visualize = ct.visualize,
+	colors = c("lightblue","lightyellow","red"),
+	NumCols = 4,
+    pointSize = .5) +
+    scale_y_reverse() +
+    theme(legend.text = element_text(size=4),
+          legend.title = element_text(size=6),
+          legend.key.width = unit(.25,"lines"),
+          strip.text = element_text(size=5))
+```
+

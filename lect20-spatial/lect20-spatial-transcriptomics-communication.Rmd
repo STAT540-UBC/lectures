@@ -1,0 +1,344 @@
+---
+title: "Spatial Transcriptomics -- cell-cell communication"
+author: "Yongjin Park, UBC Path + Stat, BC Cancer"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+mainfont: Roboto
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+setwd("~/work/teaching/stat540_lectures/lect20-spatial")
+library(data.table)
+library(tidyverse)
+library(patchwork)
+source("Setup.R")
+source("Util.R")
+fig.dir <- "../Fig/scRNA_spatial/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+library(extrafont)
+library(xkcd)
+extrafont::font_import(pattern="[X/x]kcd", prompt=F)
+extrafont::loadfonts()
+theme_set(theme_xkcd() +
+          theme(title = element_text(size=10),
+                legend.background = element_blank())
+          )
+```
+
+##
+
+\large
+
+Source code available:
+
+`https://github.com/stat540-UBC/lectures`
+
+## How do we define cell-cell communications?
+
+\large
+
+1. Contact between cells through ligand and receptor proteins
+
+2. RNA velocity from one cell to the neighbouring cells
+
+3. Spatial-transcriptomic contact map to confirm the interacting cells are in proximity
+
+## CytoSignal
+
+\vfill
+\large
+
+[https://github.com/welch-lab/CytoSignal](https://github.com/welch-lab/CytoSignal)
+\vfill
+
+BioRxiv paper:
+
+\normalsize
+
+[https://www.biorxiv.org/content/10.1101/2024.03.08.584153v1.full](https://www.biorxiv.org/content/10.1101/2024.03.08.584153v1.full)
+
+\vfill
+
+## Toy example data `SCP2170`
+
+```{r read_rds_scp2170, echo=T}
+## The RDS file will be loaded into a ready-to-use object
+dge <- readRDS("../data/cytosignal/SCP2170_annotated_dgCMatrix.rds")
+
+## The cluster annotation need to be presented as a factor object
+cluster <- read.csv("../data/cytosignal/SCP2170_cluster.csv")
+cluster <- factor(cluster$cell_type)
+names(cluster) <- colnames(dge)
+
+## The spatial coordinates need to be presented as a matrix object
+spatial <- as.matrix(read.csv("../data/cytosignal/SCP2170_spatial.csv", row.names = 1))
+## Please make sure that the dimension names are lower case "x" and "y"
+colnames(spatial) <- c("x", "y")
+```
+
+## Create `CytoSignal` object
+
+```{r echo=T}
+library(cytosignal)
+library(Matrix)
+cs <- createCytoSignal(raw.data = dge,
+                       cells.loc = spatial,
+                       clusters = cluster)
+
+cs <- addIntrDB(cs, g_to_u, db.diff, db.cont, inter.index)
+
+cs <- removeLowQuality(cs, counts.thresh = 300)
+
+cs <- changeUniprot(cs)
+
+cs
+```
+
+## Set nearest neighbour search parameters
+
+```{r echo=T}
+cs <- inferEpsParams(cs, scale.factor = 0.73)
+cs <- findNN(cs)
+```
+
+\vfill
+
+```{r echo = T}
+dim(cs@imputation$DT@imp.data)
+```
+
+## Impute missing ligand receptor expressions
+
+:::::: {.columns}
+::: {.column width=.4}
+
+
+```{r echo=T}
+cs <- imputeLR(cs)
+dim(cs@imputation$Raw@imp.data)
+dim(cs@imputation$DT@imp.data)
+```
+
+:::
+::: {.column width=.6}
+
+```{r fig.width=3, fig.height=2.5}
+xx.imp <- cs@imputation$DT@imp.data@x
+xx <- cs@imputation$Raw@imp.data[cs@imputation$DT@imp.data > 0]
+.df <- data.frame(raw = xx, imp = xx.imp)
+
+ggplot(.df, aes(log1p(raw), log1p(imp))) +
+    ggrastr::rasterise(geom_point(stroke = 0), dpi=300) +
+    geom_abline(slope=1, lty=2, col=2)
+```
+
+:::
+::::::
+
+## Find significant ligand-receptor by permutation test
+
+```{r echo=T, eval=F}
+cs <- inferIntrScore(cs)
+cs <- inferSignif(cs, p.value = 0.05, reads.thresh = 100, sig.thresh = 100)
+cs <- rankIntrSpatialVar(cs)
+cs
+```
+
+```{r echo=F}
+.file <- fig.dir %&% "/spatial_communication_score_cs.rds"
+if.needed(.file, {
+    cs <- inferIntrScore(cs)
+    cs <- inferSignif(cs, p.value = 0.05, reads.thresh = 100, sig.thresh = 100)
+    cs <- rankIntrSpatialVar(cs)
+    saveRDS(cs, .file)
+})
+cs <- readRDS(.file)
+```
+
+```{r echo=T}
+allIntrs <- showIntr(cs, slot.use = "GauEps-Raw",
+                     signif.use = "result.spx",
+                     return.name = TRUE)
+print(head(allIntrs))
+```
+
+##
+
+```{r fig.width=5, fig.height=4, overlay.plot=3}
+options(cex=.5)
+for(pp in names(allIntrs)[1:3]){
+    print(plotEdge(cs, pp, slot.use = "GauEps-Raw", pt.size = 0.1, edge.size=100,
+                   width=5, height=4))
+}
+```
+
+## Can we incorporate RNA velocity information?
+
+```{r}
+##vcs <- readRDS("../data/cytosignal/SCP815_190921_19_CytoSignal.rds")
+##saveRDS(vcs@raw.counts, "../data/cytosignal/SCP815_dgCMatrix.rds")
+##write.csv(vcs@cells.loc, "../data/cytosignal/SCP815_cells_loc.csv")
+##write.csv(as.data.frame(vcs@clusters), "../data/cytosignal/SCP815_cluster.csv")
+```
+
+```{r read_SCP815, echo=T}
+## The RDS file will be loaded into a ready-to-use object
+dge <- readRDS("../data/cytosignal/SCP815_dgCMatrix.rds")
+
+## The cluster annotation need to be presented as a factor object
+cluster <- read.csv("../data/cytosignal/SCP815_cluster.csv", row.names = 1)
+cluster <- factor(setNames(unlist(cluster, use.names = F), rownames(cluster)))
+
+## The spatial coordinates need to be presented as a matrix object
+spatial <- as.matrix(read.csv("../data/cytosignal/SCP815_cells_loc.csv", row.names = 1))
+colnames(spatial) <- c("x", "y")
+
+vcs <- createCytoSignal(raw.data = dge,
+                        cells.loc = spatial,
+                        clusters = cluster)
+
+vcs <- addIntrDB(vcs, g_to_u, db.diff, db.cont, inter.index)
+vcs <- removeLowQuality(vcs, counts.thresh = 300)
+vcs <- changeUniprot(vcs)
+```
+
+## Add the spliced and unspliced counts
+
+The spliced:
+
+```{r echo=T}
+velo.s <- readRDS("../data/cytosignal/SCP815_190921_19_velo_spliced_matrix.rds")
+dim(velo.s)
+```
+
+The unspliced:
+
+```{r echo=T}
+velo.u <- readRDS("../data/cytosignal/SCP815_190921_19_velo_unspliced_matrix.rds")
+dim(velo.u)
+```
+
+Add the spliced and unspliced count data:
+
+```{r echo=T, message=T}
+vcs <- addVelo(vcs, velo.s = velo.s, velo.u = velo.u)
+```
+
+## Estimate RNA velocity between ligand and receptor - 1
+
+:::::: {.columns}
+::: {.column width=.4}
+
+```{r echo=T}
+vcs <- inferEpsParams(vcs, scale.factor = 0.73)
+
+## Find nearest neighbours to impute
+vcs <- findNN(vcs)
+
+## Impute ligand and receptor
+vcs <- imputeLR(vcs)
+
+## Impute velocity LR
+vcs <- imputeVeloLR(vcs)
+```
+
+:::
+::: {.column width=.6}
+
+```{r fig.width=3, fig.height=2.8, only.plot="2"}
+xx.imp <- vcs@imputation$DT@imp.data@x
+xx <- vcs@imputation$Raw@imp.data[vcs@imputation$DT@imp.data > 0]
+.df <- data.frame(raw = xx, imp = xx.imp)
+
+ggplot(.df, aes(log1p(raw), log1p(imp))) +
+    ggrastr::rasterise(geom_point(stroke = 0), dpi=300) +
+    geom_abline(slope=1, lty=2, col=2)
+```
+
+```{r fig.width=3, fig.height=2.8, only.plot="3"}
+xx.imp <- vcs@imputation$DT@imp.velo@x
+xx <- vcs@imputation$DT@imp.data[abs(vcs@imputation$DT@imp.velo) > 0]
+.df <- data.frame(imp = xx, imp.velo = xx.imp)
+
+ggplot(.df, aes(log1p(imp), log1p(imp.velo))) +
+    ggrastr::rasterise(geom_point(stroke = 0), dpi=300) +
+    scale_y_continuous(limits = c(-2, 2))
+```
+
+:::
+::::::
+
+## Estimate RNA velocity between ligand and receptor - 2
+
+```{r echo = T, eval = F}
+vcs <- inferIntrScore(vcs)
+vcs <- inferSignif(vcs, p.value = 0.05, reads.thresh = 100, sig.thresh = 100)
+vcs <- rankIntrSpatialVar(vcs)
+```
+
+```{r}
+.file <- fig.dir %&% "/spatial_communication_score_vcs.rds"
+if.needed(.file, {
+    vcs <- inferIntrScore(vcs)
+    vcs <- inferSignif(vcs, p.value = 0.05, reads.thresh = 100, sig.thresh = 100)
+    vcs <- rankIntrSpatialVar(vcs)
+    saveRDS(vcs, .file)
+})
+vcs <- readRDS(.file)
+```
+
+```{r echo=T}
+vcs <- inferIntrVelo(vcs)
+```
+
+```{r echo=T}
+allIntrs <- showIntr(vcs, slot.use = "GauEps-Raw", return.name = TRUE)
+print(allIntrs)
+```
+
+##
+
+```{r fig.width=5, fig.height=4, overlay.plot=3}
+options(cex=.5)
+for(pp in names(allIntrs)[1:3]){
+    print(plotVelo(vcs, pp, slot.use = "GauEps-Raw", pt.size = 0.2, arrow.width=.1,
+                   width=5, height=3.5))
+}
+```
+
