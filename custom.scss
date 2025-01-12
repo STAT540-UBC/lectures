@@ -11,8 +11,8 @@ $presentation-heading-color: #197aa0;
   width: 60x !important;
   max-width: unset !important;
   max-height: unset !important;
+  z-index: -999 !important;
 }
-
 
 code.sourceCode {
   font-size: 1.2em;

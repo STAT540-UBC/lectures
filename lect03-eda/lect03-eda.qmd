@@ -1,0 +1,1095 @@
+---
+title: "Exploratory data analysis & experimental design"
+title-slide-attributes:
+  data-background-color: "#197aa0"
+  data-background-opacity: "0.9"
+  data-background-image: "https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png"
+  data-background-size: 12%
+  data-background-position: 95% 90%
+author: "Keegan Korthauer"
+date: "14 January 2025"
+date-format: long
+format: 
+  revealjs:
+    chalkboard: true
+    slide-number: c/t
+    width: 1600
+    height: 900
+    logo: "https://github.com/STAT540-UBC/stat540-ubc.github.io/raw/main/images/stat540-logo-s.png"
+    echo: true
+    theme: [default, ../custom.scss]
+    show-notes: false
+---
+
+## Today: Getting to know your data, and why you need to understand where it came from
+
+::: callout-tip
+# Learning objectives:
+
+1. Understand general principles on organizing your data
+
+1. Be familiar with the main components of exploratory data analysis (EDA)  
+
+1. Recognize and avoid common pitfalls of data visualization
+
+1. Understand the impacts of data quality and experimental design
+:::
+
+## Where to find code to make these plots
+
+- These slides were made using [this Quarto Markdown file](
+https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.qmd); it contains the code used to generate the R plots shown here
+
+- [The companion notes (GitHub Markdown document)](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md) explore multiple ways of making these plots and more detailed info
+  * Source Rmd for these notes [here](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.Rmd)
+  
+::: callout-tip
+
+# Instructions to create `.pdfs` from the `.html` slides:
+
+1. Open slides in Google Chrome, Chromium, or Firefox
+1. Toggle into print view by pressing the `E` key
+1. Open the print dialogue by pressing: `CTRL`/`CMD`+`P`
+1. Change the **Destination** setting to **Save as PDF**
+1. Change the **Layout** to **Landscape**
+1. Change the **Margins** to **None**
+1. Enable the **Background graphics** option
+1. Click **Save**
+
+:::
+
+## CHD8 RNA-seq experiment
+
+- [Gompers et al. (Nature Neuroscience 2017)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6008102/) performed RNA-seq on mice from two different genotypes (18 WT vs 26 CHD8 mutant) and 5 developmental stages
+
+- "Using a statistical model that accounted for sex, developmental stage and sequencing batch, we tested for differential expression across 11,936 genes that were robustly expressed"
+
+- We'll use this dataset throughout this lecture to illustrate EDA
+
+::: columns
+::: column
+![](img/GompersDesign.png)
+::: 
+::: column
+![](img/GompersHeatmap.png){width=66%}
+:::
+:::
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| message: FALSE
+
+# read in data behind the scenes
+library(tidyverse)
+library(plyr)
+library(readxl)
+library(gridExtra)
+library(ComplexHeatmap) 
+library(GGally)
+library(SummarizedExperiment)
+library(pheatmap)
+theme_set(theme_bw(base_size = 20))
+
+# Set up color scheme for heatmaps 
+bcols<-colorRampPalette(c("#000000" ,"#800000" ,"#FF8000" ,"#FFFF00", "#FFFFFF"))(20)
+
+
+rpkm.url <- "https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE99331&format=file&file=GSE99331%5FGompers%5FlogRPKM%5FMatrix%2Etxt%2Egz"
+rpkm.file <- tempfile()
+if (!file.exists(rpkm.file))
+  download.file(rpkm.url, destfile = rpkm.file)
+d <- read.table(gzfile(rpkm.file), header=T, row.names=1)
+names(d)<-sub("^X[0-9]+\\.([0-9]+\\.)+", names(d), replacement="")
+
+meta.url <- "https://static-content.springer.com/esm/art%3A10.1038%2Fnn.4592/MediaObjects/41593_2017_BFnn4592_MOESM4_ESM.xlsx"
+meta.file <- tempfile()
+if (!file.exists(meta.file))
+download.file(meta.url, destfile = meta.file)
+m <- read_xlsx(meta.file)
+names(m)<-c("Number", "Sample", "DPC", "Sex", "Group", 
+            "SeqRun", "MappedReads", "FeatureCounts")
+m$Sex<-factor(m$Sex)
+m$Group<-factor(m$Group)
+m$Sex=recode(m$Sex, `1`="M", `2`="F")
+m$Group=recode(m$Group, `1`="WT", `2`="Mutant")
+m$SeqRun=factor(m$SeqRun)
+```
+
+## Data organization
+
+- As is often the case, this data was obtained in two separate files
+
+  - **Main data file**: expression values - one per gene, per sample ( $G$ genes $\times$ $N$ samples)
+  
+  - **Metadata file**: several covariates/experimental design variables for each sample ( $N$ samples $\times$ $P$ covariates)
+  
+
+- We read these into R (see [Rmd source code](https://github.com/STAT540-UBC/lectures/blob/main/lect03-eda/lect03-eda.Rmd) and [companion notes](https://github.com/STAT540-UBC/resources/blob/main/exploration-examples/explore.md)) as a `data.frame` or `tibble` - **matrix-like** objects that have column names, and variable types for each column:
+
+```{r}
+# data (expression) matrix
+dim(d)
+
+# metadata
+dim(m)
+```
+
+
+
+## Small but **important** detail
+
+**Columns of main data matrix should match the rows of the metadata matrix _exactly_**
+
+These two objects should represent the same set of samples (and be in the **same order**)
+
+```{r}
+head(colnames(d))
+head(m$Sample)
+identical(colnames(d), m$Sample)
+```
+
+
+
+## Data matrix 
+
+```{r}
+head(d)
+```
+
+
+
+## Metadata
+
+```{r}
+m
+```
+
+
+
+## Organizing your data - two main issues
+
+1. How to set up the input files for easy reading into R: 
+
+    - Easiest to work with are text files (e.g. tab-delimited `.tsv`)
+  
+    - Excel files not uncommon but not recommended
+  
+    - Almost always some data cleaning/wrangling involved (e.g. checking consistency, recoding, renaming variables)
+
+2. How to match the sample information with the expression data:
+
+    - For example: "Get me the expression level data for CHD8 in the female adult wild type mice" – this uses information from both sets
+  
+    - In practice, you may have to do it multiple ways to play nice with different R packages (e.g. one way for visualization, and another for downstream analysis)
+
+
+
+## Organizing your data: Separated
+
+::: callout-tip
+# Option 1 - "Separated": Keep main data and metadata tables separate
+
+Pros:
+
+- Minimal startup effort / extra code
+
+- Can be compatible with downstream analysis methods (e.g. [Bioconductor](https://bioconductor.org/))
+
+Cons:
+
+- **Risky**: easy to make a mistake when subsetting and/or reordering samples - extra sanity checks required
+
+- Not a convenient format for visualization since main data is separated from its metadata
+
+Overall: <span style="color: red;">_**not recommended**_</span>
+:::
+
+![](img/separateway.png){.absolute bottom=0 right=50 width="950"}
+
+## Organizing your data: Tidy way
+
+
+::: callout-tip
+# Option 2 - "The tidy way": Combine main data & metadata into one 'long' table
+
+Pros:  
+
+- Unambiguous - keeps all data in one object with one row per observation (e.g. each sample/gene combination is one row, along with all its metadata)
+
+- Plays nice with tidyverse tools (e.g. dplyr manipulations, ggplot2 visualization)
+
+Cons:  
+
+- 'long' format is inefficient data storage - sample information is repeated
+
+- Not compatible with many tools for downstream analysis (e.g. Bioconductor)
+
+Overall: <span style="color: red;">_**recommended for EDA/visualization**_</span>
+:::
+
+
+![](img/tidyway.png){.absolute bottom=0 right=50 width="525"}
+
+## The Tidy way
+
+```{r pivot_longer, echo = FALSE, results = 'hide'}
+#| echo: FALSE
+#| output: FALSE
+# RPKMs in 'long' format - one
+d_long <- d %>% 
+  rownames_to_column("gene") %>%
+  gather(key="Sample", value="Expression", -gene)
+
+# join rpkms with meta data (already in long format)
+d_long <- as_tibble(join(d_long, m, by="Sample"))
+
+dim(d_long)
+
+head(d_long)
+```
+
+
+```{r}
+d_long
+```
+
+## Organizing data: Bioconductor way
+
+::: callout-tip
+# Option 3 - "The [Bioconductor](https://bioconductor.org/) way": Combine main data & metadata into one specially formatted object
+
+Pros:  
+
+- Unambiguous: keeps all data in one object with special slots that can be accessed with handy functions
+
+- Plays nice with Bioconductor tools 
+
+- Efficient storage (no duplication of information like tidy way)
+
+Cons:  
+
+- Specific to Bioconductor
+
+- Not a compatible format for visualization (e.g. ggplot2)
+
+Overall: <span style="color: red;">_**recommended for downstream analysis (e.g. Differential Expression)**_</span>
+:::
+
+![](https://www.bioconductor.org/images/logo/jpg/bioconductor_logo_cmyk.jpg){.absolute bottom=0 left=50 width="300"}
+![](img/summarizedexperiment.png){.absolute bottom=0 right=50 width="475"}
+
+
+## The Bioconductor way: S4 classes
+
+::: columns
+::: column
+
+- S4 is an R-specific form of [Object-Oriented Programming](https://adv-r.hadley.nz/oo.html)
+
+- [`SummarizedExperiment`](https://bioconductor.org/packages/release/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html): One example (there are many!) of a special object format that is designed to contain data & metadata
+
+- Comes along with handy accessor functions
+
+- Related / similar types of objects for specialized data types: [`RangedSummarizedExperiment`](https://www.bioconductor.org/packages/devel/bioc/vignettes/SummarizedExperiment/inst/doc/SummarizedExperiment.html#anatomy-of-a-summarizedexperiment), [`SingleCellExperiment`](https://bioconductor.org/packages/release/bioc/html/SingleCellExperiment.html), [`DGEList`](https://rdrr.io/bioc/edgeR/man/DGEList.html)
+
+:::
+::: column
+
+![SummarizedExperiment S4 class](img/summarizedexperiment.png)
+:::
+:::
+
+
+
+## Now what? Time to explore!
+
+
+- Understand / get a feel for the data
+
+- Formulate hypotheses / develop models
+
+- Identify problems
+
+
+
+## First questions - sanity checks
+
+- Is the file the expected size? Format?
+
+- Do we have the expected number of samples?
+
+- Do the sample names in both files match? (Do not assume same ordering!)
+
+- Are sample / feature names formatted correctly (e.g. no Excel conversion errors)?
+
+- What do features represent? (e.g. Gene names, probe identifiers, etc.)
+
+- Is the data numeric? Integers or decimal? Ratios (to what?)
+
+- Are the data on a log scale? If so what is the base?
+
+- Are there missing data points? What do they mean?
+
+- Do factors have the expected number of levels?
+
+- Do we have all the sample information we need?
+
+
+
+## These questions might lead to concerns
+
+
+- If you are the one generating the data, save yourself grief by paying attention to these issues up front - Document what you did and be consistent!
+
+- If you are the analyst, hopefully you were involved in the design stage so there will be fewer surprises
+
+
+
+## Making sense of the data
+
+#### Data is what we observe, we want to infer something about "where it came from"
+
+![](img/statisticsdogma.png){fig-align="center"}
+
+
+## Model of gene expression data generation
+
+- The measured expression level of gene $g$ is the combination of many effects
+
+- Analysis goal is often to determine relative role of effects - separate signal from "noise"
+
+![](img/geneexpmodel.png){fig-align="center"}
+
+
+## Variability: friend and foe
+
+- If there is no variability, you don't have any information - key is controlling/understanding sources of *wanted vs. unwanted* variability
+
+- First line of defense: Know the enemy
+  - You can only "correct" for things you know about
+  
+  - **Keep track of potential sources of variance**: Batches of reagents, slides, personnel, processing dates, etc.
+
+- **Design experiments to minimize impact of technical variability**
+  - Don't process all control samples on day 1 and all treated samples on day 10
+  
+- Ensure appropriate **replication** (sample size)
+
+
+
+## Biggest pitfall in (high-dimensional) data analysis
+
+::: columns
+::: column
+If you don't **look** at the data, you are likely going to miss important things
+
+- Not just at the beginning, but at every stage
+
+- That could mean making plots, or examining numerical patterns - probably both
+
+- "Sanity checks" should make up a lot of your early effort
+
+- Blindly following recipes/pipelines/vignettes/seminar code → trouble
+:::
+::: column
+![Epicycles of Analysis, from "Art of Data Science"](https://bookdown.org/rdpeng/artofdatascience/images/epicycle.png){width=600}
+:::
+:::
+
+## First looks at the CHD8 expression data
+
+
+::: columns
+::: column
+- What is the size of the data?
+
+- What is the range of the data?
+
+- Are there any missing values?
+
+- Are the data transformed in any way?
+:::
+
+::: column
+```{r}
+#| echo: FALSE
+se <- SummarizedExperiment(assays = list(logrpkm=d),
+                           colData = m)
+```
+
+```{r}
+se
+
+range(assays(se)$logrpkm)
+```
+:::
+:::
+
+
+
+## Examining the metadata 
+
+
+::: columns
+::: column
+Sample info:
+
+- Age (Days Post-conception, DPC)
+
+- Sex
+
+- Group (genotype)
+
+- Sequencing run (batch)
+
+- Number of mapped reads
+
+- feature counts
+:::
+::: column
+```{r}
+table(se$DPC)
+table(se$Sex)
+table(se$SeqRun)
+```
+:::
+:::
+
+
+
+## How to look at the rest of the data?
+
+![](img/viz.png){fig-align="center"}
+
+
+## Exploratory Data Analysis (EDA)
+
+- EDA is "compute a little and plot a lot"
+
+- Exploratory plots can be quick and dirty - making them publication quality takes a lot of time and effort
+
+- I’ll show a few simple approaches that are common in genomics 
+
+- Reminder that code to generate the plots you see here is posted in the companion notes linked earlier
+
+
+
+## Sanity check: expression of CHD8
+
+::: columns
+::: column
+
+- Paper reported that CHD8 went down over time, and is lower in the mutant: confirmed!
+
+- Note that we are not doing any formal "analysis" here nor trying to make this plot beautiful – keeping it very simple for our exploration
+
+:::
+::: column
+
+```{r}
+#| echo: FALSE
+#| fig.width: 9
+#| fig.height: 7
+d_long %>% 
+  filter(gene == "Chd8") %>%
+  mutate(DPC = as.factor(DPC)) %>%
+  ggplot(aes(DPC, Expression, color=Group)) + 
+    geom_point( size=2 ) + 
+    ggtitle("Expression of Chd8") 
+```
+
+:::
+:::
+
+
+
+
+## Two views of the same data: Which do you prefer?
+
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| message: FALSE
+#| fig.width: 15
+#| fig.height: 7.5
+library(ggplot2)
+library(gridExtra)
+set.seed(43)
+
+p1 <- d_long %>% 
+  filter(gene == "Chd8") %>%
+  ggplot(aes(Group, Expression)) + 
+    geom_errorbar(stat = "summary", width = 0.2) +
+    geom_bar(stat = "summary") +
+    ylab("Expression of Chd8")
+
+p2 <- d_long %>% 
+  filter(gene == "Chd8") %>%
+  ggplot(aes(Group, Expression)) + 
+    geom_boxplot(outlier.shape = NA) + 
+    geom_jitter(height=0, width = 0.1, colour = "grey") +
+    ylab("Expression of Chd8")
+
+p <- grid.arrange(p1, p2, nrow=1)
+
+```
+
+
+How to best summarize patterns in the data?
+
+
+
+
+## Two views of the same data
+
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| message: FALSE
+#| fig.width: 15
+#| fig.height: 7.5
+set.seed(43)
+p <- grid.arrange(p1, p2, nrow=1)
+
+```
+
+
+- What is the sample size? 
+
+- Is the distribution symmetrical, or skewed? 
+
+- Are there any outliers? 
+
+
+
+## Comparing sample distributions: Boxplots
+
+::: columns
+::: {.column width="30%"}
+- Quick and dirty; reasonable tool to summarize large amounts of data
+
+- Not ideal if the distribution is multimodal
+
+- Don’t use box plots (alone) when you have small numbers of points; **show the points!**
+::: 
+::: {.column width="70%"}
+```{r}
+#| echo: FALSE
+#| fig.width: 11
+#| fig.height: 6
+ggplot(d_long, aes(Sample, Expression)) + 
+  geom_boxplot() + 
+  theme(axis.text.x = element_blank())
+```
+:::
+:::
+
+
+
+## Comparing distributions: Histograms and Density plots 
+
+::: columns
+::: column
+```{r}
+#| echo: FALSE
+#| fig.width: 7
+#| fig.height: 6
+#ggplot:
+d_long %>% 
+  ggplot(aes(Expression)) + 
+    geom_histogram(binwidth = 0.4) + 
+    ggtitle("All genes in all samples")
+```
+::: 
+::: column
+```{r}
+#| echo: FALSE
+#| fig.width: 7
+#| fig.height: 6
+# Overlaid plots
+ggplot(data = d_long) + 
+  geom_density(aes(Expression, group=Sample), color="grey") + 
+  geom_density(aes(Expression), color="black", size=1.5) +
+  ggtitle("All genes in all samples")
+```
+:::
+:::
+
+
+
+## Be careful with density plots of bounded data
+
+
+```{r}
+#| echo: FALSE
+#| fig.width: 12
+#| fig.height: 6
+set.seed(123)
+bd <- data.frame(value = runif(1000))
+p1 <- bd %>% 
+  ggplot(aes(value)) +
+    geom_histogram(binwidth = 0.05, boundary=0) 
+
+p2 <- bd %>%
+  ggplot(aes(value)) +
+    geom_density() 
+
+grid.arrange(p1, p2, nrow = 1)
+```
+
+
+
+## Violin plots
+
+#### A hybrid of density plots and box plots
+
+```{r}
+#| echo: FALSE
+#| fig.width: 12
+#| fig.height: 6
+d_long %>%
+  ggplot(aes(Sample, Expression)) + 
+    geom_violin(aes(fill=Group)) + 
+    theme(axis.text.x = element_blank())
+```
+
+
+
+## Scatter plots
+
+#### Major problem is 'over-plotting' - use transparency or 2D density
+
+```{r}
+#| echo: FALSE
+#| fig.width: 14
+#| fig.height: 6
+p1 <- ggplot(d, aes(Sample_ANAN001A, Sample_ANAN001G)) + 
+  geom_point( alpha=1 ) +
+  ggtitle("Default")
+p2 <- ggplot(d, aes(Sample_ANAN001A, Sample_ANAN001G)) + 
+  geom_point( alpha=1/20) + 
+  ggtitle("alpha=1/20")
+p3 <- ggplot(d, aes(Sample_ANAN001A, Sample_ANAN001G)) +
+  geom_hex(bins=100) + 
+  ggtitle("2D density (geom_hex)")
+grid.arrange(p1,p2,p3, nrow=1, widths = c(1,1,1.2))
+```
+
+
+## Transformations
+
+- Many real data have very skewed distributions – in this case, most values are <500, but there are a smattering up to 10,000
+- If your plots look like this, try taking the logarithm
+- If have non-positive values (typically 0) add a small constant "pseudocount"
+
+```{r}
+#| echo: FALSE
+#| fig.width: 12
+#| fig.height: 5
+p1 <- d_long %>% 
+  mutate(Expression_raw = 2^Expression) %>%
+  ggplot(aes(Expression_raw)) +
+    geom_histogram(bins = 45)
+p2 <- d_long %>% 
+  mutate(Expression_log = Expression) %>%
+  ggplot(aes(Expression_log)) +
+    geom_histogram(bins = 45)
+grid.arrange(p1, p2, nrow=1)
+```
+
+
+
+## Pairwise (scatter) plots to compare samples
+
+::: columns
+::: {.column width="30%"}
+
+This is nice but unwieldy (or won’t work) for large data sets
+
+:::
+::: {.column width="70%"}
+
+```{r}
+#| echo: FALSE
+#| fig.width: 9
+#| fig.height: 6.5
+#| message: FALSE
+n<-1000
+ggpairs(d[sample(nrow(d), n),6:11], 
+        lower=list(continuous=wrap(ggally_points, size=0.5, alpha=0.1))) +
+  theme_bw(base_size=12)
+```
+:::
+:::
+
+
+## Examining the metadata more globally
+
+
+::: columns
+::: {.column width="30%"}
+- Sex is not that well balanced
+
+- There is a batch confound: The stages were run in different batches (except 17.5 was split in two)
+
+- Mapped reads varies with the batches (SeqRun)
+
+::: 
+::: {.column width="70%"}
+```{r}
+#| echo: FALSE
+#| fig.width: 12
+#| fig.height: 9
+#| message: FALSE
+m %>% select(-Number, -Sample) %>%
+  mutate(DPC = as.factor(DPC)) %>%
+  ggpairs(aes(color=Group, alpha=0.4))
+```
+
+:::
+:::
+
+## Heatmaps
+
+![](img/heatmaps.png){fig-align="center"}
+
+
+## R options for making heatmaps
+
+- Desired features
+  - Doesn't complain when handed slightly messy data and has sensible default behaviour
+  
+  - Allow easy control of layout such as annotations and scale bar
+  
+  - Allow easy control over clustering behaviour (row/column ordering)
+  
+- There are *many* functions/packages for making heatmaps - here are three:
+  - [base::heatmap](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/heatmap) - ok for quick and dirty but otherwise very limited
+  
+  - [pheatmap](https://www.rdocumentation.org/packages/pheatmap/versions/1.0.12/topics/pheatmap) - Default colour schemes not ideal, otherwise good option (used in STAT 540 seminars)
+  
+  - [ComplexHeatmaps](https://bioconductor.org/packages/release/bioc/html/ComplexHeatmap.html) - most powerful/flexible, but a bit more complex to learn 
+
+
+
+## Heatmap of 50 random rows
+
+```{r}
+#| echo: FALSE
+#| fig.width: 8
+#| fig.height: 7
+set.seed(654)
+
+# This code selects 'nr' random rows, and then scales (z-scores). base::scale operates on columns, so we have to use t() twice.
+nr=50
+hd <- as.matrix(d[sample(nrow(d), nr),])
+#hd<-t(scale(t(hd))))
+
+heatmap(hd, Colv=NA,  Rowv=NA, scale="none", cexCol=0.5, cexRow=0.5, col=bcols)
+```
+
+
+
+## Revision 1: Same input data; rows are scaled
+
+::: columns
+::: {.column width="70%"}
+```{r}
+#| echo: FALSE
+#| fig.width: 8
+#| fig.height: 7
+hd<-t(scale(t(hd)))
+
+heatmap(hd, Colv=NA,  Rowv=NA, scale=NULL, cexCol=0.5, cexRow=0.5, col=bcols)
+```
+:::
+::: {.column width="30%"}
+- Rows are scaled to have mean 0 and variance 1 (z-scores)
+
+- Subtract the mean; divide by the standard deviation - use `scale()` on the data rows (*some packages will do this by default*)
+
+- It is now easier to compare the rows and see a bit of structure
+
+::: 
+:::
+
+
+
+## Revision 2: adjusting contrast
+
+::: columns
+::: {.column width="70%"}
+```{r}
+#| echo: FALSE
+#| fig.width: 8
+#| fig.height: 7
+clip=2
+hd[hd < -clip]<--clip
+hd[hd > clip]<-clip
+
+heatmap(hd, Colv=NA,  Rowv=NA, scale=NULL, cexCol=0.5, cexRow=0.5, col=bcols)
+```
+:::
+
+::: {.column width="30%"}
+- Range of values is **clipped** to (-2,2): aything more than two SDs from the row mean is set to 2
+
+- Limit values of 2 or 3 SDs are common
+
+#### Clipping hides outliers but allows us to see variation in the bulk of the data
+
+::: 
+:::
+
+
+## Plotting too much data
+
+::: columns
+::: {.column width="30%"}
+![](img/toomanyrows.png)
+::: 
+::: {.column width="70%"}
+
+- An entire data set (>10k rows)
+
+- If the cells are less than 1 pixel, everything starts to turn to mush and can even be misleading
+
+- If your heatmap has too many rows to see labels (genes), make sure it is conveying useful information (what are you trying to show?)
+:::
+:::
+
+
+
+## Choice of colours
+
+
+![](img/colour.png){fig-align="center"}
+
+- Many R defaults, other common scales (green/red) *not colourblind friendly*
+- Humans can’t really tell the difference between a 8- and 16-colour scale
+- [`RColorBrewer`](https://rdrr.io/cran/RColorBrewer/man/ColorBrewer.html): scales based on work of visualization experts
+
+
+
+## Divergent vs. sequential maps
+
+![](img/seqdiv.png){fig-align="center"}
+
+
+::: {.columns}
+::: {.column}
+**Divergent**: colours pass through black or white at the midpoint (e.g. mean). Ideal if your original data are naturally "symmetric" around zero (or some other value) - Otherwise it might just be confusing
+:::
+
+::: {.column}
+**Sequential**: colours go from light to dark. Darker colours mean "higher" by default in `RColorBrewer`. No defined midpoint.
+:::
+:::
+
+
+
+## A confusing heat map 
+
+- Too many different colours to readily interpret relative ordering of values
+
+- Not recommended to use these types of scales for continuous values
+
+- Rainbows or scales with many distinct colours are better for factors / categorical variables
+
+![](img/matlab.png){fig-align="center"}
+
+
+## Heatmap recommendations
+
+::: columns
+::: column
+- Pick an appropriate colour scale
+
+- Show a scale bar (so don’t use `base::heatmap`)
+
+- Either cluster rows / columns, or order by something meaningful (e.g. sample info)
+
+- Add annotation bars of meaningful covariates
+
+- If you have missing data points, make sure it is obvious where they are (e.g. different colour)
+::: 
+::: column
+
+```{r}
+#| echo: FALSE
+#| fig.width: 8
+#| fig.height: 7
+pheatmap(hd, color = bcols, 
+         border_color = NA, 
+         cluster_rows = T, 
+         cluster_cols = T, 
+         annotation_col = data.frame(Sex = se$Sex, 
+                                     DPC = factor(se$DPC), 
+                                     Group = se$Group,
+                                     row.names = colnames(se)),
+         fontsize=8)
+```
+:::
+:::
+
+
+## EDA Summary
+
+Purpose: **Evaluate whether data aligns with expectations**:
+
+- Sanity checks
+- Visualization to spot patterns and/or oddities
+
+::: callout-note
+# Four principles of EDA:
+ 
+1. **Let the data speak for itself** - avoid dynamite plots in favor of boxplots, overlayed with points if feasible number
+
+2. **Avoid overplotting** - use transparency or 2D density in scatterplots; make sure heatmap cells aren't too small
+
+3. **Consider transformations** (e.g. log) for skewed distributions
+
+4. **Use colour intentionally** to convey information
+:::
+
+Additional exploratory techniques will be discussed later in the course (e.g. Clustering, PCA)
+
+## Experimental design and quality
+
+![Fig 1, 10.1038/sj.ebd.6400436](https://media.springernature.com/lw685/springer-static/image/art%3A10.1038%2Fsj.ebd.6400436/MediaObjects/41432_2006_Article_BF6400436_Fig1_HTML.jpg?as=webp){fig-align="center"}
+
+## Experimental design considerations
+
+1. **Will the experiment answer the question?**
+
+    - Consider properties of the measurement technology as well as the biology
+
+1. **Beware of (and try to control for) unwanted variation**
+
+1. **How many individuals should I study?**
+
+    - For many experiments, this is hard to answer
+
+1. **Biological replicates are essential** and (usually) more important than technical replicates 
+
+    - "Pooling" samples is not a substitute for replication
+
+![](https://stpltrsrcscmnprdwus001.blob.core.windows.net/rsrcs/sk/images/the-sage-encyclopedia-of-research-design-2e/10.4135_9781071812082-fig20.jpg){fig-align="center" width=800}
+
+
+
+## Batch effects
+
+::: callout-note
+# "Batch effects are sub-groups of measurements that have qualitatively different behaviour across conditions and are unrelated to the biological or scientific variables in a study"
+
+Definition from Leek et al. 2010 Nature Rev. Genetics 11:733
+:::
+
+
+![](img/batch.png){fig-align="center" width="500"}
+
+- Magnitude of batch effects vary
+
+- Consider correcting for them if possible (e.g. include as covariates in model)
+
+
+## Avoiding batch artifacts
+
+- Don't samples run in batches - **Confounding** (can be hard to avoid)
+- If batches needed, balance or randomize design with respect to batches
+- Avoid (or at least record) obvious potential sources of artifacts, such as a new tube of a reagent, or a different person doing the bench work
+- Ideally, also run some technical replicates across your batches
+
+```{r}
+table(se$DPC, se$SeqRun)
+```
+
+
+
+## Outliers
+
+Hard to define...
+
+- "A sample that deviates significantly from the rest of the samples in its class"
+
+- "An observation differing widely from the rest of the data."
+
+- "A data point notably further out from the central value than the others.  Outliers invite explanation as observational errors, or intrusions from another set, or something of that sort."
+
+- "... a value that lies 1.5 IQR beyond the upper or lower quartile"
+
+In high-dimensions, even harder to define
+
+## Identifying outlier samples
+
+- Relative vs. absolute quality is important
+
+- We might consider a sample an outlier if (relative to others):
+  - It has "very low" signals
+  - "High" background
+  - "Low" correlation with most (or all) other samples from the same group
+  - There may be technology-specific factors
+  
+- If a sample is questionable, we might ask: Is there anything suspect in the experimental process? (e.g. "Sample dropped on floor")  
+    
+    - Can help justify choice to remove a sample beyond arbitrary criteria like ">1.5 IQR"
+    
+    - If nothing else is suspect, common to analyze with and without outliers
+
+
+## A basic but effective outlier detection method
+
+::: columns
+::: {.column width=25%}
+- A **heatmap of the sample-sample correlation** matrix can help identify potential outliers
+
+- Expect correlations to be tighter **within** experimental groups than **across** groups
+::: 
+::: {.column width=75%}
+```{r}
+#| echo: FALSE
+#| fig.width: 9
+#| fig.height: 6.8
+cc <- data.frame(cor(d), 
+                 row.names = names(d))
+
+Heatmap(as.matrix(cc), col=bcols, 
+        cluster_rows = FALSE, cluster_columns = FALSE, 
+        top_annotation = HeatmapAnnotation(Group = m$Group,
+                                           Batch=m$SeqRun, 
+                                           DPC=factor(m$DPC)), 
+        row_names_gp = gpar(fontsize = 8), 
+        column_names_gp = gpar(fontsize = 8))
+```
+:::
+:::
+
+```{r}
+#| echo: FALSE
+#| warning: FALSE
+#| message: FALSE
+#| output: FALSE 
+file.remove(rpkm.file)
+file.remove(meta.file)
+```
+## Filtering your data
+
+- Here I mean "Removing part of the data from a sample" and doing that to all samples
+
+- In many studies, especially gene expression, it is common to remove genes that have no or very low signal ("not expressed")
+
+- Deciding what to remove is often not straighforward, but make a principled decision and stick with it (see next slide)
+
+::: callout-warning
+
+# Filters must be "unsupervised"
+
+* Filtering strategy should treat all samples the same
+
+* Filtering strategy should be decided up front
+
+:::
