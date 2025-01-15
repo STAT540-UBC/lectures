@@ -850,9 +850,13 @@ Which looks least significant?
 set.seed(87)  
 plot_grid(p1, p2, p3, p4, p5, p6, nrow=2)
 ```
-. . .
 
-Mean difference needs to be put into context of the *spread (standard deviation)* and *sample size*. Recall the formula for the **sampling distribution of the mean:** $\normalsize \bar{X} \sim N(\mu, \sigma^2/n)$
+Mean difference needs to be put into context of the __________________ and __________________. Recall the formula for the **sampling distribution of the mean:** 
+
+::: {.notes}
+sample size and standard deviation
+$\normalsize \bar{X} \sim N(\mu, \sigma^2/n)$
+:::
 
 ## 2 sample t-statistic
 
