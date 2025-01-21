@@ -33,6 +33,7 @@ Is there **enough** evidence in the data to reject H~0~?
 
 ```{r}
 #| include: false
+set.seed (48759)
 library(tidyverse)
 library(GEOquery)
 library(gridExtra)
