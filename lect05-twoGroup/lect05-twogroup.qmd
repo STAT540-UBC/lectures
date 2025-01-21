@@ -115,6 +115,10 @@ We can use **statistical inference** to answer this biological question!
 
 * Practice with this in Seminars 4 and 5 (Review lecture 3 for general principles)
 
+```{r}
+#| include: false
+set.seed(3759) 
+```
 
 ```{r}
 #| output-location: column
@@ -451,7 +455,7 @@ twoGenes %>%
   summarize(groupVar = var(Expression))
 ```
 For example, for Nrl in WT: 
-$$\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2=1.22$$
+$$\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y-1}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2=1.22$$
 :::
 
 :::column

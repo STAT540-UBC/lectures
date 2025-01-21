@@ -637,7 +637,7 @@ Annotation: GPL1261 </code></pre>
 <div id="tabset-1-2">
 <div class="cell">
 <div class="cell-output-display">
-<p><img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-4-1.png" width="960"></p>
+<p><img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-5-1.png" width="960"></p>
 </div>
 </div>
 </div>
@@ -691,7 +691,7 @@ Annotation: GPL1261 </code></pre>
 <h2>Is there enough evidence to reject H<sub>0</sub>?</h2>
 <h3 id="h_0-mu_y-mu_z"><span class="math inline">\(H_0: \mu_Y = \mu_Z\)</span></h3>
 
-<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-5-1.png" width="960" class="r-stretch"><p><strong>Statistical Inference</strong>: random samples are used to learn about the population</p>
+<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-6-1.png" width="960" class="r-stretch"><p><strong>Statistical Inference</strong>: random samples are used to learn about the population</p>
 </section>
 <section id="what-we-observe-sample-averages-bary-vs-barz" class="slide level2">
 <h2>What we observe: sample averages: <span class="math inline">\(\bar{Y}\)</span> vs <span class="math inline">\(\bar{Z}\)</span></h2>
@@ -726,7 +726,7 @@ Annotation: GPL1261 </code></pre>
 <section id="is-the-difference-between-bary-and-barz-enough-to-reject-h0" class="slide level2">
 <h2>Is the difference between <span class="math inline">\(\bar{Y}\)</span> and <span class="math inline">\(\bar{Z}\)</span> enough to reject H<sub>0</sub>?</h2>
 
-<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-7-1.png" width="960" class="r-stretch"><div class="fragment">
+<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-8-1.png" width="960" class="r-stretch"><div class="fragment">
 <ul>
 <li><p>The sample means, <span class="math inline">\(\bar{Y}\)</span> vs <span class="math inline">\(\bar{Z}\)</span>, by themselves are not enough to make conclusions about the population</p></li>
 <li><p>What is a “large” difference? “Large” relative to what?</p></li>
@@ -736,7 +736,7 @@ Annotation: GPL1261 </code></pre>
 <section id="consider-this-artificial-version-of-nrl" class="slide level2">
 <h2>Consider this artificial version of <em>Nrl</em></h2>
 
-<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-8-1.png" width="960" class="r-stretch"><div class="fragment">
+<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-9-1.png" width="960" class="r-stretch"><div class="fragment">
 <p>What can we use to interpret the size of the mean difference? <span class="math inline">\(\frac{\bar{Y}-\bar{Z}}{??}\)</span></p>
 </div>
 </section>
@@ -750,7 +750,7 @@ Annotation: GPL1261 </code></pre>
 </div>
 </div>
 
-<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-9-1.png" width="960" class="r-stretch"></section>
+<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-10-1.png" width="960" class="r-stretch"></section>
 <section id="quantifying-observed-variation" class="slide level2">
 <h2>Quantifying observed variation</h2>
 <ul>
@@ -805,11 +805,11 @@ Annotation: GPL1261 </code></pre>
 4 Nrl   WT         1.22  </code></pre>
 </div>
 </div>
-<p>For example, for Nrl in WT: <span class="math display">\[\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2=1.22\]</span></p>
+<p>For example, for Nrl in WT: <span class="math display">\[\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y-1}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2=1.22\]</span></p>
 </div><div class="column">
 <div class="cell">
 <div class="cell-output-display">
-<p><img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-11-1.png" width="432"></p>
+<p><img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-12-1.png" width="432"></p>
 </div>
 </div>
 </div>
@@ -1040,7 +1040,7 @@ Annotation: GPL1261 </code></pre>
 <p>For <em>Irs4</em>, the probability of seeing a test statistic as extreme as that observed <span class="math inline">\((t = -0.53)\)</span> is pretty high <span class="math inline">\((p = 0.6)\)</span>.</p>
 <p>But for <em>Nrl</em>, the probability of seeing a test statistic as extreme as that observed <span class="math inline">\((t = -16.8)\)</span> is extremely low <span class="math inline">\((p=6.76 \times 10^{-19})\)</span></p>
 
-<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-17-1.png" width="960" class="r-stretch"></section>
+<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-18-1.png" width="960" class="r-stretch"></section>
 <section id="hypothesis-testing-step-4" class="slide level2">
 <h2>Hypothesis Testing: Step 4</h2>
 <h3 id="make-a-decision-about-significance-of-results">4. Make a decision about significance of results</h3>
@@ -1302,7 +1302,7 @@ alternative hypothesis: true location shift is not equal to 0</code></pre>
 <section id="kolmogorov-smirnov-test-two-sample-1" class="slide level2">
 <h2>Kolmogorov-Smirnov test (two sample)</h2>
 
-<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-22-1.png" width="960" class="r-stretch"></section>
+<img data-src="lect05-twogroup_files/figure-revealjs/unnamed-chunk-23-1.png" width="960" class="r-stretch"></section>
 <section id="ks.test-function-in-r" class="slide level2">
 <h2><code>ks.test</code> function in R</h2>
 <div class="panel-tabset">
