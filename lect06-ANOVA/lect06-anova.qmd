@@ -673,6 +673,7 @@ Mathematically, the design matrix $X$ in $Y=X\alpha+\varepsilon$ needs to be a n
 :::
 
 ```{r}
+head(twoGenes$genotype)
 str(twoGenes$genotype)
 ```
 
