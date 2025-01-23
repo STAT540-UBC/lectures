@@ -135,7 +135,7 @@ Which quantities on this slide are **statistics** and which are **parameters**?
 $$(Y_1, Y_2, ..., Y_{n_Y}) \text{ and } (Z_1, Z_2, ..., Z_{n_Z})$$
 $$\hat{\mu}_Y = \bar{Y} = \frac{\sum_{i=1}^{n_Y} Y_i}{n_Y}$$
 
-$$\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2$$
+$$\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y-1}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2$$
 
 (with similar quantities for $Z:$ $\bar{Z}$ and $S^2_Z)$
 
@@ -167,14 +167,15 @@ filter(twoGenes, gene == "Irs4") %>%
 ```
 
 
-## Discussion recap
+## Discussion - choice and interpretation of hypothesis tests
 
-* What test should I use?
-  - What test(s) might be appropriate if your sample size is just barely large enough to invoke CLT, but you also have suspected outliers?
-  - If more than one test is appropriate (e.g. *t*-test, Wilcoxon, and KS), which should we report?
-  - What should you do if methods that are equally appropriate and defensible give very different answers?
+1. If more than one test is appropriate (e.g. *t*-test, Wilcoxon, and KS), which should I choose? 
 
-* What is generally more important for results interpretation: the effect size or the p-value?
+1. What should I do if several tests (e.g. *t*-test, Wilcoxon, KS) give very different answers?
+
+1. What is generally more important for results interpretation: the effect size or the p-value?
+
+. . .
 
 ::: {.callout-important}
 
@@ -200,11 +201,11 @@ What test should I use?
 
 1. Compare means of different groups (2 or more) using a **linear regression model**
 
-2. Use 'indicator' variables to represent the levels of a qualitative explanatory variable
+1. Write a linear model using matrix notation and understand which matrix is built by R
 
-2. Write a linear model using matrix notation and understand which matrix is built by R
+1. Use 'indicator' variables to represent the levels of a qualitative explanatory variable
   
-3. Distinguish between **single** and **joint** hypothesis tests (e.g. $t$-tests vs $F$-tests)
+1. Distinguish between **single** and **joint** hypothesis tests (e.g. $t$-tests vs $F$-tests)
 
 ## 3 ways to test H~0~: $\mu_1 = \mu_2$
 

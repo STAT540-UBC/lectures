@@ -435,7 +435,7 @@ Keegan Korthauer
 </div><div class="column">
 <p><strong>Sample</strong> (Observed, with randomness)</p>
 <p><span class="math display">\[(Y_1, Y_2, ..., Y_{n_Y}) \text{ and } (Z_1, Z_2, ..., Z_{n_Z})\]</span> <span class="math display">\[\hat{\mu}_Y = \bar{Y} = \frac{\sum_{i=1}^{n_Y} Y_i}{n_Y}\]</span></p>
-<p><span class="math display">\[\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2\]</span></p>
+<p><span class="math display">\[\hat{\sigma}_Y^2 = S_Y^2=\frac{1}{n_Y-1}\sum_{i=1}^{n_Y}(Y_i-\bar{Y})^2\]</span></p>
 <p>(with similar quantities for <span class="math inline">\(Z:\)</span> <span class="math inline">\(\bar{Z}\)</span> and <span class="math inline">\(S^2_Z)\)</span></p>
 <p><span class="math display">\[T = \frac{\bar{Y}-\bar{Z}}{\sqrt{\hat{Var}(\bar{Y}-\bar{Z}))}}\]</span></p>
 </div>
@@ -479,17 +479,14 @@ sample estimates:
 </div>
 </div>
 </section>
-<section id="discussion-recap" class="slide level2">
-<h2>Discussion recap</h2>
-<ul>
-<li>What test should I use?
-<ul>
-<li>What test(s) might be appropriate if your sample size is just barely large enough to invoke CLT, but you also have suspected outliers?</li>
-<li>If more than one test is appropriate (e.g.&nbsp;<em>t</em>-test, Wilcoxon, and KS), which should we report?</li>
-<li>What should you do if methods that are equally appropriate and defensible give very different answers?</li>
-</ul></li>
-<li>What is generally more important for results interpretation: the effect size or the p-value?</li>
-</ul>
+<section id="discussion---choice-and-interpretation-of-hypothesis-tests" class="slide level2">
+<h2>Discussion - choice and interpretation of hypothesis tests</h2>
+<ol type="1">
+<li><p>If more than one test is appropriate (e.g.&nbsp;<em>t</em>-test, Wilcoxon, and KS), which should I choose?</p></li>
+<li><p>What should I do if several tests (e.g.&nbsp;<em>t</em>-test, Wilcoxon, KS) give very different answers?</p></li>
+<li><p>What is generally more important for results interpretation: the effect size or the p-value?</p></li>
+</ol>
+<div class="fragment">
 <div class="callout callout-important callout-titled callout-style-default">
 <div class="callout-body">
 <div class="callout-title">
@@ -524,13 +521,14 @@ sample estimates:
           overflow: hidden!important;
           display:block!important;
       }</style></aside>
+</div>
 </section>
 <section id="todays-learning-objectives" class="slide level2">
 <h2>Today’s Learning Objectives</h2>
 <ol type="1">
 <li><p>Compare means of different groups (2 or more) using a <strong>linear regression model</strong></p></li>
-<li><p>Use ‘indicator’ variables to represent the levels of a qualitative explanatory variable</p></li>
 <li><p>Write a linear model using matrix notation and understand which matrix is built by R</p></li>
+<li><p>Use ‘indicator’ variables to represent the levels of a qualitative explanatory variable</p></li>
 <li><p>Distinguish between <strong>single</strong> and <strong>joint</strong> hypothesis tests (e.g.&nbsp;<span class="math inline">\(t\)</span>-tests vs <span class="math inline">\(F\)</span>-tests)</p></li>
 </ol>
 </section>
