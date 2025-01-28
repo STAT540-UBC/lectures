@@ -621,7 +621,7 @@ p1.itx <- p1.itx +
 p1.itx
 ```
 
-## Interaction effect
+## Interaction effect 
 
 The genotype effect at E16 is $\tau_{KO}$. However, $\tau_{KO}$ does not seem to be the effect at P28. 
 
@@ -635,6 +635,7 @@ The difference is the interaction effect! If there's no interaction effect, $\ta
 set.seed(034)
 p1.itx
 ```
+
 
 ## Interaction effect
 
@@ -912,7 +913,7 @@ For both of these genes:
 * How do we test a **main** effect??  
 
 
-## How do we test for a **main** effect?
+## How do we test for a **main** effect? 
 
 - The main effect measures the *overall* association between the response and a factor - it is the (weighted) average of an effect over the levels of the other factor
 
@@ -925,6 +926,10 @@ $$H_0: \frac{(E[Y_{KO,E16}]-E[Y_{WT,E16}])+(E[Y_{KO,P28}]-E[Y_{WT,P28}])}{2}=0$$
 ::: {.callout-note}
 For unbalanced experiments $H_0: w_1 \text{effect}_{E16}+ w_2 \text{effect}_{P28}=0$, where $w_1$ and $w_2$ are sample size weights
 :::
+
+. . . 
+
+How would we write this in terms of the Interaction model parameters? (Refer back to <a href="#/interaction-effect-3">this slide</a>)
 
 ## Main effects using `anova` F tests
 
