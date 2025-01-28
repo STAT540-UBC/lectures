@@ -636,6 +636,8 @@ set.seed(034)
 p1.itx
 ```
 
+<a href="#/how-do-we-test-for-a-main-effect">Back</a>
+
 
 ## Interaction effect
 
