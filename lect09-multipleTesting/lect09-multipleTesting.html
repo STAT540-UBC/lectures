@@ -779,6 +779,19 @@ GSM92615  -4</code></pre>
 </div>
 </div>
 </div>
+<div class="callout callout-warning callout-titled callout-style-default">
+<div class="callout-body">
+<div class="callout-title">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<p><strong>Warning</strong></p>
+</div>
+<div class="callout-content">
+<p>What critical sanity check needs to be carried out if expression measurements are separate from the metadata?</p>
+</div>
+</div>
+</div>
 </section>
 <section id="formulating-lmfit-input-design-matrix" class="slide level2">
 <h2>Formulating <code>lmFit</code> input: Design Matrix</h2>
@@ -871,7 +884,7 @@ attr(,"contrasts")$genotype
 <span id="cb14-2"><a href="#cb14-2"></a>                          <span class="fu">model.matrix</span>(<span class="sc">~</span> genotype<span class="sc">*</span>age, <span class="at">data =</span> <span class="fu">pData</span>(eset))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.038   0.003   0.042 </code></pre>
+  0.039   0.004   0.042 </code></pre>
 </div>
 </div>
 <ul>
@@ -1540,7 +1553,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <p><strong>FWER is not that relevant in high-throughput studies</strong></p>
 </div>
 <div class="callout-content">
-<p>It’s OK to make multiple errors, as long as you also have some true positives!</p>
+<p>It’s OK to make multiple errors, as long as you also have a comparatively large number of true positives!</p>
 </div>
 </div>
 </div>
@@ -1555,7 +1568,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <p><img data-src="img/bh.png"></p>
 </div><div class="column" style="width:35%;">
 <p><a href="https://doi.org/10.1111/j.2517-6161.1995.tb02031.x">Benjamini Y, Hochberg Y. “<strong>Controlling the False Discovery Rate: a Practical and Powerful Approach to Multiple Testing.</strong>” <em>Journal of the Royal Statistical Society: Series B (Methodological)</em>. 1995 Jan;57(1): 289-300.</a></p>
-<p>Over 110,000 citations!!</p>
+<p>Over 110,000 citations to date!!</p>
 </div>
 </div>
 </section>
