@@ -41,7 +41,7 @@ theme_set(theme_bw(base_size = 20))
 
 1. Use `limma` to perform **genome-wide differential expression testing** on microarray data
 
-2. Understand the key differences between `limma` and `lm`
+2. Understand the key advantages between `limma` and `lm` (standard linear regression)
 
 3. Explain why **multiple testing** increases the number of errors we make by chance
 
@@ -51,7 +51,7 @@ theme_set(theme_bw(base_size = 20))
 
 ## Recall: The hybrid estimator in `limma`
 
-$$\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$$
+$$\tilde{s}^2_g = \frac{d_0}{d_0 + d}s_0^2 + \frac{d}{d_0 + d}s^2_g$$
 
 Recall that $(s_0, d_0)$ are the *prior* parameters for $\sigma^2_g$ (random variable):
 
@@ -65,7 +65,70 @@ The prior parameters incorporate information from all genes which allows us to *
 
 * note that $(s_0, d_0)$ **do not depend on** $g$
 
-## Preview: `limma` workflow
+
+
+## Illustration
+
+![](https://media.springernature.com/lw685/springer-static/image/art%3A10.1186%2Fs12859-019-3248-9/MediaObjects/12859_2019_3248_Fig5_HTML.png?as=webp){fig-align="center"}
+
+Figure 5 from [https://doi.org/10.1186/s12859-019-3248-9](https://doi.org/10.1186/s12859-019-3248-9)
+
+## Moderated *t* statistic
+
+* plug in this posterior mean estimate to obtain a 'moderated' *t* statistic:
+
+
+$$\large \tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$$
+
+* Under limma's assumptions, we know the null distribution for $\tilde{t}_{gj}$ under $H_0$:
+$$\tilde{t}_{gj} \sim t_{d_0+d}$$
+
+* parameters from the prior $d_0$ and $s_0^2$ are estimated from the data 
+
+. . .
+
+::: columns
+:::{.column width="80%"}
+
+* This is how limma is a **hybrid** of frequentist (*t*-statistic) and Bayesian (hierarchical model) approaches (i.e. empirical Bayes)
+
+:::
+:::{.column width="20%"}
+![](img/hybrid.jpg)
+:::
+:::
+
+## Side-by-side comparison of key quantities and results
+
+
+|  | OLS  | limma |
+| --------------- | :--------: | :--------: |
+| Estimated gene-wise residual variance[^1][^2]: | ${s}_g^2 =  \frac{1}{d} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}$ | $\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}$ |
+| *t*-statistic for $H_0: \alpha_{gj} = 0$:| ${t}_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}}$ | $\tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}$ |
+| Distribution of *t*-statistic under $H_0$: | ${t}_{gj} \sim t_{d}$ | $\tilde{t}_{gj} \sim t_{d_0+d}$ |
+
+[^1]: Not shown: estimation formulas for prior parameters $d_0$ and $s_0^2$
+[^2]: Here the degrees of freedom of our linear model are $d = n - p - 1$, where $n$ is the sample size and $p$ is the number of covariates
+
+## Moderated (`limma`) vs traditional (`lm`) tests
+
+
+* **moderated variances** will be *"shrunk" toward the typical gene-wise variance*, relative to to raw sample residual variances
+
+. . .
+
+* **degrees of freedom** for null distribution *increase* relative to default $(d \text{ vs } d_0 + d)$
+  * $\rightarrow$ makes it closer to a standard normal 
+  * $\rightarrow$ makes tail probabilities (p-values) smaller 
+  * $\rightarrow$ easier to reject the null
+
+. . .
+
+* overall, when all is well, limma will deliver statistical results that are **more stable** and **more powerful**
+
+
+
+## Overview: `limma` workflow
 
 ![](img/limma_flow.png){fig-align="center" width="68%"}
 
@@ -192,13 +255,13 @@ Tmem_plot <- ggplot(Tmem_dat, aes(x = age, y = expression, colour = genotype)) +
 Tmem_plot
 ```
 
-## Arranging `lmFit` input: Bioconductor way
+## Arranging `lmFit` input: Bioconductor way {visibility="hidden"}
 
 ```{r}
 eset
 ```
 
-## Arranging `lmFit` input: Separate expression/metadata
+## Arranging `lmFit` input: Separate expression/metadata {visibility="hidden"}
 
 ::: panel-tabset
 # Data matrix
@@ -222,7 +285,7 @@ What critical sanity check needs to be carried out if expression measurements ar
 :::
 
 
-## Formulating `lmFit` input: Design Matrix
+## Formulating `lmFit` input: Design Matrix {visibility="hidden"}
 
 ::: columns
 ::: column
@@ -276,7 +339,7 @@ gFit <- lmFit(myDat,
 
 -   The time-intensive parts of an analysis: data wrangling, selecting a model, choosing how to parameterize it, and interpreting it
 
-## Output of `lmFit`
+## Output of Step 1 (`lmFit`)
 
 ::: columns
 ::: column
@@ -300,7 +363,7 @@ ncol(eset)*4
 :::
 :::
 
-## Moderated *t*-tests using `eBayes`
+## Step 2: Moderated *t*-tests using `eBayes`
 
 ::: columns
 ::: column
@@ -331,7 +394,7 @@ summary(ebFit <- eBayes(gFit))
 
 [^1]: limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35
 
-## `topTable()` extracts output in a convenient format!
+## Step 3: `topTable()` to extract test output
 
 ```{r}
 #| eval: false
@@ -627,6 +690,8 @@ $$\alpha = P(\text{Type I Error}), \text{   } \beta = P(\text{Type II Error}), \
 
 * $P(\text{at least one error on }m\text{ tests} | H_0) =$ $$1 - (1-\alpha)^m =$$ $$1-0.95^m = \alpha_{FWER}$$
 
+* FWER stands for "Family-wise error rate"
+
 :::
 :::
 
@@ -672,7 +737,7 @@ ggplot(df, aes(x = m, y = y)) +
 :::
 :::
 
-## Family-Wise Error Rate (FWER)
+## Controlling FWER with the Bonferroni correction
 
 -   **FWER** is the probability of making at least one error when testing $m$ hypotheses
 
@@ -680,18 +745,18 @@ ggplot(df, aes(x = m, y = y)) +
 
 -   **Control the FWER**: limit the probability of making at least one incorrect decision
 
--   One example: the **Bonferroni** correction for $\alpha=0.05$:
+-   One example: the **Bonferroni** correction for $\alpha=0.05$:  
 
-    $$\text{If } P(\text{at least one error on }m \text{ tests}) \lt \alpha$$
+    $$\text{We want: } P(\text{at least one error on }m \text{ tests}) \lt \alpha$$
 
-    $$\Rightarrow P(\text{at least one error on }m \text{ tests}) \lt \sum_{i=1}^m P(\text{error on test }i)$$
+    $$\text{We know: } P(\text{at least one error on }m \text{ tests}) \lt \sum_{i=1}^m P(\text{error on test }i)$$
 
-    $$\sum_{i=1}^m P(\text{error on test }i) = m\alpha_{Bon}$$
+    $$\text{We let: } P(\text{error on test }i) = \alpha_{Bon} \Rightarrow \sum_{i=1}^m P(\text{error on test }i) = m  \alpha_{Bon} $$
 
-    $$\alpha_{Bon} = \frac{\alpha}{m} = \frac{0.05}{m}$$
+    $$\Rightarrow \alpha_{Bon} = \frac{\alpha}{m} = \frac{0.05}{m} \text{ (Reject if p-value } p_i \lt \frac{\alpha}{m} \text{)}$$
 
 
-## Bonferroni correction: controlling the FWER
+## Bonferroni correction: controlling the FWER  {visibility="hidden"}
 
 Can think of controlling the probability of at least one false positive in two ways:
 
@@ -716,9 +781,9 @@ $$\text{Then, threshold } p_i \text{ at } \alpha_{Bon}$$
 
 -   For example, the Holm procedure: multiplier for p-value correction is not the same for all genes; more powerful
 
-$$p_{Holm, 1} = mp_1$$
+$$p_{Holm(1)} = mp_{(1)}$$
 
-$$p_{Holm,2} = (m-1)p_2$$ $$p_{Holm,3} = (m-2)p_3$$ $$\vdots$$ $$\Rightarrow FWER \le \alpha$$ ---
+$$p_{Holm(2)} = (m-1)p_{(2)}$$ $$p_{Holm(3)} = (m-2)p_{(3)}$$ $$\vdots$$ $$\Rightarrow FWER \le \alpha$$ ---
 
 ## How practical is the FWER in high-throughput biology?
 
@@ -746,7 +811,7 @@ Being overly strict about Type I error leads to greater Type II error (loss of p
 
 :::{.callout-tip}
 # FWER is not that relevant in high-throughput studies
-It's OK to make multiple errors, as long as you also have a comparatively large number of true positives!
+It's OK to make multiple errors, as long as you also have a *comparatively* large number of true positives!
 :::
 
 ```{=html}
@@ -806,9 +871,9 @@ $$\text{FWER } = P(V\ge1) $$
 
 -   Procedure: control FDR at level $q$
 
-    1.  order the raw p-values $p_1 \le p_2 \le ...\le p_m$
+    1.  order the raw p-values $p_{(1)} \le p_{(2)} \le ...\le p_{(m)}$
 
-    2.  find test with highest rank $j$ such that $p_j < \frac{jq}{m}$
+    2.  find test with highest rank $j$ such that $p_{(j)} < \frac{jq}{m}$
 
     3.  declare all smaller ranks up to $j$ significant
 
@@ -961,6 +1026,8 @@ p.adjust(pvals, method = "BH") %>% head()
     -   Or equivalently, how $\pi_0=\frac{m_0}{m}$ is estimated (since $m$ is known)
 
     -   $\pi_0$ represents the overall proportion of tests that are truly null
+    
+    -   BH conservatively assumes that $\pi_0=1$; q-value estimates it from distribution of p-values
 
 -   q-value:
 
@@ -969,8 +1036,6 @@ $$\hat{q}(p_i) = \min_{i\le j} \Big( \frac{\hat{\pi}_0m}{j}p_{(j)}\Big)$$
 -   q-value and BH-adjusted p-values are equivalent when $\pi_0=1$
 
 $$\hat{p}_{BH}(p_i) = \min_{i\le j} \Big(\frac{m}{j}p_{(j)}\Big)$$
-
-(BH conservatively assumes that $\pi_0=1$)
 
 
 ## BH vs q-value in toy example

@@ -409,7 +409,7 @@ Keegan Korthauer
 <h2>Learning objectives</h2>
 <ol type="1">
 <li><p>Use <code>limma</code> to perform <strong>genome-wide differential expression testing</strong> on microarray data</p></li>
-<li><p>Understand the key differences between <code>limma</code> and <code>lm</code></p></li>
+<li><p>Understand the key advantages between <code>limma</code> and <code>lm</code> (standard linear regression)</p></li>
 <li><p>Explain why <strong>multiple testing</strong> increases the number of errors we make by chance</p></li>
 <li><p>Be able to adjust for multiple comparisons by controlling the <strong>False Discovery Rate</strong></p>
 <ul>
@@ -419,7 +419,7 @@ Keegan Korthauer
 </section>
 <section id="recall-the-hybrid-estimator-in-limma" class="slide level2">
 <h2>Recall: The hybrid estimator in <code>limma</code></h2>
-<p><span class="math display">\[\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}\]</span></p>
+<p><span class="math display">\[\tilde{s}^2_g = \frac{d_0}{d_0 + d}s_0^2 + \frac{d}{d_0 + d}s^2_g\]</span></p>
 <p>Recall that <span class="math inline">\((s_0, d_0)\)</span> are the <em>prior</em> parameters for <span class="math inline">\(\sigma^2_g\)</span> (random variable):</p>
 <p><span class="math display">\[\frac{1}{\sigma^2_g} \sim \frac{1}{d_0s_0^2} \chi^2_{d_0}\]</span></p>
 <div class="fragment">
@@ -430,8 +430,90 @@ Keegan Korthauer
 </ul>
 </div>
 </section>
-<section id="preview-limma-workflow" class="slide level2">
-<h2>Preview: <code>limma</code> workflow</h2>
+<section id="illustration" class="slide level2">
+<h2>Illustration</h2>
+
+<img data-src="https://media.springernature.com/lw685/springer-static/image/art%3A10.1186%2Fs12859-019-3248-9/MediaObjects/12859_2019_3248_Fig5_HTML.png?as=webp" class="r-stretch quarto-figure-center"><p>Figure 5 from <a href="https://doi.org/10.1186/s12859-019-3248-9">https://doi.org/10.1186/s12859-019-3248-9</a></p>
+</section>
+<section id="moderated-t-statistic" class="slide level2">
+<h2>Moderated <em>t</em> statistic</h2>
+<ul>
+<li>plug in this posterior mean estimate to obtain a ‘moderated’ <em>t</em> statistic:</li>
+</ul>
+<p><span class="math display">\[\large \tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}\]</span></p>
+<ul>
+<li><p>Under limma’s assumptions, we know the null distribution for <span class="math inline">\(\tilde{t}_{gj}\)</span> under <span class="math inline">\(H_0\)</span>: <span class="math display">\[\tilde{t}_{gj} \sim t_{d_0+d}\]</span></p></li>
+<li><p>parameters from the prior <span class="math inline">\(d_0\)</span> and <span class="math inline">\(s_0^2\)</span> are estimated from the data</p></li>
+</ul>
+<div class="fragment">
+<div class="columns">
+<div class="column" style="width:80%;">
+<ul>
+<li>This is how limma is a <strong>hybrid</strong> of frequentist (<em>t</em>-statistic) and Bayesian (hierarchical model) approaches (i.e.&nbsp;empirical Bayes)</li>
+</ul>
+</div><div class="column" style="width:20%;">
+<p><img data-src="img/hybrid.jpg"></p>
+</div>
+</div>
+</div>
+</section>
+<section id="side-by-side-comparison-of-key-quantities-and-results" class="slide level2">
+<h2>Side-by-side comparison of key quantities and results</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 42%">
+<col style="width: 28%">
+<col style="width: 28%">
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th style="text-align: center;">OLS</th>
+<th style="text-align: center;">limma</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Estimated gene-wise residual variance<sup>1</sup><sup>2</sup>:</td>
+<td style="text-align: center;"><span class="math inline">\({s}_g^2 = \frac{1}{d} \hat{\boldsymbol\varepsilon}^T \hat{\boldsymbol\varepsilon}\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(\tilde{s}^2_g = \frac{d_0s_0^2 + ds^2_g}{d_0 + d}\)</span></td>
+</tr>
+<tr class="even">
+<td><em>t</em>-statistic for <span class="math inline">\(H_0: \alpha_{gj} = 0\)</span>:</td>
+<td style="text-align: center;"><span class="math inline">\({t}_{gj} = \frac{\hat{\alpha}_{gj}}{s_g \sqrt{v_{jj}}}\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(\tilde{t}_{gj} = \frac{\hat{\alpha}_{gj}}{\tilde{s}_g \sqrt{v_{jj}}}\)</span></td>
+</tr>
+<tr class="odd">
+<td>Distribution of <em>t</em>-statistic under <span class="math inline">\(H_0\)</span>:</td>
+<td style="text-align: center;"><span class="math inline">\({t}_{gj} \sim t_{d}\)</span></td>
+<td style="text-align: center;"><span class="math inline">\(\tilde{t}_{gj} \sim t_{d_0+d}\)</span></td>
+</tr>
+</tbody>
+</table>
+<aside><ol class="aside-footnotes"><li id="fn1"><p>limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35</p></li><li id="fn2"><p>Here the degrees of freedom of our linear model are <span class="math inline">\(d = n - p - 1\)</span>, where <span class="math inline">\(n\)</span> is the sample size and <span class="math inline">\(p\)</span> is the number of covariates</p></li></ol></aside></section>
+<section id="moderated-limma-vs-traditional-lm-tests" class="slide level2">
+<h2>Moderated (<code>limma</code>) vs traditional (<code>lm</code>) tests</h2>
+<ul>
+<li><strong>moderated variances</strong> will be <em>“shrunk” toward the typical gene-wise variance</em>, relative to to raw sample residual variances</li>
+</ul>
+<div class="fragment">
+<ul>
+<li><strong>degrees of freedom</strong> for null distribution <em>increase</em> relative to default <span class="math inline">\((d \text{ vs } d_0 + d)\)</span>
+<ul>
+<li><span class="math inline">\(\rightarrow\)</span> makes it closer to a standard normal</li>
+<li><span class="math inline">\(\rightarrow\)</span> makes tail probabilities (p-values) smaller</li>
+<li><span class="math inline">\(\rightarrow\)</span> easier to reject the null</li>
+</ul></li>
+</ul>
+</div>
+<div class="fragment">
+<ul>
+<li>overall, when all is well, limma will deliver statistical results that are <strong>more stable</strong> and <strong>more powerful</strong></li>
+</ul>
+</div>
+</section>
+<section id="overview-limma-workflow" class="slide level2">
+<h2>Overview: <code>limma</code> workflow</h2>
 
 <img data-src="img/limma_flow.png" style="width:68.0%" class="r-stretch quarto-figure-center"></section>
 <section id="functions-that-make-your-life-easier" class="slide level2">
@@ -585,295 +667,9 @@ Keegan Korthauer
 
 </div>
 <img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-2-1.png" width="960" class="r-stretch quarto-figure-center"></section>
-<section id="arranging-lmfit-input-bioconductor-way" class="slide level2">
-<h2>Arranging <code>lmFit</code> input: Bioconductor way</h2>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1"></a>eset</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>ExpressionSet (storageMode: lockedEnvironment)
-assayData: 45101 features, 39 samples 
-  element names: exprs 
-protocolData: none
-phenoData
-  sampleNames: GSM92610 GSM92611 ... GSM92648 (39 total)
-  varLabels: title geo_accession ... age (40 total)
-  varMetadata: labelDescription
-featureData: none
-experimentData: use 'experimentData(object)'
-  pubMedIds: 16505381 
-Annotation: GPL1261 </code></pre>
-</div>
-</div>
-</section>
-<section id="arranging-lmfit-input-separate-expressionmetadata" class="slide level2">
-<h2>Arranging <code>lmFit</code> input: Separate expression/metadata</h2>
-<div class="panel-tabset">
-<ul id="tabset-1" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-1-1">Data matrix</a></li><li><a href="#tabset-1-2">Sample metadata</a></li></ul>
-<div class="tab-content">
-<div id="tabset-1-1">
-<div class="cell">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1"></a>myDat <span class="ot">&lt;-</span> <span class="fu">assayData</span>(eset)<span class="sc">$</span>exprs</span>
-<span id="cb4-2"><a href="#cb4-2"></a><span class="fu">dim</span>(myDat)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 45101    39</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1"></a><span class="fu">head</span>(myDat)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>             GSM92610 GSM92611  GSM92612 GSM92613  GSM92614  GSM92615 GSM92616
-1415670_at   7.108863 7.322392  7.420947 7.351444  7.240428  7.336860 7.382548
-1415671_at   9.714002 9.797742  9.831072 9.658442  9.708906 10.030904 7.636955
-1415672_at   9.429030 9.846977 10.003092 9.914112 10.174548 10.242718 8.422627
-1415673_at   8.426974 8.404206  8.594600 8.404206  8.835334  8.371316 8.362592
-1415674_a_at 8.498338 8.458287  8.426651 8.372776  8.541722  8.892941 8.509461
-1415675_at   9.739536 9.508494  9.598063 9.454508  9.672208  9.613500 9.655965
-             GSM92617  GSM92618 GSM92619 GSM92620 GSM92621 GSM92622 GSM92623
-1415670_at   7.215360  7.215360 7.118826 7.335319 7.087594 7.154789 7.076775
-1415671_at   9.213571  9.488295 9.149957 9.330127 9.564756 9.554756 9.321551
-1415672_at   9.590419 10.034838 9.842881 9.752964 9.881279 9.842790 9.241509
-1415673_at   8.309017  8.546114 8.322816 8.430680 8.574776 8.329279 8.297757
-1415674_a_at 8.309017  8.495662 8.209640 8.481508 8.586018 8.495662 8.480084
-1415675_at   9.754453  9.806620 9.723386 9.700739 9.865178 9.970262 9.924127
-             GSM92624  GSM92625 GSM92626  GSM92627 GSM92628 GSM92629 GSM92630
-1415670_at   7.112767  7.281802 7.152759  7.176287 7.149683 7.249942 7.034715
-1415671_at   8.235927 10.289950 9.872989 10.159710 8.952893 9.664297 8.381062
-1415672_at   9.134840  9.907832 9.675417  9.723334 9.301134 9.514345 9.206305
-1415673_at   8.126502  8.422610 8.281813  8.317929 8.173417 8.491196 8.753887
-1415674_a_at 8.327027  8.680725 8.496576  8.495662 8.413914 8.418862 8.256568
-1415675_at   9.753508 10.209366 9.780233  9.712202 9.629302 9.669490 9.547021
-             GSM92631 GSM92632  GSM92633  GSM92634  GSM92635 GSM92636 GSM92637
-1415670_at   7.131226 7.374397  7.413965  7.236344  7.070270 7.168648 7.007006
-1415671_at   8.730366 9.435807 10.016159  9.477942 10.125344 9.853912 8.972240
-1415672_at   9.525853 9.484793 10.041910 10.013613  9.907014 9.913023 9.219221
-1415673_at   8.647076 8.494675  8.374498  8.362059  8.486530 8.403623 8.419167
-1415674_a_at 8.283164 8.339452  8.615350  8.585476  8.641078 8.520345 8.527555
-1415675_at   9.454296 9.327131  9.718741  9.590773  9.699846 9.708509 9.652533
-             GSM92638 GSM92639  GSM92640 GSM92641  GSM92642 GSM92643 GSM92644
-1415670_at   6.812339 7.545176  7.153775 7.181640  7.190204 7.108709 7.215360
-1415671_at   8.829574 9.524798  9.218747 9.487902  9.159176 9.747169 8.636329
-1415672_at   9.394474 9.917235 10.058851 9.412131 10.112277 9.393012 9.427566
-1415673_at   8.100682 8.782033  8.348986 8.734018  8.198618 8.365879 8.327091
-1415674_a_at 8.319203 8.573714  8.446919 8.392846  8.501715 8.361249 8.427396
-1415675_at   9.341688 9.672208  9.504651 9.868285  9.654112 9.638198 9.673790
-              GSM92645  GSM92646  GSM92647 GSM92648
-1415670_at    7.309237  7.259025  7.660502 7.339120
-1415671_at    9.262298  9.271657 10.031862 8.265807
-1415672_at   10.102144 10.538415  9.885323 9.471748
-1415673_at    8.372551  8.148068  8.557602 8.381085
-1415674_a_at  8.490949  8.548849  8.692265 8.405225
-1415675_at    9.569368  9.483743  9.782834 9.678281</code></pre>
-</div>
-</div>
-</div>
-<div id="tabset-1-2">
-<div class="cell">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1"></a>myMeta <span class="ot">&lt;-</span> <span class="fu">pData</span>(eset)</span>
-<span id="cb8-2"><a href="#cb8-2"></a><span class="fu">head</span>(myMeta)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>                                         title geo_accession
-GSM92610 Nrl-ko-Gfp 4 weeks retina replicate 1      GSM92610
-GSM92611        Nrl-ko-Gfp 4 weeks replicate 2      GSM92611
-GSM92612        Nrl-ko-Gfp 4 weeks replicate 3      GSM92612
-GSM92613        Nrl-ko-Gfp 4 weeks replicate 4      GSM92613
-GSM92614            Nrl-ko-Gfp E16 replicate 1      GSM92614
-GSM92615            Nrl-ko-Gfp E16 replicate 2      GSM92615
-                        status submission_date last_update_date type
-GSM92610 Public on Feb 28 2006     Jan 16 2006      Aug 28 2018  RNA
-GSM92611 Public on Feb 28 2006     Jan 16 2006      Aug 28 2018  RNA
-GSM92612 Public on Feb 28 2006     Jan 16 2006      Aug 28 2018  RNA
-GSM92613 Public on Feb 28 2006     Jan 16 2006      Aug 28 2018  RNA
-GSM92614 Public on Feb 28 2006     Jan 16 2006      Aug 28 2018  RNA
-GSM92615 Public on Feb 28 2006     Jan 16 2006      Aug 28 2018  RNA
-         channel_count                   source_name_ch1 organism_ch1
-GSM92610             1                 Gfp purified cell Mus musculus
-GSM92611             1 purified Gfp+ photoreceptor cells Mus musculus
-GSM92612             1          Gfp+ photoreceptor cells Mus musculus
-GSM92613             1          Gfp+ photoreceptor cells Mus musculus
-GSM92614             1          Gfp+ photoreceptor cells Mus musculus
-GSM92615             1          Gfp+ photoreceptor cells Mus musculus
-                              characteristics_ch1 molecule_ch1
-GSM92610 Nrl-ko, purified Gfp+ photoreceptor cell    total RNA
-GSM92611     Nrl-ko-Gfp, Gfp+ photoreceptor cells    total RNA
-GSM92612     Nrl-ko-Gfp, Gfp+ photoreceptor cells    total RNA
-GSM92613     Nrl-ko-Gfp, Gfp+ photoreceptor cells    total RNA
-GSM92614     Nrl-ko-Gfp, Gfp+ photoreceptor cells    total RNA
-GSM92615     Nrl-ko-Gfp, Gfp+ photoreceptor cells    total RNA
-                        extract_protocol_ch1 label_ch1  label_protocol_ch1
-GSM92610 mRNA was amplified using Nugene kit    Biotin Nugene kit protocol
-GSM92611 mRNA was amplified using Nugene kit    Biotin Nugene kit protocol
-GSM92612 mRNA was amplified using Nugene kit    Biotin Nugene kit protocol
-GSM92613 mRNA was amplified using Nugene kit    Biotin Nugene kit protocol
-GSM92614 mRNA was amplified using Nugene kit    Biotin Nugene kit protocol
-GSM92615 mRNA was amplified using Nugene kit    Biotin Nugene kit protocol
-         taxid_ch1        hyb_protocol       scan_protocol
-GSM92610     10090 Affymetrix standard Affymetrix standard
-GSM92611     10090 Affymetrix standard Affymetrix standard
-GSM92612     10090 Affymetrix standard Affymetrix standard
-GSM92613     10090 Affymetrix standard Affymetrix standard
-GSM92614     10090 Affymetrix standard Affymetrix standard
-GSM92615     10090 Affymetrix standard Affymetrix standard
-                                                                                                                                                                                     description
-GSM92610 Nrl-ko mice were mated with wt-Gfp mice in which Gfp expression is driven by Nrl promoter. Gfp+ photoreceptors were purified by FACS and RNA was extracted and amplified by Nugene kit.
-GSM92611 Nrl-ko mice were mated with wt-Gfp mice in which Gfp expression is driven by Nrl promoter. Gfp+ photoreceptors were purified by FACS and RNA was extracted and amplified by Nugene kit.
-GSM92612 Nrl-ko mice were mated with wt-Gfp mice in which Gfp expression is driven by Nrl promoter. Gfp+ photoreceptors were purified by FACS and RNA was extracted and amplified by Nugene kit.
-GSM92613 Nrl-ko mice were mated with wt-Gfp mice in which Gfp expression is driven by Nrl promoter. Gfp+ photoreceptors were purified by FACS and RNA was extracted and amplified by Nugene kit.
-GSM92614 Nrl-ko mice were mated with wt-Gfp mice in which Gfp expression is driven by Nrl promoter. Gfp+ photoreceptors were purified by FACS and RNA was extracted and amplified by Nugene kit.
-GSM92615 Nrl-ko mice were mated with wt-Gfp mice in which Gfp expression is driven by Nrl promoter. Gfp+ photoreceptors were purified by FACS and RNA was extracted and amplified by Nugene kit.
-                                   description.1 description.2 data_processing
-GSM92610      This is Nrl-ko-Gfp 4 weeks sample.                           RMA
-GSM92611  This is Nrl-ko-Gfp 4 weeks replicate 2                           RMA
-GSM92612  This is Nrl-ko-Gfp 4 weeks replicate 3                           RMA
-GSM92613 This is Nrl-ko-Gfp 4 weeks replicate 4.                           RMA
-GSM92614     This is Nrl-ko-Gfp E16 replicate 1.                           RMA
-GSM92615     This is Nrl-ko-Gfp E16 replicate 2.                           RMA
-         platform_id   contact_name     contact_email contact_phone
-GSM92610     GPL1261 Swaroop,,Anand swaroop@umich.edu  734-615 2246
-GSM92611     GPL1261 Swaroop,,Anand swaroop@umich.edu  734-615 2246
-GSM92612     GPL1261 Swaroop,,Anand swaroop@umich.edu  734-615 2246
-GSM92613     GPL1261 Swaroop,,Anand swaroop@umich.edu  734-615 2246
-GSM92614     GPL1261 Swaroop,,Anand swaroop@umich.edu  734-615 2246
-GSM92615     GPL1261 Swaroop,,Anand swaroop@umich.edu  734-615 2246
-                      contact_department      contact_institute contact_address
-GSM92610 Ophthalmology &amp; Visual Sciences University of Michigan   1000 Wall St.
-GSM92611 Ophthalmology &amp; Visual Sciences University of Michigan   1000 Wall St.
-GSM92612 Ophthalmology &amp; Visual Sciences University of Michigan   1000 Wall St.
-GSM92613 Ophthalmology &amp; Visual Sciences University of Michigan   1000 Wall St.
-GSM92614 Ophthalmology &amp; Visual Sciences University of Michigan   1000 Wall St.
-GSM92615 Ophthalmology &amp; Visual Sciences University of Michigan   1000 Wall St.
-         contact_city contact_state contact_zip/postal_code contact_country
-GSM92610    Ann Arbor            MI                   48105             USA
-GSM92611    Ann Arbor            MI                   48105             USA
-GSM92612    Ann Arbor            MI                   48105             USA
-GSM92613    Ann Arbor            MI                   48105             USA
-GSM92614    Ann Arbor            MI                   48105             USA
-GSM92615    Ann Arbor            MI                   48105             USA
-                     contact_web_link
-GSM92610 http://www.umich.edu/~retina
-GSM92611 http://www.umich.edu/~retina
-GSM92612 http://www.umich.edu/~retina
-GSM92613 http://www.umich.edu/~retina
-GSM92614 http://www.umich.edu/~retina
-GSM92615 http://www.umich.edu/~retina
-                                                                     supplementary_file
-GSM92610 ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM92nnn/GSM92610/suppl/GSM92610.CEL.gz
-GSM92611 ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM92nnn/GSM92611/suppl/GSM92611.CEL.gz
-GSM92612 ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM92nnn/GSM92612/suppl/GSM92612.CEL.gz
-GSM92613 ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM92nnn/GSM92613/suppl/GSM92613.CEL.gz
-GSM92614 ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM92nnn/GSM92614/suppl/GSM92614.CEL.gz
-GSM92615 ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM92nnn/GSM92615/suppl/GSM92615.CEL.gz
-         data_row_count                 relation sample_id dev_stage genotype
-GSM92610          45101 Reanalyzed by: GSE119085  GSM92610       P28    NrlKO
-GSM92611          45101 Reanalyzed by: GSE119085  GSM92611       P28    NrlKO
-GSM92612          45101 Reanalyzed by: GSE119085  GSM92612       P28    NrlKO
-GSM92613          45101 Reanalyzed by: GSE119085  GSM92613       P28    NrlKO
-GSM92614          45101 Reanalyzed by: GSE119085  GSM92614       E16    NrlKO
-GSM92615          45101 Reanalyzed by: GSE119085  GSM92615       E16    NrlKO
-         age
-GSM92610  28
-GSM92611  28
-GSM92612  28
-GSM92613  28
-GSM92614  -4
-GSM92615  -4</code></pre>
-</div>
-</div>
-</div>
-</div>
-</div>
-<div class="callout callout-warning callout-titled callout-style-default">
-<div class="callout-body">
-<div class="callout-title">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<p><strong>Warning</strong></p>
-</div>
-<div class="callout-content">
-<p>What critical sanity check needs to be carried out if expression measurements are separate from the metadata?</p>
-</div>
-</div>
-</div>
-</section>
-<section id="formulating-lmfit-input-design-matrix" class="slide level2">
-<h2>Formulating <code>lmFit</code> input: Design Matrix</h2>
-<div class="columns">
-<div class="column">
-<p>Bioconductor way:</p>
-<div class="cell" data-linewidth="50">
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1"></a>desMat <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> genotype<span class="sc">*</span>age, </span>
-<span id="cb10-2"><a href="#cb10-2"></a>                       <span class="at">data =</span> <span class="fu">pData</span>(eset))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>Equivalently, if using the separate way:</p>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1"></a>desMat <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> genotype<span class="sc">*</span>age, </span>
-<span id="cb11-2"><a href="#cb11-2"></a>                       <span class="at">data =</span> myMeta)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-</div><div class="column">
-<div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1"></a>desMat </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>         (Intercept) genotypeNrlKO age genotypeNrlKO:age
-GSM92610           1             1  28                28
-GSM92611           1             1  28                28
-GSM92612           1             1  28                28
-GSM92613           1             1  28                28
-GSM92614           1             1  -4                -4
-GSM92615           1             1  -4                -4
-GSM92616           1             1  -4                -4
-GSM92617           1             1  10                10
-GSM92618           1             1  10                10
-GSM92619           1             1  10                10
-GSM92620           1             1  10                10
-GSM92621           1             1   2                 2
-GSM92622           1             1   2                 2
-GSM92623           1             1   2                 2
-GSM92624           1             1   2                 2
-GSM92625           1             1   6                 6
-GSM92626           1             1   6                 6
-GSM92627           1             1   6                 6
-GSM92628           1             1   6                 6
-GSM92629           1             0  28                 0
-GSM92630           1             0  28                 0
-GSM92631           1             0  28                 0
-GSM92632           1             0  28                 0
-GSM92633           1             0  -4                 0
-GSM92634           1             0  -4                 0
-GSM92635           1             0  -4                 0
-GSM92636           1             0  -4                 0
-GSM92637           1             0  10                 0
-GSM92638           1             0  10                 0
-GSM92639           1             0  10                 0
-GSM92640           1             0  10                 0
-GSM92641           1             0   2                 0
-GSM92642           1             0   2                 0
-GSM92643           1             0   2                 0
-GSM92644           1             0   2                 0
-GSM92645           1             0   6                 0
-GSM92646           1             0   6                 0
-GSM92647           1             0   6                 0
-GSM92648           1             0   6                 0
-attr(,"assign")
-[1] 0 1 2 3
-attr(,"contrasts")
-attr(,"contrasts")$genotype
-[1] "contr.treatment"</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="callout callout-important callout-titled callout-style-default">
-<div class="callout-body">
-<div class="callout-title">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<p><strong>Important</strong></p>
-</div>
-<div class="callout-content">
-<p>Using Bioconductor objects that store the measurements and metadata in one object reduces the risk of errors due to subsetting, reordering, etc.</p>
-</div>
-</div>
-</div>
-</section>
+
+
+
 <section id="computation-is-fast" class="slide level2">
 <h2>Computation is fast</h2>
 <ul>
@@ -884,7 +680,7 @@ attr(,"contrasts")$genotype
 <span id="cb14-2"><a href="#cb14-2"></a>                          <span class="fu">model.matrix</span>(<span class="sc">~</span> genotype<span class="sc">*</span>age, <span class="at">data =</span> <span class="fu">pData</span>(eset))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.039   0.004   0.042 </code></pre>
+  0.038   0.003   0.042 </code></pre>
 </div>
 </div>
 <ul>
@@ -903,8 +699,8 @@ attr(,"contrasts")$genotype
 </ul>
 </div>
 </section>
-<section id="output-of-lmfit" class="slide level2">
-<h2>Output of <code>lmFit</code></h2>
+<section id="output-of-step-1-lmfit" class="slide level2">
+<h2>Output of Step 1 (<code>lmFit</code>)</h2>
 <div class="columns">
 <div class="column">
 <div class="cell">
@@ -952,8 +748,8 @@ design              156 -none- numeric  </code></pre>
 </div>
 </div>
 </section>
-<section id="moderated-t-tests-using-ebayes" class="slide level2">
-<h2>Moderated <em>t</em>-tests using <code>eBayes</code></h2>
+<section id="step-2-moderated-t-tests-using-ebayes" class="slide level2">
+<h2>Step 2: Moderated <em>t</em>-tests using <code>eBayes</code></h2>
 <div class="columns">
 <div class="column">
 <div class="cell">
@@ -1071,9 +867,9 @@ F.p.value         45101 -none- numeric  </code></pre>
 </tr>
 </tbody>
 </table>
-<aside><ol class="aside-footnotes"><li id="fn1"><p>limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35</p></li></ol></aside></section>
-<section id="toptable-extracts-output-in-a-convenient-format" class="slide level2">
-<h2><code>topTable()</code> extracts output in a convenient format!</h2>
+<aside><ol class="aside-footnotes"><li id="fn3"><p>limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35</p></li></ol></aside></section>
+<section id="step-3-toptable-to-extract-test-output" class="slide level2">
+<h2>Step 3: <code>topTable()</code> to extract test output</h2>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb29"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1"></a><span class="fu">topTable</span>(fit, <span class="at">coef =</span> <span class="cn">NULL</span>, <span class="at">number =</span> <span class="dv">10</span>, <span class="at">genelist =</span> fit<span class="sc">$</span>genes, <span class="at">adjust.method =</span> <span class="st">"BH"</span>,</span>
 <span id="cb29-2"><a href="#cb29-2"></a>         <span class="at">sort.by =</span> <span class="st">"B"</span>, <span class="at">resort.by =</span> <span class="cn">NULL</span>, <span class="at">p.value =</span> <span class="dv">1</span>, <span class="at">lfc =</span> <span class="dv">0</span>, <span class="at">confint =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -1427,6 +1223,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <ul>
 <li><p><span class="math inline">\(P(\text{correct decision on }m\text{ tests} | H_0) =\)</span> <span class="math display">\[(1-\alpha)^m = 0.95^m\]</span></p></li>
 <li><p><span class="math inline">\(P(\text{at least one error on }m\text{ tests} | H_0) =\)</span> <span class="math display">\[1 - (1-\alpha)^m =\]</span> <span class="math display">\[1-0.95^m = \alpha_{FWER}\]</span></p></li>
+<li><p>FWER stands for “Family-wise error rate”</p></li>
 </ul>
 </div>
 </div><div class="column">
@@ -1471,8 +1268,8 @@ F.p.value         45101 -none- numeric  </code></pre>
 </div>
 </div>
 </section>
-<section id="family-wise-error-rate-fwer" class="slide level2">
-<h2>Family-Wise Error Rate (FWER)</h2>
+<section id="controlling-fwer-with-the-bonferroni-correction" class="slide level2">
+<h2>Controlling FWER with the Bonferroni correction</h2>
 <ul>
 <li><strong>FWER</strong> is the probability of making at least one error when testing <span class="math inline">\(m\)</span> hypotheses</li>
 </ul>
@@ -1480,26 +1277,14 @@ F.p.value         45101 -none- numeric  </code></pre>
 <ul>
 <li><p><strong>Control the FWER</strong>: limit the probability of making at least one incorrect decision</p></li>
 <li><p>One example: the <strong>Bonferroni</strong> correction for <span class="math inline">\(\alpha=0.05\)</span>:</p>
-<p><span class="math display">\[\text{If } P(\text{at least one error on }m \text{ tests}) \lt \alpha\]</span></p>
-<p><span class="math display">\[\Rightarrow P(\text{at least one error on }m \text{ tests}) \lt \sum_{i=1}^m P(\text{error on test }i)\]</span></p>
-<p><span class="math display">\[\sum_{i=1}^m P(\text{error on test }i) = m\alpha_{Bon}\]</span></p>
-<p><span class="math display">\[\alpha_{Bon} = \frac{\alpha}{m} = \frac{0.05}{m}\]</span></p></li>
+<p><span class="math display">\[\text{We want: } P(\text{at least one error on }m \text{ tests}) \lt \alpha\]</span></p>
+<p><span class="math display">\[\text{We know: } P(\text{at least one error on }m \text{ tests}) \lt \sum_{i=1}^m P(\text{error on test }i)\]</span></p>
+<p><span class="math display">\[\text{We let: } P(\text{error on test }i) = \alpha_{Bon} \Rightarrow \sum_{i=1}^m P(\text{error on test }i) = m  \alpha_{Bon} \]</span></p>
+<p><span class="math display">\[\Rightarrow \alpha_{Bon} = \frac{\alpha}{m} = \frac{0.05}{m} \text{ (Reject if p-value } p_i \lt \frac{\alpha}{m} \text{)}\]</span></p></li>
 </ul>
 </div>
 </section>
-<section id="bonferroni-correction-controlling-the-fwer" class="slide level2">
-<h2>Bonferroni correction: controlling the FWER</h2>
-<p>Can think of controlling the probability of at least one false positive in two ways:</p>
-<ol type="1">
-<li><strong>Adjust the p-values; keep same</strong> <span class="math inline">\(\alpha\)</span>:</li>
-</ol>
-<p><span class="math display">\[p_{Bon,i}=mp_i\]</span> <span class="math display">\[\text{ (to be more precise: } \, p_{Bon,i}=min(mp_i, 1))\]</span></p>
-<p><span class="math display">\[\text{Then, threshold } p_{Bon,i} \text{ at } \alpha\]</span></p>
-<ol start="2" type="1">
-<li><strong>Adjust the</strong> <span class="math inline">\(\alpha\)</span> threshold; keep same p-values:</li>
-</ol>
-<p><span class="math display">\[\alpha_{Bon}=\frac{\alpha}{m}\]</span> <span class="math display">\[\text{Then, threshold } p_i \text{ at } \alpha_{Bon}\]</span></p>
-</section>
+
 <section id="can-we-do-better" class="slide level2">
 <h2>Can we do better?</h2>
 <ul>
@@ -1507,8 +1292,8 @@ F.p.value         45101 -none- numeric  </code></pre>
 <li><p>Several other options are better</p></li>
 <li><p>For example, the Holm procedure: multiplier for p-value correction is not the same for all genes; more powerful</p></li>
 </ul>
-<p><span class="math display">\[p_{Holm, 1} = mp_1\]</span></p>
-<p><span class="math display">\[p_{Holm,2} = (m-1)p_2\]</span> <span class="math display">\[p_{Holm,3} = (m-2)p_3\]</span> <span class="math display">\[\vdots\]</span> <span class="math display">\[\Rightarrow FWER \le \alpha\]</span> —</p>
+<p><span class="math display">\[p_{Holm(1)} = mp_{(1)}\]</span></p>
+<p><span class="math display">\[p_{Holm(2)} = (m-1)p_{(2)}\]</span> <span class="math display">\[p_{Holm(3)} = (m-2)p_{(3)}\]</span> <span class="math display">\[\vdots\]</span> <span class="math display">\[\Rightarrow FWER \le \alpha\]</span> —</p>
 </section>
 <section id="how-practical-is-the-fwer-in-high-throughput-biology" class="slide level2">
 <h2>How practical is the FWER in high-throughput biology?</h2>
@@ -1553,7 +1338,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <p><strong>FWER is not that relevant in high-throughput studies</strong></p>
 </div>
 <div class="callout-content">
-<p>It’s OK to make multiple errors, as long as you also have a comparatively large number of true positives!</p>
+<p>It’s OK to make multiple errors, as long as you also have a <em>comparatively</em> large number of true positives!</p>
 </div>
 </div>
 </div>
@@ -1605,8 +1390,8 @@ F.p.value         45101 -none- numeric  </code></pre>
 </ul></li>
 <li><p>Procedure: control FDR at level <span class="math inline">\(q\)</span></p>
 <ol type="1">
-<li><p>order the raw p-values <span class="math inline">\(p_1 \le p_2 \le ...\le p_m\)</span></p></li>
-<li><p>find test with highest rank <span class="math inline">\(j\)</span> such that <span class="math inline">\(p_j &lt; \frac{jq}{m}\)</span></p></li>
+<li><p>order the raw p-values <span class="math inline">\(p_{(1)} \le p_{(2)} \le ...\le p_{(m)}\)</span></p></li>
+<li><p>find test with highest rank <span class="math inline">\(j\)</span> such that <span class="math inline">\(p_{(j)} &lt; \frac{jq}{m}\)</span></p></li>
 <li><p>declare all smaller ranks up to <span class="math inline">\(j\)</span> significant</p></li>
 </ol></li>
 </ul>
@@ -2051,6 +1836,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <ul>
 <li><p>Or equivalently, how <span class="math inline">\(\pi_0=\frac{m_0}{m}\)</span> is estimated (since <span class="math inline">\(m\)</span> is known)</p></li>
 <li><p><span class="math inline">\(\pi_0\)</span> represents the overall proportion of tests that are truly null</p></li>
+<li><p>BH conservatively assumes that <span class="math inline">\(\pi_0=1\)</span>; q-value estimates it from distribution of p-values</p></li>
 </ul></li>
 <li><p>q-value:</p></li>
 </ul>
@@ -2059,7 +1845,6 @@ F.p.value         45101 -none- numeric  </code></pre>
 <li>q-value and BH-adjusted p-values are equivalent when <span class="math inline">\(\pi_0=1\)</span></li>
 </ul>
 <p><span class="math display">\[\hat{p}_{BH}(p_i) = \min_{i\le j} \Big(\frac{m}{j}p_{(j)}\Big)\]</span></p>
-<p>(BH conservatively assumes that <span class="math inline">\(\pi_0=1\)</span>)</p>
 </section>
 <section id="bh-vs-q-value-in-toy-example" class="slide level2">
 <h2>BH vs q-value in toy example</h2>
@@ -2141,7 +1926,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 </tr>
 </tbody>
 </table>
-<aside><ol class="aside-footnotes"><li id="fn2"><p><span class="math inline">\(\hat{\pi}_0=1\)</span> in this case</p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn4"><p><span class="math inline">\(\hat{\pi}_0=1\)</span> in this case</p></li></ol></aside></section>
 <section id="bh-vs-q-value-in-effect-of-genotypenrlkoage" class="slide level2">
 <h2>BH vs q-value in effect of <code>genotypeNrlKO:age</code></h2>
 <div class="panel-tabset">
