@@ -34,6 +34,7 @@ library(latex2exp)
 library(limma)
 library(GEOquery)
 library(qvalue)
+library(genefilter)
 theme_set(theme_bw(base_size = 20))
 ```
 
@@ -385,14 +386,14 @@ summary(ebFit <- eBayes(gFit))
 |      math       |                        description                         |      `limma::eBayes`       |       dimension       | in `lm`? |
 |:-----:|:-------------------|:-----------|:-----|:-----:|
 |     $s_g^2$  |               gene-specific residual variance                |   `sigma^2`   |         45K           | $\checkmark$  |
-|       $d$       |             residual degrees of freedom $(n-p-1)$              | `df.residual` |        Scalar[^1]         | $\checkmark$  |
+|       $d$       |             residual degrees of freedom $(n-p-1)$              | `df.residual` |        Scalar[^3]         | $\checkmark$  |
 |     $s_0^2$     |          mean of inverse $\chi^2$ prior for $s_g^2$          |  `s2.prior`  | Scalar |               |
 |      $d_0$      |               degrees of freedom for the prior               |  `df.prior`  | Scalar |               |
 | $\tilde{s}_g^2$ | posterior mean of $s_g^2$ (moderated gene-specific residual variance)            |  `s2.post`   |         45K          |               |
 | $\tilde{t}_g$   | moderated t statistics                                       |  `t`         | 45K$\times$p           |               |
 
 
-[^1]: limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35
+[^3]: limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35
 
 ## Step 3: `topTable()` to extract test output
 
@@ -624,7 +625,29 @@ This plot is on the log-scale to 'zoom in' on the low range
 :::
 :::
 
-## Comparison of interaction coefficient p-values
+## P-value comparison for standard vs moderated t-tests
+
+Example from [PH525x online book](https://genomicsclass.github.io/book/pages/bioc1_limma.html):
+
+:::{.panel-tabset}
+
+# Volcano plots
+
+::: {layout-ncol=3}
+![Standard t-tests](https://genomicsclass.github.io/book/pages/figure/bioc1_limma-unnamed-chunk-4-1.png){width=70%}
+
+![Moderated t-tests](https://genomicsclass.github.io/book/pages/figure/bioc1_limma-unnamed-chunk-8-1.png){width=70%}
+:::
+
+# Gene-specific standard deviations (non-moderated)
+
+![](https://genomicsclass.github.io/book/pages/figure/bioc1_limma-unnamed-chunk-5-1.png)
+
+:::
+
+
+
+## Comparison of interaction coefficient p-values {visibility="hidden"}
 
 ```{r}
 #| echo: false
@@ -641,13 +664,13 @@ if (file.exists("data/lmpvals.rds")){
     group_by(gene) %>%
     do(tidy(lm(expression ~ genotype*age, .))) %>% 
     filter(term=="genotypeNrlKO:age") %>%
-    pull(p.value)
+    select(estimate, statistic, p.value)
   saveRDS(lm_all, "data/lmpvals.rds")
 }
 
 df <- data.frame(limma=topTable(ebFit, coef = "genotypeNrlKO:age", 
                                 number=Inf, sort.by = "none")$P.Value,
-                 lm=lm_all)
+                 lm=lm_all$p.value)
 
 df %>% ggplot(aes(y=limma, x = lm)) +
   geom_point(alpha = 0.1) +
@@ -657,6 +680,38 @@ df %>% ggplot(aes(y=limma, x = lm)) +
 
 - `r sum(df$limma > df$lm)` genes where limma p-value is *larger* than lm
 - `r sum(df$limma < df$lm)` genes where limma p-value is *smaller* than lm
+
+
+
+## Standard vs moderated t-tests for interaction term {visibility="hidden"}
+
+```{r}
+# volcano plot using ggplot of lm_all$estimate vs -log10(lm_all$p.value)
+lm_all %>% 
+  mutate(flag = ifelse(-log10(p.value) > 3 & abs(estimate) < 0.02, TRUE, FALSE)) %>%
+  ggplot(aes(x = estimate, y = -log10(p.value))) +
+  geom_point(aes(color = flag), alpha = 0.5) +
+  xlab("Mean Age slope difference (KO vs WT)") +
+  ylab("-log10(p-value) by lm") +
+  theme(legend.position="none") +
+  scale_color_manual(values = c("black", "red")) 
+```
+
+
+```{r}
+# volcano plot using ggplot of limma 
+df <- cbind(topTable(ebFit, coef = "genotypeNrlKO:age", number=Inf, sort.by = "none"),
+            lm_all)
+
+df %>% 
+  mutate(flag = ifelse(-log10(p.value) > 3 & abs(estimate) < 0.02, TRUE, FALSE)) %>%
+  ggplot(aes(x = estimate, y = -log10(P.Value))) +
+  geom_point(aes(color = flag), alpha = 0.5) +
+  xlab("Mean Age slope difference (KO vs WT)") +
+  ylab("-log10(p-value) by limma") +
+  theme(legend.position="none") +
+  scale_color_manual(values = c("black", "red")) 
+```
 
 ## Multiple testing
 
@@ -1054,7 +1109,7 @@ $$\hat{p}_{BH}(p_i) = \min_{i\le j} \Big(\frac{m}{j}p_{(j)}\Big)$$
 |     10     | 0.993   | 0.993               |     0.993      |
 
 
-## BH vs q-value in effect of `genotypeNrlKO:age`
+## BH vs q-value in effect of `genotypeNrlKO:age` {visibility="hidden"}
 
 :::{.panel-tabset}
 
@@ -1115,25 +1170,6 @@ ggplot(df, aes(y = l_fdr.q, x = l_fdr.bh)) +
 :::
 :::
 
-
-## Compounding issues of multiple comparisons
-
--   What if you're not only testing 20K genes, but also multiple tests per gene (e.g. multiple contrasts, such as several two-group comparisons)?
-
--   Classical procedures for adjustment:
-
-    -   Tukey multiple comparison procedure
-    -   Scheffe multiple comparison procedure
-    -   Bonferroni or Holm FWER correction
-
--   In our setting, we can also apply BH to all p-values globally
-
-    -   `limma::decideTests(pvals, method="global")` for a matrix of p-values or `eBayes` output (e.g. rows = genes, columns = contrasts)
-
-    -   p-values are combined, adjusted globally, then separated back out and sorted
-
-
-
 ## Assumptions about p-values
 
 ::: {.callout-note}
@@ -1186,6 +1222,25 @@ Great primer on how things can go wrong: <http://varianceexplained.org/statistic
     -   **Permutation**: construct a simulated version of your dataset that satisfies the null hypothesis and compute statistic (e.g. shuffle group labels for a two-group comparison); repeat many times and use permutation statistics as your sampling distribution rather than a t, Normal, F, $\chi^2$, etc
 
     -   Limitation: computationally intensive for genomics; not optimal for small sample sizes
+
+
+## Compounding issues of multiple comparisons
+
+-   What if you're not only testing 20K genes, but also multiple tests per gene (e.g. multiple contrasts, such as several two-group comparisons)?
+
+-   Classical procedures for adjustment (low dimensional setting):
+
+    -   Tukey multiple comparison procedure
+    -   Scheffe multiple comparison procedure
+    -   Bonferroni or Holm FWER correction
+
+-   In our setting, we can also apply BH to all p-values globally
+
+    -   `limma::decideTests(pvals, method="global")` for a matrix of p-values or `eBayes` output (e.g. rows = genes, columns = contrasts)
+
+    -   p-values are combined, adjusted globally, then separated back out and sorted
+
+
     
 ## Next up: regression with count measures (RNA-seq)!
 

@@ -490,7 +490,7 @@ Keegan Korthauer
 </tr>
 </tbody>
 </table>
-<aside><ol class="aside-footnotes"><li id="fn1"><p>limma can handle more complicated models where this is not the same for each gene, so this is actually a vector of 45K copies of the number 35</p></li><li id="fn2"><p>Here the degrees of freedom of our linear model are <span class="math inline">\(d = n - p - 1\)</span>, where <span class="math inline">\(n\)</span> is the sample size and <span class="math inline">\(p\)</span> is the number of covariates</p></li></ol></aside></section>
+<aside><ol class="aside-footnotes"><li id="fn1"><p>Not shown: estimation formulas for prior parameters <span class="math inline">\(d_0\)</span> and <span class="math inline">\(s_0^2\)</span></p></li><li id="fn2"><p>Here the degrees of freedom of our linear model are <span class="math inline">\(d = n - p - 1\)</span>, where <span class="math inline">\(n\)</span> is the sample size and <span class="math inline">\(p\)</span> is the number of covariates</p></li></ol></aside></section>
 <section id="moderated-limma-vs-traditional-lm-tests" class="slide level2">
 <h2>Moderated (<code>limma</code>) vs traditional (<code>lm</code>) tests</h2>
 <ul>
@@ -680,7 +680,7 @@ Keegan Korthauer
 <span id="cb14-2"><a href="#cb14-2"></a>                          <span class="fu">model.matrix</span>(<span class="sc">~</span> genotype<span class="sc">*</span>age, <span class="at">data =</span> <span class="fu">pData</span>(eset))))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>   user  system elapsed 
-  0.038   0.003   0.042 </code></pre>
+  0.037   0.003   0.041 </code></pre>
 </div>
 </div>
 <ul>
@@ -1187,14 +1187,42 @@ F.p.value         45101 -none- numeric  </code></pre>
 </div>
 </div>
 </section>
-<section id="comparison-of-interaction-coefficient-p-values" class="slide level2">
-<h2>Comparison of interaction coefficient p-values</h2>
-
-<img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-26-1.png" width="768" class="r-stretch quarto-figure-center"><ul>
-<li>17479 genes where limma p-value is <em>larger</em> than lm</li>
-<li>27622 genes where limma p-value is <em>smaller</em> than lm</li>
-</ul>
+<section id="p-value-comparison-for-standard-vs-moderated-t-tests" class="slide level2">
+<h2>P-value comparison for standard vs moderated t-tests</h2>
+<p>Example from <a href="https://genomicsclass.github.io/book/pages/bioc1_limma.html">PH525x online book</a>:</p>
+<div class="panel-tabset">
+<ul id="tabset-3" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-3-1">Volcano plots</a></li><li><a href="#tabset-3-2">Gene-specific standard deviations (non-moderated)</a></li></ul>
+<div class="tab-content">
+<div id="tabset-3-1">
+<div class="quarto-layout-panel">
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="https://genomicsclass.github.io/book/pages/figure/bioc1_limma-unnamed-chunk-4-1.png"></p>
+<figcaption>Standard t-tests</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: center;">
+<div class="quarto-figure quarto-figure-center">
+<figure>
+<p><img data-src="https://genomicsclass.github.io/book/pages/figure/bioc1_limma-unnamed-chunk-8-1.png"></p>
+<figcaption>Moderated t-tests</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-3-2">
+<p><img data-src="https://genomicsclass.github.io/book/pages/figure/bioc1_limma-unnamed-chunk-5-1.png"></p>
+</div>
+</div>
+</div>
 </section>
+
+
 <section id="multiple-testing" class="slide level2">
 <h2>Multiple testing</h2>
 <p>What do we do with our lists of thousands of p-values?</p>
@@ -1231,17 +1259,17 @@ F.p.value         45101 -none- numeric  </code></pre>
 <div class="cell" data-layout-align="center">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">m =</span> <span class="fu">seq</span>(<span class="dv">1</span>,<span class="dv">200</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb44-2"><a href="#cb44-2"></a>  <span class="fu">mutate</span>(<span class="at">y =</span> <span class="dv">1</span><span class="fl">-0.95</span><span class="sc">^</span>m)</span>
-<span id="cb44-3"><a href="#cb44-3"></a><span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">x =</span> m, <span class="at">y =</span> y)) <span class="sc">+</span></span>
-<span id="cb44-4"><a href="#cb44-4"></a>  <span class="fu">geom_line</span>(<span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>, <span class="at">colour =</span> <span class="st">"dodgerblue"</span>) <span class="sc">+</span></span>
-<span id="cb44-5"><a href="#cb44-5"></a>  <span class="fu">xlab</span>(<span class="st">"m (number of tests)"</span>) <span class="sc">+</span></span>
-<span id="cb44-6"><a href="#cb44-6"></a>  <span class="fu">ylab</span>(<span class="fu">expression</span>(<span class="fu">paste</span>(<span class="dv">1</span><span class="fl">-0.95</span><span class="sc">^</span>m, <span class="st">" (FWER)"</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">m =</span> <span class="fu">seq</span>(<span class="dv">1</span>,<span class="dv">200</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb46-2"><a href="#cb46-2"></a>  <span class="fu">mutate</span>(<span class="at">y =</span> <span class="dv">1</span><span class="fl">-0.95</span><span class="sc">^</span>m)</span>
+<span id="cb46-3"><a href="#cb46-3"></a><span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">x =</span> m, <span class="at">y =</span> y)) <span class="sc">+</span></span>
+<span id="cb46-4"><a href="#cb46-4"></a>  <span class="fu">geom_line</span>(<span class="at">size =</span> <span class="fl">1.5</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>, <span class="at">colour =</span> <span class="st">"dodgerblue"</span>) <span class="sc">+</span></span>
+<span id="cb46-5"><a href="#cb46-5"></a>  <span class="fu">xlab</span>(<span class="st">"m (number of tests)"</span>) <span class="sc">+</span></span>
+<span id="cb46-6"><a href="#cb46-6"></a>  <span class="fu">ylab</span>(<span class="fu">expression</span>(<span class="fu">paste</span>(<span class="dv">1</span><span class="fl">-0.95</span><span class="sc">^</span>m, <span class="st">" (FWER)"</span>)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-27-1.png" width="576"></p>
+<p><img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-29-1.png" width="576"></p>
 </figure>
 </div>
 </div>
@@ -1779,7 +1807,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <section id="bh-fdr-values-given-in-limma-by-default" class="slide level2">
 <h2>BH FDR values given in <code>limma</code> by default</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1"></a><span class="fu">topTable</span>(ebFit, <span class="at">coef =</span> <span class="st">"genotypeNrlKO"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1"></a><span class="fu">topTable</span>(ebFit, <span class="at">coef =</span> <span class="st">"genotypeNrlKO"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                  logFC  AveExpr          t      P.Value    adj.P.Val        B
 1450946_at   -4.7134891 8.733103 -15.583683 5.390931e-18 2.431364e-13 28.40938
@@ -1797,8 +1825,8 @@ F.p.value         45101 -none- numeric  </code></pre>
 <div class="fragment">
 <p>Or, obtain them yourself for any vector of p-values <code>p</code> with <code>p.adjust(p, method="BH")</code>:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1"></a>pvals <span class="ot">&lt;-</span> <span class="fu">topTable</span>(ebFit, <span class="at">coef =</span> <span class="st">"genotypeNrlKO"</span>, <span class="at">number =</span> <span class="cn">Inf</span>)<span class="sc">$</span>P.Value</span>
-<span id="cb47-2"><a href="#cb47-2"></a><span class="fu">p.adjust</span>(pvals, <span class="at">method =</span> <span class="st">"BH"</span>) <span class="sc">%&gt;%</span> <span class="fu">head</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1"></a>pvals <span class="ot">&lt;-</span> <span class="fu">topTable</span>(ebFit, <span class="at">coef =</span> <span class="st">"genotypeNrlKO"</span>, <span class="at">number =</span> <span class="cn">Inf</span>)<span class="sc">$</span>P.Value</span>
+<span id="cb49-2"><a href="#cb49-2"></a><span class="fu">p.adjust</span>(pvals, <span class="at">method =</span> <span class="st">"BH"</span>) <span class="sc">%&gt;%</span> <span class="fu">head</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 2.431364e-13 1.555132e-07 6.029428e-07 6.029428e-07 6.029428e-07
 [6] 6.029428e-07</code></pre>
@@ -1927,64 +1955,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 </tbody>
 </table>
 <aside><ol class="aside-footnotes"><li id="fn4"><p><span class="math inline">\(\hat{\pi}_0=1\)</span> in this case</p></li></ol></aside></section>
-<section id="bh-vs-q-value-in-effect-of-genotypenrlkoage" class="slide level2">
-<h2>BH vs q-value in effect of <code>genotypeNrlKO:age</code></h2>
-<div class="panel-tabset">
-<ul id="tabset-3" class="panel-tabset-tabby"><li><a data-tabby-default="" href="#tabset-3-1">Original scale</a></li><li><a href="#tabset-3-2">log-scale</a></li></ul>
-<div class="tab-content">
-<div id="tabset-3-1">
-<div class="cell" data-layout-align="center">
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1"></a><span class="co"># requires qvalue package</span></span>
-<span id="cb49-2"><a href="#cb49-2"></a>pvals <span class="ot">&lt;-</span> <span class="fu">topTable</span>(ebFit, <span class="at">coef =</span> <span class="st">"genotypeNrlKO:age"</span>, <span class="at">number =</span> <span class="cn">Inf</span>)<span class="sc">$</span>P.Value</span>
-<span id="cb49-3"><a href="#cb49-3"></a></span>
-<span id="cb49-4"><a href="#cb49-4"></a>df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">fdr.bh =</span> <span class="fu">p.adjust</span>(pvals, <span class="at">method =</span> <span class="st">"BH"</span>),</span>
-<span id="cb49-5"><a href="#cb49-5"></a>                 <span class="at">fdr.q =</span> qvalue<span class="sc">::</span><span class="fu">qvalue</span>(pvals)<span class="sc">$</span>qvalues)</span>
-<span id="cb49-6"><a href="#cb49-6"></a></span>
-<span id="cb49-7"><a href="#cb49-7"></a><span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">y =</span> fdr.q, <span class="at">x =</span> fdr.bh)) <span class="sc">+</span></span>
-<span id="cb49-8"><a href="#cb49-8"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
-<span id="cb49-9"><a href="#cb49-9"></a>  <span class="fu">geom_abline</span>(<span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">slope =</span> <span class="dv">1</span>, <span class="at">color=</span><span class="st">"red"</span>) <span class="sc">+</span></span>
-<span id="cb49-10"><a href="#cb49-10"></a>  <span class="fu">ggtitle</span>(<span class="st">"BH vs q-value for genotypeNrlKO:age"</span>) <span class="sc">+</span></span>
-<span id="cb49-11"><a href="#cb49-11"></a>  <span class="fu">xlim</span>(<span class="dv">0</span>,<span class="dv">1</span>) <span class="sc">+</span></span>
-<span id="cb49-12"><a href="#cb49-12"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="dv">1</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure>
-<p><img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-30-1.png" width="768"></p>
-</figure>
-</div>
-</div>
-</div>
-</div>
-<div id="tabset-3-2">
-<div class="cell" data-layout-align="center">
-<details>
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1"></a>df <span class="ot">&lt;-</span> <span class="fu">mutate</span>(df, </span>
-<span id="cb50-2"><a href="#cb50-2"></a>             <span class="at">l_fdr.bh =</span> <span class="sc">-</span><span class="fu">log10</span>(fdr.bh),</span>
-<span id="cb50-3"><a href="#cb50-3"></a>             <span class="at">l_fdr.q =</span> <span class="sc">-</span><span class="fu">log10</span>(fdr.q))</span>
-<span id="cb50-4"><a href="#cb50-4"></a></span>
-<span id="cb50-5"><a href="#cb50-5"></a><span class="fu">ggplot</span>(df, <span class="fu">aes</span>(<span class="at">y =</span> l_fdr.q, <span class="at">x =</span> l_fdr.bh)) <span class="sc">+</span></span>
-<span id="cb50-6"><a href="#cb50-6"></a>  <span class="fu">geom_point</span>(<span class="at">alpha =</span> <span class="fl">0.1</span>) <span class="sc">+</span></span>
-<span id="cb50-7"><a href="#cb50-7"></a>  <span class="fu">geom_abline</span>(<span class="at">intercept =</span> <span class="dv">0</span>, <span class="at">slope =</span> <span class="dv">1</span>, <span class="at">color=</span><span class="st">"red"</span>) <span class="sc">+</span></span>
-<span id="cb50-8"><a href="#cb50-8"></a>  <span class="fu">ggtitle</span>(<span class="st">"BH vs q-value for genotypeNrlKO:age"</span>) <span class="sc">+</span></span>
-<span id="cb50-9"><a href="#cb50-9"></a>  <span class="fu">xlab</span>(<span class="st">"-log10(BH adjusted p-value)"</span>) <span class="sc">+</span></span>
-<span id="cb50-10"><a href="#cb50-10"></a>  <span class="fu">ylab</span>(<span class="st">"-log10(q-value)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-<div class="cell-output-display">
-<div class="quarto-figure quarto-figure-center">
-<figure>
-<p><img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-31-1.png" width="768"></p>
-</figure>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</section>
+
 <section id="fdr-control-is-an-active-area-of-research" class="slide level2">
 <h2>FDR control is an active area of research</h2>
 <div class="columns">
@@ -1995,23 +1966,6 @@ F.p.value         45101 -none- numeric  </code></pre>
 <p><img data-src="img/practicalguidefig.png"></p>
 </div>
 </div>
-</section>
-<section id="compounding-issues-of-multiple-comparisons" class="slide level2">
-<h2>Compounding issues of multiple comparisons</h2>
-<ul>
-<li><p>What if you’re not only testing 20K genes, but also multiple tests per gene (e.g.&nbsp;multiple contrasts, such as several two-group comparisons)?</p></li>
-<li><p>Classical procedures for adjustment:</p>
-<ul>
-<li>Tukey multiple comparison procedure</li>
-<li>Scheffe multiple comparison procedure</li>
-<li>Bonferroni or Holm FWER correction</li>
-</ul></li>
-<li><p>In our setting, we can also apply BH to all p-values globally</p>
-<ul>
-<li><p><code>limma::decideTests(pvals, method="global")</code> for a matrix of p-values or <code>eBayes</code> output (e.g.&nbsp;rows = genes, columns = contrasts)</p></li>
-<li><p>p-values are combined, adjusted globally, then separated back out and sorted</p></li>
-</ul></li>
-</ul>
 </section>
 <section id="assumptions-about-p-values" class="slide level2">
 <h2>Assumptions about p-values</h2>
@@ -2035,7 +1989,7 @@ F.p.value         45101 -none- numeric  </code></pre>
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-32-1.png" width="960"></p>
+<p><img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-34-1.png" width="960"></p>
 </figure>
 </div>
 </div>
@@ -2048,12 +2002,12 @@ F.p.value         45101 -none- numeric  </code></pre>
 <div class="cell" data-layout-align="center">
 <details>
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1"></a><span class="co"># plot histogram of p-values for genotypeNrlKO</span></span>
-<span id="cb51-2"><a href="#cb51-2"></a><span class="fu">hist</span>(pvals)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1"></a><span class="co"># plot histogram of p-values for genotypeNrlKO</span></span>
+<span id="cb53-2"><a href="#cb53-2"></a><span class="fu">hist</span>(pvals)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 
 </div>
-<img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-33-1.png" width="960" class="r-stretch quarto-figure-center"><p>Great primer on how things can go wrong: <a href="http://varianceexplained.org/statistics/interpreting-pvalue-histogram/" class="uri">http://varianceexplained.org/statistics/interpreting-pvalue-histogram/</a></p>
+<img data-src="lect09-multipleTesting_files/figure-revealjs/unnamed-chunk-35-1.png" width="960" class="r-stretch quarto-figure-center"><p>Great primer on how things can go wrong: <a href="http://varianceexplained.org/statistics/interpreting-pvalue-histogram/" class="uri">http://varianceexplained.org/statistics/interpreting-pvalue-histogram/</a></p>
 </section>
 <section id="what-if-p-values-are-poorly-behaved" class="slide level2">
 <h2>What if p-values are <em>poorly behaved</em>?</h2>
@@ -2076,6 +2030,23 @@ F.p.value         45101 -none- numeric  </code></pre>
 </ul></li>
 </ul>
 </div>
+</section>
+<section id="compounding-issues-of-multiple-comparisons" class="slide level2">
+<h2>Compounding issues of multiple comparisons</h2>
+<ul>
+<li><p>What if you’re not only testing 20K genes, but also multiple tests per gene (e.g.&nbsp;multiple contrasts, such as several two-group comparisons)?</p></li>
+<li><p>Classical procedures for adjustment (low dimensional setting):</p>
+<ul>
+<li>Tukey multiple comparison procedure</li>
+<li>Scheffe multiple comparison procedure</li>
+<li>Bonferroni or Holm FWER correction</li>
+</ul></li>
+<li><p>In our setting, we can also apply BH to all p-values globally</p>
+<ul>
+<li><p><code>limma::decideTests(pvals, method="global")</code> for a matrix of p-values or <code>eBayes</code> output (e.g.&nbsp;rows = genes, columns = contrasts)</p></li>
+<li><p>p-values are combined, adjusted globally, then separated back out and sorted</p></li>
+</ul></li>
+</ul>
 </section>
 <section id="next-up-regression-with-count-measures-rna-seq" class="slide level2">
 <h2>Next up: regression with count measures (RNA-seq)!</h2>
