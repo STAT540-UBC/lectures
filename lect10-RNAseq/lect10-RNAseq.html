@@ -821,7 +821,12 @@ attr(,"contrasts")$DPC
 <h2>Are we ready to fit the model?</h2>
 <p>Might start with the <code>limma</code> approach on the raw counts, but…</p>
 <div class="fragment">
-<p><strong>Not so fast</strong> - we have to consider additional sources of variation, and check our assumptions! * Sequencing depth * Gene length &amp; composition * Constant variance assumption</p>
+<p><strong>Not so fast</strong> - we have to consider additional sources of variation, and check our assumptions!</p>
+<ul>
+<li><p>Sequencing depth</p></li>
+<li><p>Gene length &amp; composition</p></li>
+<li><p>Constant variance assumption</p></li>
+</ul>
 </div>
 </section>
 <section id="library-size-sequencing-depth" class="slide level2">
@@ -893,7 +898,7 @@ attr(,"contrasts")$DPC
 <li><p><strong>Normalized expression units</strong>: expression values adjusted for factors like library size, gene length</p>
 <ul>
 <li>e.g.RPKM/FPKM, TPM, CPM</li>
-<li>useful for visualization / clustering</li>
+<li>useful for visualization / clustering (usually log scale)</li>
 </ul></li>
 <li><p><strong>Normalization factors</strong>: scalar values representing relative library size of each sample</p>
 <ul>
@@ -1435,6 +1440,30 @@ attr(,"contrasts")$DPC
 </section>
 
 
+<section id="variance-stabilizing-transformation-vst" class="slide level2">
+<h2>Variance-stabilizing transformation (VST)</h2>
+<div class="columns">
+<div class="column">
+<p>Another option to account for the Mean-Variance relationship is to apply the VST (<a href="https://www.nature.com/articles/npre.2010.4282.1">Anders &amp; Huber 2010</a> and implemented in DESeq2):</p>
+<ul>
+<li>estimates mean-variance relationship and transforms the data to remove (flatten) the experiment-wide trend</li>
+<li>also accounts for library size differences (like normalization factors)</li>
+<li>great option for visualization</li>
+</ul>
+</div><div class="column">
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1"></a><span class="fu">library</span>(<span class="st">"vsn"</span>)</span>
+<span id="cb35-2"><a href="#cb35-2"></a><span class="fu">meanSdPlot</span>(<span class="fu">vst</span>(<span class="fu">as.matrix</span>(counts)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-24-1.png" width="960"></p>
+</div>
+</div>
+</div>
+</div>
+</section>
 <section id="alternative-option-use-count-models" class="slide level2">
 <h2>Alternative option: use count models</h2>
 <ul>
@@ -1488,7 +1517,7 @@ attr(,"contrasts")$DPC
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
 <figure>
-<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-24-1.png" width="1536"></p>
+<p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-25-1.png" width="1536"></p>
 </figure>
 </div>
 </div>
@@ -1591,15 +1620,15 @@ attr(,"contrasts")$DPC
 <section id="edger-in-action" class="slide level2">
 <h2><code>edgeR</code> in action</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1"></a>des <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp))</span>
-<span id="cb35-2"><a href="#cb35-2"></a>dge <span class="ot">&lt;-</span> <span class="fu">DGEList</span>(<span class="at">counts =</span> <span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts, </span>
-<span id="cb35-3"><a href="#cb35-3"></a>               <span class="at">samples =</span> <span class="fu">colData</span>(sumexp))</span>
-<span id="cb35-4"><a href="#cb35-4"></a>dge <span class="ot">&lt;-</span> <span class="fu">calcNormFactors</span>(dge)</span>
-<span id="cb35-5"><a href="#cb35-5"></a>dge <span class="ot">&lt;-</span> <span class="fu">estimateDisp</span>(dge)</span>
-<span id="cb35-6"><a href="#cb35-6"></a>QLfit <span class="ot">&lt;-</span> <span class="fu">glmQLFit</span>(dge, <span class="at">design =</span> des)</span>
-<span id="cb35-7"><a href="#cb35-7"></a>QLtest_Group <span class="ot">&lt;-</span> <span class="fu">glmQLFTest</span>(QLfit, <span class="at">coef =</span> <span class="st">"GroupMu"</span>) </span>
-<span id="cb35-8"><a href="#cb35-8"></a></span>
-<span id="cb35-9"><a href="#cb35-9"></a><span class="fu">topTags</span>(QLtest_Group)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1"></a>des <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp))</span>
+<span id="cb36-2"><a href="#cb36-2"></a>dge <span class="ot">&lt;-</span> <span class="fu">DGEList</span>(<span class="at">counts =</span> <span class="fu">assays</span>(sumexp)<span class="sc">$</span>counts, </span>
+<span id="cb36-3"><a href="#cb36-3"></a>               <span class="at">samples =</span> <span class="fu">colData</span>(sumexp))</span>
+<span id="cb36-4"><a href="#cb36-4"></a>dge <span class="ot">&lt;-</span> <span class="fu">calcNormFactors</span>(dge)</span>
+<span id="cb36-5"><a href="#cb36-5"></a>dge <span class="ot">&lt;-</span> <span class="fu">estimateDisp</span>(dge)</span>
+<span id="cb36-6"><a href="#cb36-6"></a>QLfit <span class="ot">&lt;-</span> <span class="fu">glmQLFit</span>(dge, <span class="at">design =</span> des)</span>
+<span id="cb36-7"><a href="#cb36-7"></a>QLtest_Group <span class="ot">&lt;-</span> <span class="fu">glmQLFTest</span>(QLfit, <span class="at">coef =</span> <span class="st">"GroupMu"</span>) </span>
+<span id="cb36-8"><a href="#cb36-8"></a></span>
+<span id="cb36-9"><a href="#cb36-9"></a><span class="fu">topTags</span>(QLtest_Group)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Coefficient:  GroupMu 
              logFC   logCPM         F       PValue          FDR
@@ -1619,13 +1648,13 @@ Anxa11   0.4735432 2.957357  28.47633 3.716860e-06 4.068467e-03</code></pre>
 <section id="deseq2-in-action" class="slide level2">
 <h2><code>DESeq2</code> in action</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1"></a>des <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp))</span>
-<span id="cb37-2"><a href="#cb37-2"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeqDataSet</span>(sumexp, <span class="at">design =</span> des)</span>
-<span id="cb37-3"><a href="#cb37-3"></a>dds <span class="ot">&lt;-</span> <span class="fu">estimateSizeFactors</span>(dds)</span>
-<span id="cb37-4"><a href="#cb37-4"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeq</span>(dds)</span>
-<span id="cb37-5"><a href="#cb37-5"></a></span>
-<span id="cb37-6"><a href="#cb37-6"></a>res <span class="ot">&lt;-</span> <span class="fu">results</span>(dds, <span class="at">name =</span> <span class="st">"GroupMu"</span>)</span>
-<span id="cb37-7"><a href="#cb37-7"></a>res[<span class="fu">order</span>(res<span class="sc">$</span>padj), ]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1"></a>des <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Sex <span class="sc">+</span> Group <span class="sc">+</span> DPC, <span class="at">data =</span> <span class="fu">colData</span>(sumexp))</span>
+<span id="cb38-2"><a href="#cb38-2"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeqDataSet</span>(sumexp, <span class="at">design =</span> des)</span>
+<span id="cb38-3"><a href="#cb38-3"></a>dds <span class="ot">&lt;-</span> <span class="fu">estimateSizeFactors</span>(dds)</span>
+<span id="cb38-4"><a href="#cb38-4"></a>dds <span class="ot">&lt;-</span> <span class="fu">DESeq</span>(dds)</span>
+<span id="cb38-5"><a href="#cb38-5"></a></span>
+<span id="cb38-6"><a href="#cb38-6"></a>res <span class="ot">&lt;-</span> <span class="fu">results</span>(dds, <span class="at">name =</span> <span class="st">"GroupMu"</span>)</span>
+<span id="cb38-7"><a href="#cb38-7"></a>res[<span class="fu">order</span>(res<span class="sc">$</span>padj), ]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>log2 fold change (MLE): GroupMu 
 Wald test p-value: GroupMu 
@@ -1665,12 +1694,12 @@ Xdh       46.8604      0.5709232 0.2895838  1.971530   0.0486632          NA</co
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1"></a><span class="fu">resultsNames</span>(dds)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1"></a><span class="fu">resultsNames</span>(dds)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] "Intercept" "SexF"      "GroupMu"   "DPC14.5"   "DPC17.5"   "DPC21"    
 [7] "DPC77"    </code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1"></a><span class="fu">results</span>(dds, <span class="at">contrast =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1"></a><span class="fu">results</span>(dds, <span class="at">contrast =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="dv">0</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>log2 fold change (MLE): 0,0,0,0,0,-1,+1 
 Wald test p-value: 0,0,0,0,0,-1,+1 

@@ -288,10 +288,13 @@ Might start with the `limma` approach on the raw counts, but...
 
 . . . 
 
-**Not so fast** - we have to consider additional sources of variation, and check our assumptions!
-  * Sequencing depth
-  * Gene length & composition
-  * Constant variance assumption
+**Not so fast** - we have to consider additional sources of variation, and check our assumptions!  
+
+* Sequencing depth  
+
+* Gene length & composition  
+
+* Constant variance assumption  
 
 
 ## Library size (sequencing depth)
@@ -348,11 +351,11 @@ hist(colSums(assays(sumexp)$counts)/1e6, main = NULL,
 * **Normalized expression units**: expression values adjusted for factors like library size, gene length
 
   * e.g.RPKM/FPKM, TPM, CPM
-  * useful for visualization / clustering
+  * useful for visualization / clustering (usually log scale)
 
 * **Normalization factors**: scalar values representing relative library size of each sample
 
-  * e.g. TMM, DESeq size factors 
+  * e.g. TMM, DESeq size factors
   * useful to include in models of raw counts to adjust for library size
 
 . . . 
@@ -676,6 +679,7 @@ praw
 ```
 :::
 :::
+
 
 
 ## Options for DE analysis on counts
@@ -1140,6 +1144,31 @@ counts_long %>%
   * Weights for this gene are about 30-40x higher for DPC 77 observations
   
 * Whether this is a false positive is a matter of opinion, but lesson is: *always look at the data*
+
+## Variance-stabilizing transformation (VST)
+
+::: columns
+
+::: column
+
+Another option to account for the Mean-Variance relationship is to apply the VST ([Anders & Huber 2010](https://www.nature.com/articles/npre.2010.4282.1) and implemented in DESeq2):
+
+* estimates mean-variance relationship and transforms the data to remove (flatten) the experiment-wide trend
+* also accounts for library size differences (like normalization factors)
+* great option for visualization
+
+:::
+
+::: column
+
+```{r}
+#| code-fold: true
+#| fig-height: 7
+library("vsn")
+meanSdPlot(vst(as.matrix(counts)))
+```
+:::
+:::
 
 
 ## Alternative option: use count models
