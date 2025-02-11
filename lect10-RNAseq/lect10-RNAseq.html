@@ -1031,7 +1031,7 @@ attr(,"contrasts")$DPC
 <div class="column">
 <ul>
 <li><p>OLS: assume all errors have the same variance (within gene)</p></li>
-<li><p>If not true, higher variance observations get more weight in minimization of error than they should (since less precise)</p>
+<li><p>If not true, higher variance observations get less weight in minimization of error than they should (since less precise)</p>
 <ul>
 <li><p>Standard errors of parameter estimates will be poor estimates</p></li>
 <li><p>Recall: <span class="math inline">\(t = \frac{\hat{\beta}}{se(\hat{\beta})}\)</span></p></li>
@@ -1153,7 +1153,7 @@ attr(,"contrasts")$DPC
 <li><p>Falls under the category <em>“Make adjustments and model as usual”</em></p></li>
 <li><p>Specifically, adjustment to regular <code>lm</code> to account for M-V relationship + <code>limma</code></p></li>
 </ul>
-<p>. . .</p>
+<div class="fragment">
 <div class="callout callout-important callout-titled callout-style-default">
 <div class="callout-body">
 <div class="callout-title">
@@ -1164,7 +1164,7 @@ attr(,"contrasts")$DPC
 </div>
 <div class="callout-content">
 <ol type="1">
-<li><p>heteroskedasticity leads to higher variance observations getting more weight in minimization of error than they should</p></li>
+<li><p>heteroskedasticity leads to higher variance observations getting less weight in minimization of error than they should</p></li>
 <li><p>modeling the mean-variance relationship is more important than getting the probability distribution exactly right (i.e.&nbsp;don’t bother with distributions like Poisson, Binomial, etc that lead to more complicated likelihoods)</p></li>
 </ol>
 </div>
@@ -1173,6 +1173,7 @@ attr(,"contrasts")$DPC
 <ul>
 <li>Proposed in <a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29">“voom: precision weights unlock linear model analysis tools for RNA-seq read counts” by Law et al.&nbsp;(2014)</a></li>
 </ul>
+</div>
 </section>
 <section id="voom-implementation" class="slide level2">
 <h2>Voom implementation</h2>
@@ -1455,7 +1456,8 @@ attr(,"contrasts")$DPC
 <details>
 <summary>Code</summary>
 <div class="sourceCode cell-code" id="cb35"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1"></a><span class="fu">library</span>(<span class="st">"vsn"</span>)</span>
-<span id="cb35-2"><a href="#cb35-2"></a><span class="fu">meanSdPlot</span>(<span class="fu">vst</span>(<span class="fu">as.matrix</span>(counts)))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb35-2"><a href="#cb35-2"></a><span class="fu">meanSdPlot</span>(<span class="fu">vst</span>(<span class="fu">as.matrix</span>(counts)), </span>
+<span id="cb35-3"><a href="#cb35-3"></a>           <span class="at">ranks =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output-display">
 <p><img data-src="lect10-RNAseq_files/figure-revealjs/unnamed-chunk-24-1.png" width="960"></p>
@@ -1538,7 +1540,7 @@ attr(,"contrasts")$DPC
 <li><p>The Gamma distribution on means captures the biological variance (overdispersion) that can’t be accommodated by Poisson alone</p></li>
 </ul></li>
 <li><p>“Overdispersed Poisson” (variance <span class="math inline">\(&gt;\)</span> mean)</p></li>
-<li><p><strong>Key problem</strong>: estimating dispersion from small datasets is tricky!</p></li>
+<li><p><strong>Key problem</strong>: estimating (gene-specific) dispersion from small datasets is tricky!</p></li>
 </ul>
 
 <img data-src="img/overdisp.png" class="r-stretch quarto-figure-center"></section>
@@ -1552,7 +1554,7 @@ attr(,"contrasts")$DPC
 <li><p>Methods: <a href="https://bioconductor.org/packages/release/bioc/html/edgeR.html"><code>edgeR</code></a>, <a href="https://bioconductor.org/packages/release/bioc/html/DESeq2.html"><code>DESeq2</code></a></p></li>
 <li><p>Both assume counts have underlying <em>Negative Binomial distribution</em> and fit <strong>generalized linear models</strong></p>
 <ul>
-<li><p><strong>Generalized linear models</strong> (GLM) are a generalization of OLS that allows for response variables that have error distribution models other than a normal distribution</p></li>
+<li><p><strong>Generalized linear models</strong> (GLM) are a generalization of OLS that allow for response variables that have error distribution models other than a normal distribution</p></li>
 <li><p>No closed-form solutions (iterative estimation)</p></li>
 </ul></li>
 <li><p>Still fit models gene-by-gene as we’ve discussed so far</p></li>

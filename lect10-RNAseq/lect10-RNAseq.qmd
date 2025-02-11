@@ -654,7 +654,7 @@ No universal threshold: depends on library size of dataset, and possibly mean-va
 ::: column
 * OLS: assume all errors have the same variance (within gene)
 
-* If not true, higher variance observations get more weight in minimization of error than they should (since less precise)
+* If not true, higher variance observations get less weight in minimization of error than they should (since less precise)
 
   * Standard errors of parameter estimates will be poor estimates
   
@@ -808,25 +808,26 @@ Source: [Law et al. 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4053721/)
 
 * Falls under the category *"Make adjustments and model as usual"*
 
-* Specifically, adjustment to regular `lm` to account for M-V relationship + `limma`  
+* Specifically, adjustment to regular `lm` to account for M-V relationship + `limma`    
 
 
-. . . 
 
+::: {.fragment}
 
 
 :::{.callout-important} 
 
 # Key ideas of Voom:
 
-1. heteroskedasticity leads to higher variance observations getting more weight in minimization of error than they should
+1. heteroskedasticity leads to higher variance observations getting less weight in minimization of error than they should
 
 2. modeling the mean-variance relationship is more important than getting the probability distribution exactly right (i.e. don't bother with distributions like Poisson, Binomial, etc that lead to more complicated likelihoods)
-::: 
+:::  
 
 
-* Proposed in ["voom: precision weights unlock linear model analysis tools for RNA-seq read counts" by Law et al. (2014)](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29) 
+* Proposed in ["voom: precision weights unlock linear model analysis tools for RNA-seq read counts" by Law et al. (2014)](https://genomebiology.biomedcentral.com/articles/10.1186/gb-2014-15-2-r29)  
 
+:::
 
 ## Voom implementation
 
@@ -1165,7 +1166,8 @@ Another option to account for the Mean-Variance relationship is to apply the VST
 #| code-fold: true
 #| fig-height: 7
 library("vsn")
-meanSdPlot(vst(as.matrix(counts)))
+meanSdPlot(vst(as.matrix(counts)), 
+           ranks = FALSE)
 ```
 :::
 :::
@@ -1245,7 +1247,7 @@ Poisson OK for technical replicates, but **does not capture biological variabili
 
 * "Overdispersed Poisson" (variance $>$ mean)
 
-* **Key problem**: estimating dispersion from small datasets is tricky!
+* **Key problem**: estimating (gene-specific) dispersion from small datasets is tricky!
 
 ![](img/overdisp.png){fig-align="center"}
 
@@ -1264,7 +1266,7 @@ Poisson OK for technical replicates, but **does not capture biological variabili
 
 * Both assume counts have underlying *Negative Binomial distribution* and fit **generalized linear models**
 
-  * **Generalized linear models** (GLM) are a generalization of OLS that allows for response variables that have error distribution models other than a normal distribution
+  * **Generalized linear models** (GLM) are a generalization of OLS that allow for response variables that have error distribution models other than a normal distribution
   
   * No closed-form solutions (iterative estimation)
   
