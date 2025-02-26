@@ -1,0 +1,1508 @@
+---
+title: "Statistical Methods for Genome-wide Association Studies"
+author: |
+    | Yongjin Park, UBC Path + Stat, BC Cancer
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+classoption: "aspectratio=169"
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        theme: "Madrid"
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+setwd('~/work/teaching/stat540/lectures/lect13-gwas/')
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+source("Setup.R")
+fig.dir <- "./Fig/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+theme_set(theme_classic() + theme(title = element_text(size=10)))
+```
+
+## Themes for the forthcoming lectures from a method's perspective
+
+\Large
+
+* Supervised Learning -- lectures 13, 14, 15
+
+* Unsupervised Learning -- lectures 17, 18, 19
+
+\vfill
+
+\normalsize
+
+* Other types:
+
+    * Semi-supervised learning
+	
+    * Active learning
+
+	* Self-taught learning
+
+
+## Themes for the forthcoming lectures from a data's perspective
+
+\Large
+
+* Statistical genetics -- lectures 13, 14
+
+* Regulatory genomics -- lectures 15
+
+* Single-cell genomics -- lectures 17, 18, 19
+
+\normalsize
+
+
+
+<!----------------------->
+<!-- GWAS fundamentals -->
+<!----------------------->
+
+
+## The goal of today's lecture
+
+\Large
+
+* Some background knowledge of statistical genetics
+
+* Biological, statistical intuitions
+
+# Mapping disease-specific locations in Genome
+
+## Goal: mapping disease-specific locations in Genome
+
+::: {.block}
+### GWAS
+
+* Input: 
+
+    - A genotype matrix $X$ ${(n{\times}p)}$, where $X_{ij} \in \{0, 1, 2\}$
+
+    - A phenotype vector $\mathbf{y}$ ${(n{\times}1)}$
+
+* Output:
+
+    - Estimate a coefficient (effect size) $\beta_{j}$ ${(j \in 1,\ldots, p)}$
+
+:::
+
+
+* Testing $H_{0}: \beta_{j} = 0$ vs. $H_{1}: \beta_{j} \neq 0$.
+
+* Report p-values
+
+* It seems straightforward...
+
+## Definitions
+
+:::::: {.columns}
+::: {.column width=.3}
+::: {.block}
+### Allele
+
+* A different form of a gene
+
+* A Greek word "allos," $\alpha\lambda\lambda\eta\lambda\omicron$, meaning "other"
+
+:::
+
+:::
+::: {.column width=.3}
+::: {.block}
+### Variant and locus
+
+* A specific region of the genome differs across two or more genomes
+
+* A result of mutation
+
+* A locus: a location where many variants lie (plural: loci).
+
+:::
+
+:::
+::: {.column width=.3}
+::: {.block}
+### Ploidy
+
+* The number of copies of chromosomes within a cell/organism
+
+* Haploid: one copy
+
+* Diploid: two copies
+
+:::
+
+:::
+::::::
+
+"We found *A* allele for this genetic variant as an effect allele."
+
+"We found a hundred variants within the locus of *APOE*."
+
+"We identified ten loci associated with cancer."
+
+## More definitions
+
+:::::: {.columns}
+::: {.column width=.3}
+::: {.block}
+### Biallelic variant
+
+- bi + allelic
+
+- Two forms for a variant
+
+- Reference (more frequently observed) vs. alternative allele
+
+:::
+
+:::
+::: {.column width=.3}
+::: {.block}
+
+### Polymorphism
+
+- Poly + morph
+
+- Occurrence of different forms
+
+:::
+
+
+:::
+::: {.column width=.3}
+::: {.block}
+### SNP
+
+- Single Nucleotide Polymorphism
+
+- A place in the genome where people differ by a single base pair
+
+:::
+
+:::
+::::::
+
+We pronounce SNP "snip" in North America.
+
+
+## ${}$
+
+\Large
+
+Genetics is described in its own terminologies.
+
+Don't be illiterate.
+
+## Human genetics data -- The 1000 Genomes Project
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\centerline{\includegraphics[width=.7\linewidth]{img/1KG.png}}
+
+Let's download the 1KG data using `bigsnpr` library.
+
+```{r eval=F, echo=T, size="large"}
+library(bigsnpr)
+download_1000G("../data/genotype/")
+```
+
+:::
+::: {.column width=.5}
+
+\Large
+
+* International consortium
+
+* Goal:  find common genetic variants with frequencies of at least 1%
+
+* The project planned to sequence each sample to 4x genomic coverage.
+
+:::
+::::::
+
+https://www.internationalgenome.org/
+
+```{r download_1000g_data}
+dir.create("../data/genotype/", recursive=TRUE, showWarnings=FALSE)
+
+library(bigsnpr)
+.bed.file <- "../data/genotype/1000G_phase3_common_norel.bed"
+if.needed(.bed.file, {
+    download_1000G("../data/genotype/")
+})
+
+.bk.file <- "../data/genotype/1000G_phase3_common_norel.rds"
+if.needed(.bk.file, {
+    BED <- snp_readBed(.bed.file)
+})
+```
+
+## A big matrix data set with row and column data
+
+Normally, we have a set of three files (PLINK format):
+
+1. `../data/genotype/1000G_phase3_common_norel.bed`
+
+1. `../data/genotype/1000G_phase3_common_norel.bim`
+
+1. `../data/genotype/1000G_phase3_common_norel.fam`
+
+
+## What are the rows? samples/individuals/subjects
+
+```{r}
+.fam.file <- "../data/genotype/1000G_phase3_common_norel.fam"
+.bim.file <- "../data/genotype/1000G_phase3_common_norel.bim"
+```
+
+:::::: {.columns}
+::: {.column width=.65}
+
+```{r echo = T, size="large"}
+fread(.fam.file, nrows=5)
+```
+
+:::
+::: {.column width=.35}
+
+\normalsize
+
+1. Family ID ('FID')
+2. Within-family ID (**'IID'**; cannot be '0')
+3. Within-family ID of father ('0' if father isn't in dataset)
+4. Within-family ID of mother ('0' if mother isn't in dataset)
+5. Sex code (1: male, 2: female, 0: unknown)
+6. Phenotype value^[not much used] (1: control, 2: case, '-9': missing)
+
+:::
+::::::
+
+https://www.cog-genomics.org/plink/1.9/formats
+
+## What are the columns? genetic variants/SNPs
+
+:::::: {.columns}
+::: {.column width=.7}
+
+```{r echo=T, size="large"}
+fread(.bim.file, nrow=5)
+```
+
+$${}$$
+
+\small
+https://www.cog-genomics.org/plink/1.9/formats
+
+:::
+::: {.column width=.3}
+
+\normalsize
+
+1. Chromosome code
+2. Variant identifier
+3. Position in morgans or centimorgans (safe to use dummy value of '0')
+4. Base-pair coordinate (1-based; limited to $2^{31}$-2)
+5. Allele 1 (corresponding to clear bits in .bed; usually minor)
+6. Allele 2 (corresponding to set bits in .bed; usually major)
+
+:::
+::::::
+
+## Let's understand how we "name" and "code/type" variants
+
+A variant $\approx$ SNP (throughout the course)
+
+::: {.block}
+### example
+```
+1 rs12184325  0 754105  T  C
+```
+:::
+
+\only<1>{
+\begin{enumerate}
+\item Chromosome
+\item Variant
+\item Morgan (ignore)
+\item Base-pair coordinate
+\item Allele 1
+\item Allele 2
+\end{enumerate} }
+
+\only<2-5>{ \begin{enumerate}
+\item<2-5> Chromosome: \textbf{1}
+\item<3-5> Variant identifier: \textbf{rs12184325}, a unique ID used in \texttt{dbSNP}; can be anything unique; it can change depending on the \texttt{dbSNP} human genome build (don't rely on it).
+\item<4-5> A unit for measuring genetic linkage (just put the dummy value "0")
+\item<4-5> Genomic position (bp) within each chromosome
+\item<5> \textbf{A1}: If this allele (haplotype) is \textit{T}, we use \textbf{\color{blue}0}
+\item<5> \textbf{A2}: If this allele (haplotype) is \textit{C}, we use \textbf{\color{red}1}
+\end{enumerate} }
+
+\begin{itemize}
+\item<6-> How many haplotypes? A conventional way to code "genotype" is to sum them up (additive effect); there are several other options (dominance, heterozygous).
+\item<7-> How do you code "TT"? \only<8>{\color{red}\bf 0}
+\item<7-> How do you code "CC"? \only<8>{\color{red}\bf 2}
+\item<7-> How do you code "CT"? \only<8>{\color{red}\bf 1}
+\end{itemize}
+
+## How these genotypes instantiated in 1KG data
+
+By calling `snp_readBed(.bed.file)`, we can convert the "BED"-formatted data to a "RDS" file for faster access. Later, we need to "attach" that RDS.
+
+```{r echo=T, size="large"}
+data <- snp_attach(.bk.file)
+str(data, max.level=1, strict.width = "cut")
+```
+
+```{r include = F}
+pop.info.file <- "../data/genotype/1000G_phase3_common_norel.fam2"
+pop.info <- fread(pop.info.file)
+```
+
+## How these genotypes instantiated in 1KG data
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=T, size="large"}
+dim(data$genotype)
+```
+
+$${}$$
+
+\Large
+
+* How many rows and columns?
+
+* What are the rows and columns?
+
+:::
+::: {.column width=.5}
+
+```{r echo=T, size="large"}
+dim(data$fam)
+```
+
+```{r echo=T, size="large"}
+dim(data$map)
+```
+
+:::
+::::::
+
+## How these genotypes instantiated in 1KG data
+
+\Large
+
+A genotype/dosage matrix:
+
+```{r echo = T, size="large"}
+data$genotypes[1:5, 1:10]
+```
+
+## A tiny fraction of the full genotype matrix
+
+```{r fig.width=6, fig.height=3}
+X <- data$genotypes[1:30, 1:60]
+colnames(X) <- data$map$marker.ID[1:60]
+rownames(X) <- data$fam$sample.ID[1:30]
+.matshow(X, .axis.lab=4, .lab=2, .lw=.05)
+```
+
+## Just a bit more: Do you see any patterns?
+
+```{r fig.width=6, fig.height=2.5}
+X <- data$genotypes[1:400, 1:700]
+.matshow(X)
+```
+
+We will get back to the structure.
+
+
+
+## Goal: mapping disease-specific locations in Genome
+
+::: {.block}
+### GWAS
+
+* Input: 
+
+    - A genotype matrix $X$ ${(n{\times}p)}$, where $X_{ij} \in \{0, 1, 2\}$
+
+    - A phenotype vector $\mathbf{y}$ ${(n{\times}1)}$; it can be anything...
+
+* Output:
+
+    - Estimate a coefficient (effect size) $\beta_{j}$ ${(j \in 1,\ldots, p)}$
+
+:::
+
+
+* Testing $H_{0}: \beta_{j} = 0$ vs. $H_{1}: \beta_{j} \neq 0$.
+
+* Report p-values
+
+* Is it still straightforward after seeing the $X$ matrix--so direly structured?
+
+## 
+
+\vfill
+
+\huge
+
+What are the differences between DEG and GWAS?
+
+\vfill
+
+\large
+
+\onslide<2->{ So many variants, much fewer samples/individuals }
+
+\onslide<3>{ Expression $\sim$ phenotype vs. phenotype $\sim$ genetic variants }
+
+\onslide<4>{ Goal: mapping a genetic variant $\to$ a phenotype }
+
+\vfill
+
+
+## A toy example: GWAS for "Obsessive `ggplot` Disorder"^[an illustration purpose]
+
+```{r include=F}
+## population structure
+W <- 
+    pop.info %>% 
+    mutate(one = 1) %>%
+    dcast(`sample.ID` ~ `Super Population`, value.var = "one", fill = 0) %>%
+    (function(x) left_join(data$fam[, "sample.ID", drop = F], x)) %>% 
+    column_to_rownames("sample.ID") %>%
+    as.matrix()
+
+## Take first 10000 variants
+X <- data$genotypes[, 1:10000]
+rownames(X) <- data$fam$sample.ID
+colnames(X) <- data$map$physical.pos[1:10000]
+
+#' @param X genotype matrix
+#' @param W population structure
+#' @param h2 heritability
+#' @param pve.w population PVe
+#' @param n.causal
+#' @param n.traits
+simulate.pgs <- function(X, W, h2, pve.w, n.causal, n.traits = 1) {
+    .rnorm <- function(d1, d2) matrix(rnorm(d1*d2), d1, d2)
+    causal.snp <- sample(ncol(X), n.causal)
+    xx.causal <- apply(X[, causal.snp, drop=FALSE], 2, scale)
+    xx.causal[is.na(xx.causal)] <- 0
+
+    n.ind <- nrow(X)
+    y.true <- apply(xx.causal %*% .rnorm(n.causal, n.traits), 2, scale)
+    if(pve.w > 0){
+        y.pop <- apply(W %*% .rnorm(ncol(W), n.traits), 2, scale)
+    }else{
+        y.pop <- 0
+    }
+    y.err <- apply(.rnorm(n.ind, n.traits), 2, scale)
+
+    y.obs <- y.true * sqrt(h2) + y.pop * sqrt(pve.w)
+    y.obs <- y.obs + y.err * sqrt(1 - h2 - pve.w)
+
+    prop <- 1/(1+ exp(-y.obs))
+    y.cc <- rbinom(length(prop), 1, prop)
+
+    list(y.q = y.obs, y.cc = y.cc, x = X, w = W, causal = causal.snp)
+}
+```
+
+```{r}
+set.seed(1)
+.sim <- simulate.pgs(X, W, h2=.3, pve.w=0, n.causal=3)
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+A genotype matrix $X$ ($X_{ij} \in \{0,1,2\}$):
+
+```{r fig.width=2.5, fig.height=2.5}
+X <- .sim$x
+.matshow(X[1:30,1:30], .lw=.1, .lab=2)
+```
+
+:::
+::: {.column width=.5}
+
+A vector of phenotypes $Y$ ($Y_{i} = 1$ if case vs. $Y_{i} = 0$ if control)
+
+```{r}
+Y <- .sim$y.cc
+```
+
+```{r echo=T, size="large"}
+table(Y)
+```
+
+$${}$$
+
+Goal: Find locations (columns of $X$) where a genotype $\mathbf{x}_{j}$ is associated with a phenotype $\mathbf{y}$
+
+:::
+::::::
+
+
+## Let's do GWAS to find the disease-associated variants
+
+A variant-by-variant association t-test for a variant $j$:
+
+\large
+\centerline{$H_{0}:\, \mathbb{E}\!\left[X_{ij}|Y_{i}=1\right] = \mathbb{E}\!\left[X_{ij}|Y_{i}=0\right]\quad\textsf{vs.} \quad \mathbb{E}\!\left[X_{ij}|Y_{i}=1\right] \neq \mathbb{E}\!\left[X_{ij}|Y_{i}=0\right]$}
+
+* The average genotype is the same between the case and control under the null.
+
+```{r echo=T}
+j <- 1
+t.test(X[Y == 0, j], X[Y == 1, j])
+```
+
+## Can we calculate GWAS statistics more efficiently?
+
+```{r echo=T, size="large"}
+## library(matrixTests)
+.gwas <- col_t_welch(X[Y == 0, ], X[Y == 1, ])
+```
+
+* For each pair of columns in the two matrices, the function performs t-test and summarize all the results into a list of vectors.
+
+```{r echo=T}
+names(.gwas)
+```
+
+## Manhattan plot: A quick summary of all the GWAS p-values
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r only.plot="1-2", fig.width=3, fig.height=2.5}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), .gwas$pvalue, xlab = "genomic location", ylab = "p-value")
+```
+
+```{r only.plot="3", fig.width=3, fig.height=2.5}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), .gwas$pvalue, xlab = "genomic location", ylab = "p-value")
+points(colnames(X)[.sim$causal], .gwas$pvalue[.sim$causal], col=2, cex=1, lwd=2, pch=1)
+```
+
+\onslide<3->{Where are the variants significantly associated with OGD?}
+
+:::
+::: {.column width=.5}
+
+```{r only.plot="1", fig.width=3, fig.height=2.5}
+par(pch=19, col="gray40", cex=.5)
+hist(.gwas$pvalue, 50, main="", xlab="p-value")
+```
+
+```{r only.plot="2", fig.width=3, fig.height=2.5}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas$pvalue), xlab = "genomic location", ylab = "-log10 p-value")
+```
+
+```{r only.plot="3", fig.width=3, fig.height=2.5}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas$pvalue), xlab = "genomic location", ylab = "-log10 p-value")
+points(colnames(X)[.sim$causal], -log10(.gwas$pvalue)[.sim$causal], col=2, cex=1, lwd=2, pch=1)
+legend("topleft", "causal variant", col=2, pch=1, lwd=1.5, lty=0, cex=2) 
+```
+
+\onslide<2->{Which one is more informative?}
+
+:::
+::::::
+
+## Multiple hypothesis adjustment
+
+\large
+
+We have many p-values, namely, $p_{1},p_{2},\ldots,p_{10000}$.
+
+\begin{enumerate}
+\item<1-> In GWAS, we usually take a very conservative stance. So, we adjust the nominal p-values by Bonferroni adjustment.
+\item<2-> What will be the adjusted p-value for $p_{j}$?
+\item<3-> $p^{\mathsf{adj}}_{j} \gets \min\{1, p_{j} \times 10000 \}$
+\item<4> $p_{j} < \alpha / 10000$ where $10000$ is the total number of hypothesis tests
+\end{enumerate}
+
+```{r size="large", echo=T}
+padj <- p.adjust(.gwas$pvalue)
+sum(padj < .05)
+```
+
+## How many variants vs. how many "independent" variants
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas$pvalue), xlab = "genomic location", ylab = "-log10 p-value")
+abline(h=-log10(0.05/ncol(X)), lty=2, col=2)
+##points(colnames(X)[.sim$causal], -log10(.gwas$pvalue)[.sim$causal], col=2, cex=1, lwd=2, pch=1)
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas$pvalue), xlab = "genomic location", ylab = "-log10 p-value")
+abline(h=-log10(0.05/ncol(X)), lty=2, col=4)
+points(colnames(X)[.sim$causal], -log10(.gwas$pvalue)[.sim$causal], col=2, cex=2, lwd=2, pch=1)
+legend("topleft",
+       c("causal variant","Bonferroni"),
+       col=c(2, 4),
+       pch=c(1, NA), lwd=1.5,
+       lty=c(0, 2),
+       cex=2)
+```
+
+## Adjusted p-value should control FWER or FDR only if...
+
+```{r}
+causal.variants <- .sim$causal
+gwas.p <- .gwas$pvalue
+```
+
+```{r echo = T, size = "large"}
+padj <- p.adjust(gwas.p, method="bonferroni")
+false.discoveries <- setdiff(which(padj < .05), causal.variants)
+empirical.FDR <- length(false.discoveries) / sum(padj < .05)
+print(empirical.FDR)
+```
+
+```{r echo = T, size = "large"}
+padj <- p.adjust(gwas.p, method="BH")
+false.discoveries <- setdiff(which(padj < .05), causal.variants)
+empirical.FDR <- length(false.discoveries) / sum(padj < .05)
+print(empirical.FDR)
+```
+
+## ${}$
+
+\Huge
+
+What went wrong with GWAS?
+
+\onslide<2>{ Actually, everything is perfectly expected. }
+
+## What if we do IID variant association studies?
+
+* Instead of using a real-world genotype matrix, we could do the same exercise with IID 0,1,2 matrix (sample permutation).
+
+```{r}
+set.seed(1)
+X.iid <- apply(X, 2, sample)
+set.seed(1)
+.sim.iid <- simulate.pgs(X.iid, W, h2=.3, pve.w=0, n.causal=3)
+.gwas.iid <- col_t_welch(X.iid[.sim.iid$y.cc == 0, ], X.iid[.sim.iid$y.cc == 1, ])
+```
+
+```{r fig.width=6, fig.height=3}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X.iid), -log10(.gwas.iid$pvalue), xlab = "genomic location", ylab = "-log10 p-value")
+abline(h=-log10(0.05/ncol(X.iid)), lty=2, col=4)
+points(colnames(X)[.sim$causal], -log10(.gwas.iid$pvalue)[.sim$causal], col=2, cex=2, lwd=2, pch=1)
+legend("topright",
+       c("causal variant","Bonferroni"),
+       col=c(2, 4),
+       pch=c(1, NA), lwd=1.5,
+       lty=c(0, 2),
+       cex=2)
+```
+
+# How GWAS can be interpreted wrongfully
+
+## Exploratory Data Analysis of the 1KG data
+
+In the 1KG data, we have `r nrow(data$genotypes)` rows/individuals and `r ncol(data$genotypes)` columns/variants. 
+
+* Consistently, we will use $n$ to refer to the number of samples and $p$ to the number of variants.
+
+* Let's assume that we are mostly interested in biallelic (two alleles) variants/SNPs.
+
+\large
+
+\begin{itemize}
+\item<2-> \textit{Recall}: Each SNP/genotype comprises two numbers (haplotypes)--one from the maternal and the other from the paternal genome.
+\item<3-> There are major (usually reference) and minor (usually effect) alleles. To save bits (in the early 2000s), geneticists used 0 for the major and 1 for the minor allele.
+\item<4> So, each variant, we have a minor allele frequency (MAF), namely, $f_{j}$, for a variant $j$.
+\end{itemize}
+
+## If each variant follows Binomial distribution 
+
+In Binomial distribution, with a MAF $f_{j}$, we have
+
+\Large
+
+\begin{itemize}
+\item<1-> What will be a useful summary statistic for a variant $j$?
+\onslide<2->{$$\hat{\mathbb{E}}\!\left[X_{j}\right] = 2 f_{j}$$}
+\item<3-> What is the variance of this variant?
+\onslide<4>{$$\hat{\mathbb{V}}\!\left[X_{j}\right] = 2 f_{j} (1 - f_{j})$$}
+\end{itemize}
+
+\vfill
+
+\small
+
+*Remark*: Technically, the dosage (0,1,2) does not follow binomial distribution. Why? The underlying data generation process involves haplotypes (separating the maternal and paternal 0/1 counts) and dependency along the genomic axis.
+
+## Variant-level MAF across individuals
+
+We can easily calculate MAF using `bigsnpr`:
+
+```{r echo=TRUE, size="large"}
+maf <- snp_MAF(data$genotypes, ncores=16)
+```
+
+```{r fig.width=6, fig.height=2, onslide.plot="2"}
+ggplot(data.table(MAF=maf), aes(MAF)) +
+    geom_density(aes(y = ..count..), fill="gray")
+```
+
+* What are the x- and y-axis? Where is the peak?
+
+## MAF distributions generally differ across ancestry groups (AG)
+
+```{r}
+.maf.file <- "../data/genotype/maf.txt.gz"
+if.needed(.maf.file, {
+    .hdr <- gsub(".rds","",.bk.file)
+    .files <- c()
+    pops <- unique(pop.info$`Super Population`)
+    for(pp in pops){
+        ii <- pop.info[`Super Population` == pp]$sample.ID
+        .bk.p <- .hdr %&% "-" %&% pp
+        if(!file.exists(.bk.p %&% ".rds")){
+            . <- snp_subset(data, which(data$fam$sample.ID %in% ii),
+                            backingfile = .bk.p)
+        }
+        .files <- c(.files, pp = .bk.p %&% ".rds")
+    }
+    names(.files) <- pops
+
+    .dt.maf <- data.table()
+
+    for(pp in pops){
+        .temp <- snp_attach(.files[pp])
+        .maf.pp <- snp_MAF(.temp$genotypes, ncores = 16)
+        rm(.temp)
+        .dt <-
+            data.table(maf = .maf.pp, pop = pp) %>%
+            mutate(j = 1:n())
+        .dt.maf <- rbind(.dt.maf, .dt)
+    }
+    fwrite(.dt.maf, .maf.file)
+})
+.dt.maf <- fread(.maf.file)
+```
+
+```{r fig.width=6, fig.height=3}
+ggplot(.dt.maf, aes(maf, fill = pop)) +
+    theme(axis.text = element_text(size=2)) +
+    geom_histogram(bins=50) +
+    scale_x_continuous(trans="sqrt") +
+    facet_wrap(~pop, nrow = 2, scales="free") +
+    scale_fill_brewer(palette = "Set1", guide="none")
+```
+
+## The same variant could have vastly different MAF values across AG
+
+```{r}
+maf.mat <-
+    dcast(.dt.maf, j ~ pop, value.var = "maf") %>%
+    (function(x) { rownames(x) <- x$j; x[, j:=NULL]; x })
+```
+
+```{r echo = T, size="large"}
+head(maf.mat)
+```
+
+## Random 100 variants
+
+```{r fig.width=6, fig.height=3}
+pheatmap::pheatmap(t(maf.mat[sample(.N, 100), ]))
+```
+
+## What are the covariance matrices of $X$? -- between the variants
+
+```{r}
+xx <- data$genotypes[1:400, 1:700]
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r fig.width=2.8, fig.height=2.5}
+.matshow(pmin(pmax(cov(xx), -.5), .5), .lab=0, .axis.lab=0, .lw=0)
+```
+
+\small
+
+More discussions in the next lectures.
+
+:::
+::: {.column width=.5}
+
+\normalsize
+
+For a genotype matrix $X$ ${(n{\times}p)}$,
+
+\Large
+
+::: {.block}
+### Linkage disequilibrium matrix
+
+A ${p\times{p}}$ matrix:
+
+$$\hat{R} = \frac{1}{n}X^{\top}X$$
+
+given each column $\mathbf{x}_{j}$ standardized (mean 0, SD 1).
+
+:::
+
+* $n$: individuals
+
+* $p$: variants/SNPs
+
+\centerline{$R_{ij} = \frac{1}{n} \sum_{r=1}^{n} X_{ri} X_{rj}$}
+
+:::
+::::::
+
+## What are the covariance matrices of $X$? -- between the individuals
+
+```{r}
+xx <- data$genotypes[1:500, 1:700]
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r fig.width=2.8, fig.height=2.5}
+.matshow(pmin(cov(t(xx)), .7), .lab=0, .axis.lab=0, .lw=0)
+```
+
+:::
+::: {.column width=.5}
+
+For a genotype matrix $X$ ${(n{\times}p)}$
+
+\Large
+
+::: {.block}
+### Kinship/genetic relatedness matrix
+
+An ${n\times{n}}$ matrix:
+
+$$\hat{K} = \frac{1}{p}XX^{\top}$$
+
+given each row $\mathbf{x}_{i}$ standardized (mean 0, SD 1).
+
+:::
+
+* $n$: individuals
+
+* $p$: variants/SNPs
+
+
+\centerline{$K_{ij} = \frac{1}{p} \sum_{g=1}^{p} X_{ig} X_{jg}$}
+
+:::
+::::::
+
+
+## What would happen if there were AG-specific biases?
+
+\Large
+
+$$g\left( \underset{\textsf{phenotype}}{Y} \right)
+\sim \underbrace{\sum_{k \in \textsf{causal variants}} X_{k} \beta_{k}}_{\textsf{true genetic effect}} +
+\underbrace{\sum_{g} \mathbf{U}_{g} \gamma_{g}}_{\textsf{ancestry group factors}} + \epsilon$$
+
+
+```{r}
+set.seed(1)
+.sim.biased <- simulate.pgs(X, W, h2=.3, pve.w=.3, n.causal=3)
+Y <- .sim.biased$y.cc
+```
+
+$${}$$
+
+Do GWAS as usual by variant-by-variant t-test:
+
+```{r echo=T, size="large"}
+.gwas.biased <- col_t_welch(X[Y == 0, ], X[Y == 1, ])
+```
+
+## Okay... do we have that many GWA-significant variants?
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+par(pch=19, col="gray40", cex=.5)
+hist(.gwas.biased$pvalue, 50, main="", xlab="p-value")
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas.biased$pvalue), xlab = "genomic location", ylab = "-log10 p-value")
+abline(h=-log10(0.05/ncol(X)), lty=2, col=4, lwd=2)
+points(colnames(X)[.sim.biased$causal], -log10(.gwas.biased$pvalue)[.sim.biased$causal], col=2, cex=2, lwd=2, pch=1)
+legend("topleft",
+       c("causal variant","Bonferroni"),
+       col=c(2, 4),
+       pch=c(1, NA), lwd=1.5,
+       lty=c(0, 2),
+       cex=2)
+```
+
+## How do we know there is an unknown group structure?
+
+:::::: {.columns}
+::: {.column width=.4}
+
+::: {.block}
+### A common assumption of GWAS: 
+
+- Only a small portion of variants are significantly associated. Why?
+
+- A majority of p-values under the null will follow Uniform distribution.
+
+:::
+
+:::
+::: {.column width=.6}
+
+```{r}
+nn <- length(.gwas$pvalue)
+p.expected <- seq(1, nn)/(nn+1)
+```
+
+```{r fig.width=3, fig.height=2.25, onslide.plot="2"}
+par(cex=.5)
+hist(p.expected)
+```
+
+```{r echo=T, eval=F, size="large"}
+nn <- length(.gwas$pvalue)
+p.expected <- seq(1, nn)/(nn+1)
+```
+
+:::
+::::::
+
+## Quantile-quantile plot as a diagnostic tool (log-scale)
+
+\Large
+
+Use `qqplot(pvalue1, pvalue2)`
+
+```{r fig.width=5, fig.height=3, only.plot="1"}
+par(cex=.5)
+qqplot(-log10(p.expected), -log10(.gwas.iid$pvalue),
+       main = "GWAS with IID variables",
+       xlab = "-log10 P-value expected",
+       ylab = "-log10 P-value estimated")
+abline(a=0, b=1, col=2)
+```
+
+```{r fig.width=5, fig.height=3, only.plot="2"}
+par(cex=.5)
+qqplot(-log10(p.expected), -log10(.gwas$pvalue),
+       xlab = "-log10 P-value expected",
+       ylab = "-log10 P-value estimated",
+       main = "GWAS with actual genotype")
+abline(a=0, b=1, col=2)
+```
+
+```{r fig.width=5, fig.height=3, only.plot="3"}
+par(cex=.5)
+qqplot(-log10(p.expected), -log10(.gwas.biased$pvalue),
+       xlab = "-log10 P-value expected",
+       ylab = "-log10 P-value estimated",
+       main = "GWAS with hidden pop structure")
+abline(a=0, b=1, col=2)
+```
+
+## How can we ascertain population/ancestry group structures?
+
+\small
+
+We will discuss more in the unsupervised learning lectures.
+
+\large
+
+:::::: {.columns}
+::: {.column width=.3}
+
+```{r echo=T}
+pca <- prcomp(t(X), rank=3) # rows
+names(pca)
+dim(pca$rotation)
+```
+
+:::
+::: {.column width=.7}
+
+```{r fig.width=4.5, fig.height=3, only.plot="2"}
+.dt <- data.table(pca$rotation, pop.info)
+
+ggplot(.dt[sample(.N)], aes(PC1, PC2, fill=`Super Population`)) +
+    geom_point(stroke=.1, pch=21) +
+    scale_fill_brewer("",palette = "Paired")
+```
+
+```{r fig.width=4.5, fig.height=3, only.plot="3"}
+ggplot(.dt[sample(.N)], aes(PC2, PC3, fill=`Super Population`)) +
+    geom_point(stroke=.1, pch=21) +
+    scale_fill_brewer("",palette = "Paired")
+```
+
+:::
+::::::
+
+## Can we quickly fix this? A little bit...
+
+```{r}
+Y <- .sim.biased$y.cc
+```
+
+```{r echo = T, size = "Large"}
+.svd <- rsvd::rsvd(X, 10)
+Y.adj <- lm(Y ~ .svd$u)$residual
+.gwas.adj <- col_cor_pearson(X, Y.adj)
+```
+
+$${}$$
+
+\Large
+
+Recall:
+
+$$g\left( \underset{\textsf{phenotype}}{Y} \right)
+\sim \underbrace{X_{k} \beta_{k}}_{\textsf{\color{teal} true genetic effect}} +
+\underbrace{\sum_{g} \mathbf{U}_{g} \gamma_{g}}_{\textsf{\color{magenta} estimate this by SVD}} + \epsilon$$
+
+
+
+## Side note: SVD captures principal components
+
+\Large
+\onslide<1->{
+$$X = U D V^{\top}$$
+}
+
+\large
+\onslide<2->{
+What is this?
+$$\frac{1}{n} X^{\top}X = \frac{1}{n} V D U^{\top} U D V^{\top} = 
+\underset{\textsf{\color{magenta} variant x variant}}{\frac{1}{n} V D^{2} V^{\top}}$$
+}
+
+\onslide<3->{
+What is this?
+$$\frac{1}{n} XX^{\top} = \frac{1}{n} U D V^{\top} V D U^{\top} = 
+\underset{\textsf{\color{teal} sample x sample}}{\frac{1}{n} U D^{2} U^{\top}}$$
+}
+
+## Simply regressing out population PCs can reduce biases
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas.biased$pvalue), xlab = "genomic location", ylab = "-log10 p-value", main = "before adjustement")
+abline(h=-log10(0.05/ncol(X.iid)), lty=2, col=4)
+points(colnames(X)[.sim.biased$causal], -log10(.gwas.biased$pvalue)[.sim.biased$causal], col=2, cex=2, lwd=2, pch=1)
+legend("topleft",
+       c("causal variant","Bonferroni"),
+       col=c(2, 4),
+       pch=c(1, NA), lwd=1.5,
+       lty=c(0, 2),
+       cex=2)
+```
+
+```{r fig.width=5, fig.height=3, only.plot="2"}
+par(cex=.5)
+qqplot(-log10(p.expected), -log10(.gwas.adj$pvalue),
+       xlab = "-log10 P-value expected",
+       ylab = "-log10 P-value estimated",
+       main = "GWAS with actual genotype after adjustment")
+abline(a=0, b=1, col=2)
+```
+
+```{r fig.width=6, fig.height=3, only.plot="3"}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas.adj$pvalue), xlab = "genomic location", ylab = "-log10 p-value", main = "after adjustment")
+abline(h=-log10(0.05/ncol(X.iid)), lty=2, col=4)
+points(colnames(X)[.sim.biased$causal], -log10(.gwas.adj$pvalue)[.sim.biased$causal], col=2, cex=2, lwd=2, pch=1)
+legend("topright",
+       c("causal variant","Bonferroni"),
+       col=c(2, 4),
+       pch=c(1, NA), lwd=1.5,
+       lty=c(0, 2),
+       cex=2)
+```
+
+
+## A linear model with population-driven random effects
+
+\large
+
+:::::: {.columns}
+::: {.column width=.48}
+
+A linear regression model:
+
+\Large
+
+$$\mathbf{y} = \mathbf{x}_{j} \underset{\textsf{\color{magenta} a fixed genetic effect}}{\beta_{j}} + \boldsymbol{\epsilon}$$
+
+\large
+
+What are we missing? Can we assume homo-scedasticity, i.e., 
+$$\boldsymbol{\epsilon} \overset{?}{\sim} \mathcal{N}\!\left(\mathbf{0}, \sigma^{2}I\right)$$
+
+:::
+::: {.column width=.48}
+
+\onslide<2->{
+
+\large
+
+A linear model with a random effect:
+
+\Large
+
+$$\mathbf{y} = \mathbf{x}_{j} \underset{\textsf{\color{gray} fixed}}{\beta_{j}} + \underset{\textsf{\color{magenta} random effect}}{\mathbf{u}} + \boldsymbol{\epsilon}$$
+
+\large
+
+{\emph Note}: There is no specific parameterization for this $n\times{1}$ random vector $\mathbf{u}$. Now, we assume:
+
+$$\boldsymbol{\epsilon} \sim \mathcal{N}\!\left(\mathbf{0}, \sigma^{2}I\right)$$
+
+}
+
+:::
+::::::
+
+## A linear model with population-driven random effects - 2
+
+\large
+
+We want to capture unwanted population, cohort-specific random effects by $n \times 1$ vector $\mathbf{u}$ and \textbf{\color{magenta} remove} since our \textbf{\color{blue} goal} is to estimate the fixed genetic effect of a particular variant $j$.
+
+\Large
+
+$$\mathbf{y} = \mathbf{x}_{j} \underset{\textsf{\color{blue} goal}}{\beta_{j}} + \underset{\textsf{\color{magenta} remove}}{\mathbf{u}} + \boldsymbol{\epsilon}$$
+
+\large
+
+\begin{enumerate}
+\item<2-> Note that $\mathbf{u}$ shouldn't be tied to a particular variant (by definition)
+\item<3-> Also, the covariation of $\mathbf{u}$ is primarily driven by relatedness among individuals, not the variants. 
+\end{enumerate}
+
+\onslide<3->{
+\Large
+$$\mathbf{u} \sim \mathcal{N}\!\left(\mathbf{0}, \tau^{2} K\right),\quad
+K \approx \frac{1}{n} XX^{\top}$$
+}
+
+## A linear mixed effect model (LMM) to test associations while adjusting population structure
+
+\large
+We can define a hierarchical model:
+
+\Large
+
+\begin{eqnarray}
+\mathbf{y}|X,\beta,\mathbf{u},\sigma &\sim& \mathcal{N}\!\left(X\boldsymbol{\beta} + \mathbf{u}, \sigma^{2} I\right) \\
+\mathbf{u}|\tau,K &\sim& \mathcal{N}\!\left(\mathbf{0}, \tau^{2} K\right)
+\end{eqnarray}
+
+\large
+
+If we integrate out $\mathbf{u}$,
+
+\Large
+
+$$\mathbf{y}|X,\beta \sim \mathcal{N}\!\left(\mathbf{y} \, \middle| \, X \boldsymbol{\beta}, \underbrace{\tau^{2} K}_{\textsf{\color{magenta} genetic-relatedness matrix}} + \underbrace{\sigma^{2} I}_{\textsf{\color{teal} irreducible}}\right)$$
+
+
+## Why using LMM instead of regressing out confounding factors?
+
+\large
+
+\begin{itemize}[<+->]
+\item It is hard to distinguish between causative vs. confounding effects
+\item Cumbersome computation required for matrix factorization or other latent variable modelling on a large genotype matrix
+\item We many not have a large matrix to learn about non-genetic confounders...
+\item One LMM estimation can substitute multiple matrix factorization steps
+\item We may have a good idea about relationships induced by random effects!
+\end{itemize}
+
+## A key research question in LMM: What covariance matrix?
+
+\large
+If there were many types of random effects,
+
+$\mathbf{y} = \underset{\textsf{\color{magenta} fixed}}{X \boldsymbol{\beta}} + \underset{\textsf{\color{teal} random effects}}{\mathbf{u} + \mathbf{w} + \ldots} + \underset{\textsf{\color{gray} unknown}}{\epsilon}$
+
+\onslide<2->{
+We would need to many covariance matrices:
+
+$$\mathbf{y}|\cdot \sim \mathcal{N}\!\left(X\boldsymbol{\beta},\,\sigma^{2}(I + \underbrace{\delta_{u} K_{u}  + \delta_{w} K_{w} + \ldots}_{\textsf{\color{teal} random effects}})\right)$$
+}
+
+\onslide<3>{
+If we only care about variance decomposition $\beta_{j} \sim \mathcal{N}\!\left(0,\tau\right)$:
+
+$$\mathbf{y} \sim \mathcal{N}\!\left(\mathbf{0},\, \sigma^{2}\left(\underset{\textsf{\color{magenta} observed genetic}}{\frac{\sigma^{2}_{\textsf{genetic}}}{n} XX^{\top}} + I + \underbrace{\delta_{u} K_{u}  + \delta_{w} K_{w} + \ldots}_{\textsf{\color{teal} random effects}}\right)\right)$$
+}
+
+## Should we worry about "over-fitting" in LMM?
+
+\large 
+
+An equivalent question for PCA-based confounder adjustment: 
+
+\vfill
+
+> How many PCs to adjust in GWAS?
+
+> Can we include a candidate SNP in the GRM $K$ matrix?
+
+\vfill
+
+\only<2>{
+For each chromosome $c \in \{1,\ldots, 22, \textsf{X}, \textsf{Y}\}$, build a leave-one-chromosome-out (LOCO) kinship matrix, say $K_{-c}$:
+
+$$\mathcal{N}\!\left(\mathbf{y} | \mathbf{x}_{j} \beta_{j}, \sigma^{2} (\delta K_{-c} + I)\right)$$
+
+\vfill
+\tiny
+Yang, {\it et al.}, \emph{Nature Genetics} (2014)
+
+Tucker, Price, Berger, \emph{Genetics} (2014)
+}
+
+
+# Combining evidence from multiple studies
+
+## Suppose we have GWAS summary statistics within each AG
+
+```{r message=F, warning=F, include=F}
+Y <- .sim$y.cc
+pops <- unique(pop.info$`Super Population`)
+gwas.dt <- data.table()
+for(pp in pops){
+    .subset <- pop.info$`Super Population` == pp
+    .gwas.p <- col_t_welch(X[which(Y == 0 & .subset), ],
+                           X[which(Y == 1 & .subset), ])
+    .gwas.dt.p <- setDT(.gwas.p)[, .(pvalue, mean.diff, stderr)] %>%
+        mutate(physical.pos = as.integer(colnames(X)), pop = pp)
+    gwas.dt <- rbind(gwas.dt, .gwas.dt.p)
+}
+```
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+ggplot(gwas.dt[pop == "EUR"], aes(physical.pos, -log10(pvalue))) +
+    ggrastr::rasterise(geom_point(pch=19, size=.5, col="gray"), dpi=300) +
+    geom_hline(yintercept = -log10(0.05/ncol(X)), col=2, lty=2) +
+    xlab("genomic location") +
+    ggtitle("GWAS in EUR (N=" %&% sum(pop.info$`Super Population`=="EUR") %&% ")")
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+ggplot(gwas.dt[sample(.N)],
+       aes(physical.pos, -log10(pvalue), color=pop)) +
+    ggrastr::rasterise(geom_point(pch=19, size=.5), dpi=300) +
+    scale_color_brewer(palette = "Paired") +
+    geom_hline(yintercept = -log10(0.05/ncol(X)), col=2, lty=2) +
+    theme(legend.position = c(1,1)) +
+    theme(legend.justification = c(1,1)) +
+    theme(legend.title = element_blank()) +
+    xlab("genomic location")
+```
+
+
+## Meta analysis: How can we combine multiple studies?
+
+\Large
+
+For each population/study $k$:
+
+* $\hat\beta_{jk}$: effect size for a variant $j$ on a study $k$
+
+* $s_{jk} = \mathsf{SE}(\beta_{jk})$: standard error for  a variant $j$ on a study $k$
+
+* $w_{jk} = 1/s_{jk}^{2}$: inverse variance
+
+::: {.block}
+### Meta analysis by inverse variance weighting
+
+$$\hat\beta_{j} = 
+\frac{\sum_{k} w_{k} \hat\beta_{jk}}
+{\sum_{k} w_{k}},
+\quad\quad
+\mathsf{SE}(\hat\beta_{j}) = 
+\frac{1}
+{\sqrt{ \sum_{k} w_{k} }}$$
+
+:::
+
+## Meta analysis can boos statistical power
+
+```{r echo = T, eval = F}
+gwas.dt[, w := 1/(`stderr`^2 + 1e-16)]
+
+meta.dt <-
+    gwas.dt[!is.na(w),
+            .(`mean` = sum(`mean.diff` * w)/sum(w),
+              `se` = 1/sqrt(sum(w))),
+            by = .(physical.pos)]
+
+meta.dt[, `z` := `mean`/`se`]
+meta.dt[, `pvalue` := 2*pnorm(abs(`z`), lower.tail=F)]
+```
+
+```{r}
+do.meta <- function(.dt, var.min = 1e-16){
+    .dt[, w := 1/(`stderr`^2 + var.min)]
+    meta.dt <-
+        .dt[!is.na(w),
+                .(`mean` = sum(`mean.diff` * w)/sum(w),
+                  `se` = 1/sqrt(sum(w))),
+                by = .(physical.pos)]
+    meta.dt[, `z` := `mean`/`se`]
+    meta.dt[, `pvalue` := 2*pnorm(abs(`z`), lower.tail=F)]
+    return(meta.dt)
+}
+```
+
+##
+
+```{r fig.width=6, fig.height=3, only.plot="1"}
+.show.gwas.pop <- function(pp){
+    meta.dt <- do.meta(gwas.dt[pop %in% pp])
+    .causal <- meta.dt[physical.pos %in% colnames(X)[.sim$causal]]
+    ggplot(meta.dt, aes(physical.pos, -log10(pvalue))) +
+        ggrastr::rasterise(geom_point(pch=19, size=.5, color="gray40"), dpi=300) +
+        geom_hline(yintercept = -log10(0.05/ncol(X)), col=2, lty=2) +
+        ggtitle(paste0(pp, collapse = " + ")) +
+        geom_point(data = .causal, pch=21, col=2, size=2)
+}
+.show.gwas.pop("EUR")
+```
+
+```{r fig.width=6, fig.height=3, only.plot="2"}
+.show.gwas.pop(c("EUR", "EAS"))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="3"}
+.show.gwas.pop(c("EUR", "EAS", "AMR"))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="4"}
+.show.gwas.pop(c("EUR", "EAS", "AMR", "SAS"))
+```
+
+```{r fig.width=6, fig.height=3, only.plot="5"}
+.show.gwas.pop(c("EUR", "EAS", "AMR", "SAS", "AFR"))
+```
+
+## Common pitfalls of GWAS meta analysis
+
+\Large
+
+* Multiple GWAS results on similar yet slightly different phenotypes
+
+* Different reference human genome
+
+* Different array platforms (could cover different variants)
+
+* Shared individuals
+
+    - Some individuals can be shared among different studies
+	
+	- In UK Biobank data, many non-cancer individuals can be also non-neuro-degenerative disorder individuals.
+
+# Appendix
+
+## FaST Linear Mixed Model (Lippert *et al.* 2011)
+
+\only<1-2>{
+
+We can resolve maximum likelihood estimate of the parameters, $\boldsymbol{\beta}, \tau, \sigma$, 
+
+$$\max \, \log \mathcal{N}\!\left(\mathbf{y} \, \middle| \, X \boldsymbol{\beta}, \sigma_{2} \left(\delta K + I \right)\right)$$
+
+where $\tau^{2} = \delta \sigma^{2}$.
+}
+
+\only<2>{
+We need to deal with this unfriendly form of likelihood:
+$$-\frac{1}{2} \left(
+n\log(2\pi\sigma^{2}) +
+\log \left|I + \delta K \right| + 
+\frac{1}{\sigma^{2}}\left[\mathbf{y} - X\boldsymbol{\beta}\right]^{\top} (I + \delta K)^{-1} \left[\mathbf{y} - X\boldsymbol{\beta}\right]
+\right)$$
+}
+
+\only<3->{
+Instead, we can transform the underlying distribution using spectral decomposition of the genetic-relatedness matrix (GRM), 
+
+\large
+
+$K = U S U^{\top}$ where $U^{\top}U=I$, and $S$ is a diagonal matrix.
+}
+\begin{eqnarray*}
+\only<3-4>{
+\underset{\textsf{\color{teal} projected output}}{U^{\top}\mathbf{y}} &\sim& \mathcal{N}\!\left(\underset{\textsf{\color{magenta} projected genotype}}{U^{\top}X}\boldsymbol{\beta}, \sigma^{2} U^{\top}(I + \delta K)U\right) \\
+}
+\only<4>{
+\textsf{\color{gray} (by the affine transformation)}
+&\sim& \mathcal{N}\!\left(\underset{\textsf{\color{pink} projected genotype}}{U^{\top}X} \boldsymbol{\beta},\, \underset{\textsf{\color{blue} diagonal matrix}}{\sigma^{2} (I + \delta S)}\right)
+}
+\end{eqnarray*}
+
+\vfill
+\only<4>{
+\normalsize
+\begin{itemize}
+\item We can find $\beta$ by weighted least square
+\item We can find $\sigma^{2}$ and $\delta$ by fixing $\beta$
+\end{itemize}
+}
+
+\tiny
+
+Lippert, Listgarten, .. , Heckerman, \emph{Nature Methods} (2011)
+
+
