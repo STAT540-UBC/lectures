@@ -2,7 +2,6 @@
 title: "Statistical Methods for single cell data analysis (focusing on technology)"
 author: "Yongjin Park, UBC Path + Stat, BC Cancer"
 date: "`r format(Sys.time(), '%d %B %Y')`"
-mainfont: Roboto
 classoption: "aspectratio=169"
 fontsize: 12pt
 output:
@@ -41,7 +40,7 @@ header-includes:
 
 
 ```{r setup, include=FALSE}
-setwd("~/work/teaching/stat540_lectures/lect16-scRNA-technology/")
+setwd("~/work/teaching/stat540/lectures/lect16-scRNAseq/")
 library(data.table)
 library(tidyverse)
 library(patchwork)
@@ -283,7 +282,7 @@ head(col.scores)
 
 * \onslide<1->{Too {\color{blue}few} genes expressed:} \onslide<2->{dying, {\color{blue}ambient cells}, too many technical drop out}
 
-* \onslide<1->{Unusual {\color{magenta}high} expressions}: \onslide<3>{{\color{magenta}doublets}, high ribosomal genes (background activities), disequilibrium}
+* \onslide<1->{Unusual {\color{magenta}high} expressions}: \onslide<3->{{\color{magenta}doublets}, high ribosomal genes (background activities), disequilibrium}
 
 :::
 
@@ -502,7 +501,7 @@ Then we have
 
 $$\hat{\mathbf{x}}_{j} = \underbrace{U (U^{\top}U)^{-1} U^{\top}}_{\textsf{\color{red} $p{\times}p$ projection matrix}} \mathbf{x}_{j}$$
 
-## PCA = maximizing total variance of the projected data
+## PCA: maximizing total variance of the projected
 
 ::: {.block}
 
@@ -1082,7 +1081,7 @@ For each cell $i$:
 
 * Create an artificial doublet
 
-$$\tilde{\mathbf{x}} \gets \frac{1}{2}(\mathbf{x}_{i} + \mathbf{x}_{j})$$
+\centerline{$\tilde{\mathbf{x}} \gets \frac{1}{2}(\mathbf{x}_{i} + \mathbf{x}_{j})$}
 
 Some thought questions:
 
@@ -1105,15 +1104,15 @@ doublet.data <- fileset.list(doublet.hdr)
 if.needed(doublet.data,
 {
     set.seed(1)
-  .rows <- readLines(qc.data$row)
-  .cols <- readLines(qc.data$col)
-  .rnd <- sample(length(.cols))
-
-  ## doublet mixology
-  X <- read.sparse(qc.data$mtx)
-  X.rnd <- read.sparse(qc.data$mtx, .rnd)
-  X.dbl <- round((X + X.rnd)/2)
-
+    .rows <- readLines(qc.data$row)
+    .cols <- readLines(qc.data$col)
+    .rnd <- sample(length(.cols))
+    
+    ## doublet mixology
+    X <- read.sparse(qc.data$mtx)
+    X.rnd <- read.sparse(qc.data$mtx, sub.cols = .rnd)
+    X.dbl <- round((X + X.rnd)/2)
+    
   ## give distinctive names
   .dbl <- str_c(.cols,.cols[.rnd],sep="+")
   .writev(c(.cols, .dbl),file=doublet.data$col)
