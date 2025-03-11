@@ -1169,6 +1169,103 @@ wrap_plots(p.eq, p0, p1, p.prod, p2, p.prod, p3,
 :::
 ::::::
 
+## Sample covariance matrix
+
+$$\hat{\Sigma} = X^{\top}X/m$$
+
+```{r fig.width=2.5, fig.height=2.5}
+.matshow(cov(x.sorted), .lab = 0)
+```
+
+## PCs (SVs) decompose the covariance matrix
+
+```{r}
+p.eq <- ggplot() + theme_void() + geom_text(aes(0,0,label="="), size=10)
+
+eigen.values <- svd.out$d^2 / (nrow(x.sorted) - 1)
+.show.cov.pc <- function(j) {
+    p0 <- ggplot() + theme_void() + geom_text(aes(0,0,label="+"),size=5)
+    .title <- round(eigen.values[j], 2) %&% "%"
+    p <- .matshow(V[,j,drop=FALSE] %*% t(V[,j,drop=FALSE]), .lab = 0) +
+        ggtitle(.title) + theme(title = element_text(size=8))
+    wrap_plots(p, p0, nrow=1, widths=c(8,2))
+}
+
+v.prod <- lapply(1:ncol(V), .show.cov.pc)
+```
+
+$\hat{\Sigma} = X^{\top}X/m
+\onslide<2->{
+= V D^{2} V^{\top} / m
+}
+\onslide<3>{
+= \sum_{k=1} \lambda_{k} \mathbf{v}_{k} \mathbf{v}_{k}^{\top},\quad \lambda_{k}
+}
+\onslide<3>{
+=D_{k}^{2}/m
+}$
+
+:::::: {.columns}
+::: {.column width=.25}
+
+```{r fig.width=1.25, fig.height=1.65}
+.matshow(cov(x.sorted), .lab = 0) + ggtitle("n x n")
+```
+
+:::
+
+::: {.column width=.02}
+$${\large\boldsymbol{=}}$$
+:::
+
+::: {.column width=.75}
+
+```{r fig.width=4.3, fig.height=1.65}
+wrap_plots(v.prod[1:3], nrow = 1)
+```
+
+* How much variance is explained by each component?
+
+:::
+::::::
+
+## How much variance is explained by each principal component?
+
+```{r fig.width=5, fig.height=2.5, only.plot="1"}
+.dt <- data.table(eigen.values) %>% mutate(k=1:n()) %>% as.data.table
+vtot <- sum(.dt$eigen.values)
+.dt[, pr := eigen.values / vtot]
+.dt[, cpr := cumsum(pr)]
+ggplot(.dt, aes(k, eigen.values, fill=eigen.values)) +
+    geom_line() +
+    ylab("eigenvalues (lambda)") +
+    xlab("principal components") +
+    geom_point(pch=21) +
+    scale_fill_distiller(palette = "RdPu", direction=1, guide="none")
+```
+
+```{r fig.width=5, fig.height=2.5, only.plot="2"}
+ggplot(.dt, aes(x=k, fill=eigen.values)) +
+    geom_line(aes(y=pr)) +
+    geom_text_repel(aes(y=pr, label=round(100*pr) %&% "%"),
+                    data = .dt[1:10, ],
+                    size = 3, nudge_x = 10, nudge_y = .1,
+                    segment.lw = .2,
+                    segment.color = 2,
+                    vjust=0, hjust=0, colour=2) +
+    geom_text_repel(aes(y=cpr, label=round(100*cpr) %&% "%"),
+                    data = .dt[2:5,],
+                    size = 3, nudge_x = 10, nudge_y = 0,
+                    segment.lw = .2,
+                    segment.color = "gray20",
+                    vjust=0, hjust=0, colour="gray40") +
+    geom_line(aes(y=cpr), lty=2) +
+    geom_point(aes(y=pr), pch=21) +
+    ylab("% var. explained\n(lambda/sum(lambda))") +
+    xlab("principal components") +
+    scale_fill_distiller(palette = "RdPu", direction=1, guide="none")
+```
+
 <!-- ## SVD decomposes covariance calculation -->
 
 <!-- :::::: {.columns} -->
@@ -1714,7 +1811,7 @@ ggplot(.dt, aes(V1, V2, fill=dbl)) +
 ggplot(.dt, aes(V2, V3, fill=dbl)) +
     ggrastr::rasterise(geom_point(stroke=.1, size=1, pch=21, alpha=.5),dpi=300) +
     scale_fill_brewer("", palette = "Set1") +
-    xlab("PC1") + ylab("PC2")
+    xlab("PC2") + ylab("PC3")
 ```
 
 ```{r fig.width=5, fig.height=2.5, echo = FALSE, only.plot=3}
@@ -1725,7 +1822,7 @@ ggplot(.dt, aes(V2, V3, fill=dbl)) +
 ggplot(.dt, aes(V3, V4, fill=dbl)) +
     ggrastr::rasterise(geom_point(stroke=.1, size=1, pch=21, alpha=.5),dpi=300) +
     scale_fill_brewer("", palette = "Set1") +
-    xlab("PC1") + ylab("PC2")
+    xlab("PC3") + ylab("PC4")
 ```
 
 ##
