@@ -1,0 +1,20 @@
+/*-- scss:defaults --*/
+$presentation-heading-color: #197aa0;
+
+/*-- scss:rules --*/
+.reveal .slide-logo {
+  display: block;
+  position: fixed;
+  bottom: 5px;
+  right: 12px;
+  height: 60px !important;
+  width: 60x !important;
+  max-width: unset !important;
+  max-height: unset !important;
+  z-index: -999 !important;
+}
+
+code.sourceCode {
+  font-size: 1.2em;
+  /* or try font-size: xx-large; */
+}
