@@ -404,7 +404,7 @@ Data from [https://simplemaps.com/data/world-cities](https://simplemaps.com/data
 
 
 
-# Clustering as a simplest possible unsupervised learning
+# Warm-up: Clustering is an unsupervised learning
 
 ```{r}
 library(torch)
@@ -440,14 +440,14 @@ simulate.data <- function(nn, D, K, sig = .2) {
 
 ## Clustering: Find commonality across rows and cols
 
-```{r echo=FALSE, fig.width=4.5, fig.height=2.5, only.plot="1"}
+```{r echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="1"}
 sim.out <- simulate.data(300, 200, 3, sig = 3)
 oo <- order(sim.out$k)
 xx <- sim.out$x %r% oo
 .matshow(xx) + ggtitle("sample x gene")
 ```
 
-```{r echo=FALSE, fig.width=4.5, fig.height=2.5, only.plot="2-"}
+```{r echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="2-"}
 xx <- .sort.matrix(sim.out$x)
 .matshow(xx) + ggtitle("sample x gene")
 ```
@@ -537,14 +537,18 @@ What could have been done to generate observe data?
 ## Gaussian Mixture Model (k-means)
 
 :::::: {.columns}
-::: {.column width=.4}
+::: {.column width=.5}
+
+```{r fig.width=2.5, fig.height=2}
+print(plt.data)
+```
 
 <!-- ```{r results="asis", out.width=".7\\linewidth"} -->
 <!-- knitr::include_graphics("./Vis/unsupervised/GMM_graphical_model.pdf") -->
 <!-- ``` -->
 
 :::
-::: {.column width=.5}
+::: {.column width=.49}
 ::: {.block}
 ### GMM data generating process
 
@@ -911,11 +915,6 @@ show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 
 ```{r fig.width = 5.5, fig.height = 2.5, only.plot = 12}
 tt <- 200
-show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
-```
-
-```{r fig.width = 5.5, fig.height = 2.5, only.plot = 13}
-tt <- 299
 show.z.trace(Z.trace, tt) | show.mu.trace(mu.trace, tt)
 ```
 
@@ -1816,6 +1815,8 @@ K <- length(unique(.show$beta$variable))
 p0 <- ggplot() + theme_void()
 wrap_plots(p1, p0, p2, p3, nrow = 2, heights=c(K,C), widths=c(4,1))
 ```
+
+# Topic modelling in VAE framework
 
 ##
 
