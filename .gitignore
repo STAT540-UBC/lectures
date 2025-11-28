@@ -39,3 +39,8 @@ vignettes/*.pdf
 .Renviron
 
 .DS_Store
+
+# Ignore backup
+old*
+backup*
+temp*
