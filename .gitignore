@@ -44,6 +44,7 @@ vignettes/*.pdf
 old*
 backup*
 temp*
+*~
 
 # Temporary files for presentation
 *.key
