@@ -19,8 +19,10 @@
 
 * [Matrix Operations](https://genomicsclass.github.io/book/pages/matrix_operations.html)
 
-
 ### Rafael Irizarry, Introduction to Data Science
 
 * [Chapter 33 Large datasets](https://rafalab.dfci.harvard.edu/dsbook/large-datasets.html), 
 
+### Cookbook
+
+* Petersen and Pedersen, [The Matrix Cookbook](https://www2.imm.dtu.dk/pubdb/pubs/3274-full.html)

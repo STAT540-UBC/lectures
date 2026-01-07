@@ -1,0 +1,2054 @@
+---
+title: "Refresher: Statistics and Matrix Algebra"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    powerpoint_presentation:
+        reference_doc: "_template.pptx"
+    html_document:
+        self_contained: true
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+setwd("~/work/stat540/lectures/lect02-intro-stat-matrix/")
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+source("Setup.R")
+fig.dir <- "../Fig/lect02-stat-matrix/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+```
+
+## Slide credits
+
+- Keegan Korthauer
+
+\vfill
+
+These are wonderful online books (hyperlinks):
+
+- [Modern Statistics for Modern Biology](https://www.huber.embl.de/msmb)
+
+- [Introduction to Data Science](https://rafalab.dfci.harvard.edu/dsbook/)
+
+- [Biomedical Data Science](https://genomicsclass.github.io/book/)
+
+## Two challenges in genomic data analysis
+
+
+\large
+
+* **Uncertainty**/noise distributions due to the nature of data-generating process
+
+* **High-dimensional** and big data because of many variables and many samples
+
+\normalsize
+
+\vfill
+
+* The last lecture was to introduce genomics to statisticians
+
+## Today's goal is to introduce statistics to biologists
+
+Basic tools/frameworks for:
+
+1. How can we deal with the **uncertainty** of genomic data (statistics)?
+
+2. How can we effectively represent **high dimensional data** (matrix algebra)?
+
+\vfill
+
+*Note*: In one lecture, it is impossible to teach you everything.
+
+# Statistics Refresher
+
+## What is Statistics?
+
+-   The field of statistics concerns the science of **collecting, analyzing/modeling, interpreting** data and **communicating uncertainty** about the results
+
+-   Statistics is **not** a collection of generic "recipes" to follow
+
+-   Our (statistical) goals for this course:
+
+    -   gain a rigorous understanding of core principles of common analyses of high-dimensional biological data
+
+    -   build solid foundation to follow up on specific topics
+
+## Probability and Inference
+
+:::::: {.columns}
+::: {.column width=.5}
+
+${}$
+
+\includegraphics[width=.8\textwidth]{img/probability-inference.pdf}
+
+${}$
+
+Wasserman, _All of Statistics_ (2003)
+
+:::
+::: {.column width=.5}
+
+* Probability will give insights into modelling.
+
+    * Given a data generating process, we can we expect in data?
+
+* We will estimate (recover) unknown from data by inference.
+
+    * Given the data, what can we know about a plausible model?
+
+\begin{eqnarray*}
+X &\sim& P(\theta) \\
+&\textsf{vs.}& \\
+\hat{\theta} &\gets& \arg\max \log P(\textsf{Data}|\theta)
+\end{eqnarray*}
+
+:::
+::::::
+
+## A real example: mutation in HIV genome
+
+* Human Immunodeficiency Virus (HIV) Genome: $10^{4}$ nucleotides
+
+* Mutation rate: $5 \times 10^{-4}$ per nulcleotide
+
+* How many mutations are expected to happen in each round of genome (RNA) replication?
+
+\vfill
+
+
+See [MSMB Chapter 1.](https://www.huber.embl.de/msmb/01-chap.html)
+
+## Expectation
+
+* Suppose that a mutation can happen at any position with an equal probability.
+
+* How many mutations are **expected** over all the genome per each replication?
+
+\vfill
+
+
+See MSMB Chapter 1.
+
+## A Bernoulli trial 
+
+We can have two possible outcomes (a variable) for each genomic location $i \in [10^{4}]$:
+
+$$
+X_{i} = \left\{
+\begin{array}{l l l}
+1 & \textsf{mutation occurred} & \textsf{ with probability } 5 \times 10^{-4}\\
+0 & \textsf{no mutation} & \textsf{ with probability } 1 - 5 \times 10^{-4}\\
+\end{array}
+\right.
+$$
+
+## So, will you see mutation or not?
+
+![](img/prediction.png)
+
+XKCD on "prediction"
+
+## Remark on the mutation indicator variable $X$
+
+\begin{itemize}
+\item<1-> It's like a coin flipping with an unequal chance of head and tail.
+\item<2-> We call a variable like $X$: a {\color{magenta}\bf Random Variable}.
+\item<3-> We set a Bernoulli random variable $X = 1$, assigning the value $1$ for an outcome of the mutation event (head), or $X = 0$ for the non-mutation (tail).
+\item<4> It is a {\color{magenta}"random"} variable, not a deterministic variable, because we assign the value with some probability.
+\end{itemize}
+
+## Probability of a Bernoulli trial
+
+More succinctly, we can write the probability of the event:
+$$
+P\{X_{i}=1\} = 5 \times 10^{-4}
+$$
+for all $i \in [10^4]$.
+
+* More formally, probability maps an event to a long-run **frequency**.
+
+* In order for a function to be a probability distribution/measure, it needs to satisfy the probability axioms.
+
+## Bernoulli distribution
+
+:::::: {.columns}
+::: {.column width=.45}
+::: {.block}
+### Bernoulli distribution
+
+We write 
+
+$$X \sim \mathsf{Bernoulli}(p)$$
+
+for a random variable $X$ following Bernoulli distribution with the rate parameter $p$.
+
+:::
+
+:::
+::: {.column width=.45}
+
+::: {.block}
+### Bernoulli probability function
+
+Then the corresponding probability function is
+
+$$f(x) = p^{x} (1- p)^{1-x}$$
+where
+$x \in \{0, 1\}$.
+
+:::
+
+The lower case $x$ is a particular value of the random variable $X$.
+
+:::
+::::::
+
+\vfill
+
+* What is $\sum_{x \in \{0, 1\}} f(x)$?
+
+* Can we have $x \notin \{0,1\}$?
+
+## Each Bernoulli trial at each nucleotide
+
+:::::: {.columns}
+::: {.column width=.45}
+
+
+We have mutation rate
+
+$$p=5{\times}10^{-4},$$
+
+with 
+
+$$n=1$$
+
+trial.
+
+:::
+::: {.column width=.45}
+
+$$
+f(x; n,p) = 
+$$
+
+```{r}
+size <- 1
+prob <- 5 * 10^-4
+```
+
+${}$
+
+Okay, let's use `R` to play with this Bernoulli distribution. Can you find any function related to Bernoulli?
+
+:::
+::::::
+
+## Bernoulli is a special case of Binomial distribution
+
+:::::: {.columns}
+::: {.column width=.45}
+::: {.block}
+### Binomial distribution
+
+We write 
+
+$$X \sim \mathsf{Binomial}(n,p)$$
+
+for a random variable $X$ counts the number of "success" events over total $n$ trials with the success rate $p$.
+
+:::
+
+:::
+::: {.column width=.45}
+
+::: {.block}
+### Binomial probability function
+
+Then the corresponding probability function is
+
+$$f(x) = \binom{n}{x} p^{x} (1- p)^{n-x}$$
+where
+$$\binom{n}{x} = \frac{n!}{x!(n-x)!}$$
+and
+$$x \in \{0, 1, \ldots, n\}.$$
+
+:::
+
+:::
+::::::
+
+## Each Bernoulli trial at each nucleotide
+
+:::::: {.columns}
+::: {.column width=.35}
+
+
+We have mutation rate
+
+$$p=5{\times}10^{-4},$$
+
+with 
+
+$$n=1$$
+
+trial.
+
+:::
+::: {.column width=.55}
+
+$$
+f(x; n,p) = 
+$$
+
+```{r}
+size <- 1
+prob <- 5 * 10^-4
+
+## repeat experiments 10 times
+rbinom(10, size=size, prob=prob)
+```
+
+${}$
+
+Are we seeing any mutation event?
+
+:::
+::::::
+
+
+## Let's repeat Bernoulli trials many times
+
+:::::: {.columns}
+::: {.column width=.35}
+
+* In the HIV genome, what if we have $n=100$ nucleotides?
+
+* We still assume that each nucleotide can have mutation with $p=5{\times}10^{-4}.$
+
+:::
+::: {.column width=.55}
+
+```{r}
+size <- 100
+prob <- 5 * 10^-4
+
+## repeat experiments 10 times
+rbinom(10, size=size, prob=prob)
+```
+
+${}$
+
+How about now?
+
+:::
+::::::
+
+
+
+
+## Let's repeat Bernoulli trials many times
+
+:::::: {.columns}
+::: {.column width=.35}
+
+* What if we have $n=10^{4}$ nucleotides?
+
+* We still assume that each nucleotide can have mutation with $p=5{\times}10^{-4}.$
+
+:::
+::: {.column width=.55}
+
+```{r}
+size <- 10^4
+prob <- 5 * 10^-4
+
+## repeat experiments 10 times
+rbinom(10, size=size, prob=prob)
+```
+
+${}$
+
+How about now?
+
+:::
+::::::
+
+
+## Does `rbinom` generate the same value?
+
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+size <- 10^4
+prob <- 5 * 10^-4
+
+## repeat experiments 10 times
+set.seed(1)
+rbinom(10, size, prob)
+```
+
+:::
+::: {.column width=.45}
+
+```{r}
+size <- 10^4
+prob <- 5 * 10^-4
+
+## repeat experiments 10 times
+set.seed(2)
+rbinom(10, size, prob)
+```
+
+:::
+::::::
+
+## What `R` can do for us
+
+If you type `?rbinom` or `help(rbinom)` for Binomial(size,prob):
+
+\scriptsize
+
+```
+The Binomial Distribution
+
+Description:
+
+     Density, distribution function, quantile function and random
+     generation for the binomial distribution with parameters 'size'
+     and 'prob'.
+
+     This is conventionally interpreted as the number of 'successes' in
+     'size' trials.
+
+Usage:
+
+     dbinom(x, size, prob, log = FALSE)
+     pbinom(q, size, prob, lower.tail = TRUE, log.p = FALSE)
+     qbinom(p, size, prob, lower.tail = TRUE, log.p = FALSE)
+     rbinom(n, size, prob)
+```
+
+
+## Functions related to probability
+
+:::::: {.columns}
+::: {.column width=.3}
+
+::: {.block}
+### Probability Density Function (PDF)
+
+* Discrete $x \in \mathcal{X}$:
+
+$f(x) = P(X = x)$
+
+* Continuous $x \in \mathcal{X}$:
+
+$f(x) = dF(x)/dx$
+
+$\quad = F'(x)$
+
+:::
+
+
+:::
+::: {.column width=.3}
+
+::: {.block}
+### Cumulative Distribution Function (CDF)
+
+$F(x) = P(X \leq x)$
+
+$\quad = \int_{-\infty}^{x} f(t) dt$
+
+:::
+
+
+:::
+::: {.column width=.3}
+
+::: {.block}
+### Quantile Function or inverse CDF
+
+$F^{-1}(p) = \inf\{x: F(x) \geq p\}$
+
+for $p \in [0,1]$
+
+:::
+
+:::
+::::::
+
+These definitions correspond to the R functions: `dbinom`, `pbinom`, `qbinom`.
+
+## Probability function `dbinom`
+
+```{r fig.width=4, fig.height=3, echo=F}
+x <- 0:20
+.df <- data.frame(x = x,
+                  probability = dbinom(x, size, prob))
+
+ggplot(.df, aes(x = x, y = probability)) +
+    geom_col(fill = "steelblue") +
+    labs(title = paste0("Binomial(n=", size, ", p=", prob, ")"),
+         x = "Number of mutations",
+         y = "PMF P(X = x)")
+```
+
+$f(x) = P(X = x)$ for each value of $x$
+
+## Cumulative Distribution function `pbinom`
+
+```{r fig.width=4, fig.height=3, echo=F}
+x <- 0:20
+.df <- data.frame(x = x,
+                  cumulative = pbinom(x, size, prob))
+
+ggplot(.df, aes(x = x, y = cumulative)) +
+    geom_step(color = "darkred", size = 1) +
+    geom_point(color = "darkred", size = 2) +
+    labs(title = paste0("Binomial(n=", size, ", p=", prob, ")"),
+         x = "x",
+         y = "CDF P(X ≤ x)")
+```
+
+$F(x) = P(X \leq x)$ cumulative probability up to $x$
+
+## Quantile function `qbinom`
+
+```{r fig.width=4, fig.height=3, echo=F}
+p <- seq(0, .99, by = .01)
+.df <- data.frame(p = p,
+                  quantile = qbinom(p, size, prob))
+
+ggplot(.df, aes(x = p, y = quantile)) +
+    scale_y_sqrt() +
+    geom_step(color = "darkgreen", size = 1) +
+    labs(title = paste0("Binomial(n=", size, ", p=", prob, ")"),
+         x = "Probability p",
+         y = "inv CDF, F(p)")
+```
+
+$F^{-1}(p)$ gives the value $x$ such that $P(X \leq x) \geq p$
+
+## Two types of random variables
+
+-   A **discrete** RV has a countable number of possible values
+
+    -   e.g. coin flip, throwing dice, genotype at a particular locus
+
+-   A **continuous** RV takes on values in an interval of numbers
+
+    -   e.g. blood glucose level, height of individuals
+
+## Expectation (the 1st moment)
+
+:::::: {.columns}
+::: {.column width=.35}
+
+* What if we have $n=10^{4}$ nucleotides?
+
+* We still assume that each nucleotide can have mutation with $p=5{\times}10^{-4}.$
+
+$$
+X \sim \mathsf{Binomial}(n, p)
+$$
+
+:::
+::: {.column width=.55}
+
+Overall, what is the expected number of mutations?
+
+\centerline{
+\onslide<2->{
+$\mathbb{E}\!\left[X\right] = n \, p$
+}
+\onslide<3->{
+$= 10^{4} \cdot 5 \times 10^{-4} = 5$
+}
+}
+
+${}$
+
+```{r fig.width=3, fig.height=2, only.plot="4", echo=F}
+x <- 0:20
+.df <- data.frame(x = x,
+                  probability = dbinom(x, size, prob))
+
+ggplot(.df, aes(x = x, y = probability)) +
+    geom_col(fill = "steelblue") +
+    geom_vline(xintercept = 5, lty=2, col=2) + 
+    labs(x = "Number of mutations",
+         y = "PMF P(X = x)")
+```
+
+:::
+::::::
+
+## Formal definitions: Moments of a distribution
+
+:::::: {.columns}
+::: {.column width=.3}
+
+::: {.block}
+### Expectation ($\mu$)
+
+Measures the average:
+
+For discrete,
+
+$\mathbb{E}[X] = \sum_{x \in \mathcal{X}} x \cdot f(x)$
+
+$${}$$
+
+For continuous,
+
+$\mathbb{E}[X] = \int_{x \in \mathcal{X}} x \cdot f(x) dx$
+
+$${}$$
+
+:::
+
+:::
+::: {.column width=.3}
+
+::: {.block}
+### Variance ($\sigma^{2}$)
+
+Measures the spread:
+
+$$\mathbb{V}[X] = \mathbb{E}[(X - \mu)^2]$$
+
+Equivalently:
+$$\mathbb{V}[X] = \mathbb{E}[X^2] - (\mathbb{E}[X])^2$$
+
+Standard deviation: $\sigma = \sqrt{\mathbb{V}[X]}$
+
+:::
+
+:::
+::: {.column width=.3}
+
+::: {.block}
+### Skewness
+
+Measures asymmetry of the distribution:
+
+$$\gamma_1 = \mathbb{E}\left[\left(\frac{X - \mu}{\sigma}\right)^3\right]$$
+
+Equivalently:
+$$\gamma_1 = \frac{\mathbb{E}[(X - \mu)^3]}{\sigma^3}$$
+
+:::
+
+:::
+::::::
+
+
+## Moments of Binomial distribution
+
+```{r include=F}
+n <- 1e4; p=5e-4;
+```
+
+For $X \sim \mathsf{Binomial}(n, p) \equiv \mathsf{Binomial}(n=10^{4}, p=5\cdot 10^{-4})$:
+
+:::::: {.columns}
+::: {.column width=.3}
+
+::: {.block}
+### Expectation
+
+$\mathbb{E}[X] = np$
+
+:::
+
+:::
+::: {.column width=.3}
+
+::: {.block}
+### Variance
+
+$\mathbb{V}[X] = np(1-p)$
+
+Standard deviation:
+
+$\sigma = \sqrt{np(1-p)}$
+
+
+:::
+
+:::
+::: {.column width=.3}
+
+::: {.block}
+### Skewness
+
+$\gamma_1 = (1-2p)/(\sqrt{np(1-p)})$
+
+:::
+
+:::
+::::::
+
+```{r}
+mu <- n * p
+sig2 <- n * p * (1-p)
+gam <- (1 - 2*p)/sqrt(n * p * (1-p))
+
+c(mu, sig2, gam)
+```
+
+
+## What if the genome is very long, mutation is very rare
+
+For $X \sim \mathsf{Binomial}(n, p)$, probability function:
+
+$$
+f(x) = \binom{n}{x} p^{x} (1-p)^{n-x}
+$$
+
+* Very long genome: $n \to \infty$ 
+* Very rare mutation: $p \to 0$
+* But finite number of mutations: $np = \lambda < \infty$
+
+<!-- \begin{align*} -->
+<!-- f(x) &= \binom{n}{x} p^{x} (1-p)^{n-x} \\ -->
+<!-- &= \frac{n!}{x!(n-x)!} \left(\frac{\lambda}{n}\right)^{x} \left(1-\frac{\lambda}{n}\right)^{n-x} \\ -->
+<!-- &= \frac{n(n-1)\cdots(n-x+1)}{x!} \cdot \frac{\lambda^{x}}{n^{x}} \cdot \left(1-\frac{\lambda}{n}\right)^{n} \cdot \left(1-\frac{\lambda}{n}\right)^{-x} -->
+<!-- \end{align*} -->
+
+## Poisson distribution for the number of mutations
+
+For Poisson RV, $X \sim \mathsf{Poisson}(\lambda)$, 
+we have the distribution function: 
+
+$$f(x) \to \frac{\lambda^{x} e^{-\lambda}}{x!}, \quad x = 0, 1, 2, \ldots$$
+
+Moments:
+
+$$\mathbb{E}\!\left[X\right] = \lambda,\quad \mathbb{V}\!\left[X\right] = \lambda$$
+
+## Compare Binomial and Poisson
+With the same parameters:
+\centerline{$n = 10^4, \, p = 5 \times 10^{-4}, \,\lambda = np = 5$}
+
+```{r fig.width=6, fig.height=2.5, echo=F, only.plot="1"}
+x <- 0:15
+lambda <- n * p
+
+# Binomial distribution
+p1 <- data.frame(x = x,
+                 probability = dbinom(x, size = n, prob = p)) %>%
+  ggplot(aes(x = x, y = probability)) +
+  geom_col(fill = "steelblue") +
+  geom_vline(xintercept = n * p, linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = paste0("Binomial(n=", n, ", p=", p, ")"),
+       x = "x", y = "P(X = x)") +
+  theme_minimal()
+
+# Poisson distribution
+p2 <- data.frame(x = x,
+                 probability = dpois(x, lambda = lambda)) %>%
+  ggplot(aes(x = x, y = probability)) +
+  geom_col(fill = "coral") +
+  geom_vline(xintercept = lambda, linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = paste0("Poisson(λ=", lambda, ")"),
+       x = "x", y = "P(X = x)") +
+  theme_minimal()
+
+# Side by side
+p1 | p2
+```
+
+```{r fig.width=6, fig.height=2.5, echo=F, only.plot="2"}
+# Quantile function comparison
+probs <- seq(0.001, 0.999, by = 0.001)
+lambda <- n * p
+
+# Binomial quantile function
+q1 <- data.frame(p = probs,
+                 quantile = qbinom(probs, size = n, prob = p)) %>%
+  ggplot(aes(x = p, y = quantile)) +
+  geom_step(color = "steelblue", linewidth = 1) +
+  geom_hline(yintercept = n * p, linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = paste0("Binomial quantile function"),
+       x = "Probability p", y = "qbinom(p)") +
+  theme_minimal()
+
+# Poisson quantile function
+q2 <- data.frame(p = probs,
+                 quantile = qpois(probs, lambda = lambda)) %>%
+  ggplot(aes(x = p, y = quantile)) +
+  geom_step(color = "coral", linewidth = 1) +
+  geom_hline(yintercept = lambda, linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = paste0("Poisson quantile function"),
+       x = "Probability p", y = "qpois(p)") +
+  theme_minimal()
+
+# Side by side
+q1 | q2
+```
+
+
+## QQ-plot: Binomial vs Poisson
+
+```{r fig.width=3.5, fig.height=3, echo=F}
+# Generate quantiles
+probs <- seq(0.01, 0.999, by = 0.01)
+qq_data <- data.frame(
+  binomial = qbinom(probs, size = n, prob = p),
+  poisson = qpois(probs, lambda = lambda)
+)
+
+ggplot(qq_data, aes(x = binomial, y = poisson)) +
+  geom_abline(intercept = 0, slope = 1, color = "red", linewidth = 1) +
+  geom_point(alpha = 0.5, stroke = 0, color = "darkblue", size = 1.5) +
+  labs(x = "Binomial quantiles (qbinom)",
+       y = "Poisson quantiles (qpois)")
+```
+
+
+## An example: $X \sim \mathsf{Poisson}(\lambda = 5)$
+
+Let's see what happens when we take sample means from $X \sim \mathsf{Poisson}(5)$.
+
+```{r}
+lambda <- 5
+xv <- rpois(10, lambda)
+print(xv)
+```
+
+## Statistical **Inference** is to figure out the unknown of a data generating process
+
+:::::: {.columns}
+::: {.column width=.35}
+
+$${}$$
+
+\includegraphics[width=\textwidth]{img/probability-inference.pdf}
+
+
+$${}$$
+
+
+:::
+::: {.column width=.55}
+
+We knew (or assumed)
+
+$$X \sim \mathsf{Poisson}(\lambda)$$
+
+and had some observed data set
+
+$D = \{$
+
+$\quad$ `r paste(xv, collapse=", ")` 
+
+$\ldots\}$
+
+* Can we figure out the unknown $\lambda$?
+
+:::
+::::::
+
+## How can we estimate the unknown parameters?
+
+* Assume $x_{i} \in D$ values are observation of independent and identically distributed (i.i.d.) $X$ RV.
+
+## Can we estimate mean parameter by sample mean?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+::: {.block}
+### (Weak) Law of Large Numbers
+
+Let $X_1, X_2, \ldots, X_n$ be i.i.d. with the mean $\lambda$
+
+The sample mean converges to the true mean $\lambda$:
+
+$$\bar{X}_n = \frac{1}{n}\sum_{i=1}^n X_i \xrightarrow{p} \lambda$$
+
+as $n \to \infty$.
+
+:::
+
+:::
+::: {.column width=.45}
+
+* With more observations, $n\to\infty$, the sample mean gets closer to the true mean
+
+* $\xrightarrow{p}$: This is **convergence in probability**, meaning $P(|\bar{X}_n - \lambda| > \epsilon) \to 0$ for any $\epsilon > 0$
+
+* Using sample mean to estimate mean is okay with high probability.
+
+:::
+::::::
+
+## Example: Estimating $\lambda$ from Poisson(5)
+
+```{r fig.width=6, fig.height=3, echo=F}
+set.seed(42)
+lambda <- 5
+max_n <- 1000
+
+# Generate sequence of sample means
+samples <- rpois(max_n, lambda)
+cumulative_means <- cumsum(samples) / seq_len(max_n)
+
+data.frame(n = seq_len(max_n),
+           sample_mean = cumulative_means) %>%
+  ggplot(aes(x = n, y = sample_mean)) +
+  geom_line(color = "steelblue", linewidth = 0.8) +
+  geom_hline(yintercept = lambda, color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", x = max_n * 0.8, y = lambda + 0.3,
+           label = paste0("True λ = ", lambda), color = "red", size = 5) +
+  labs(title = "Sample mean converges to true mean",
+       x = "Sample size (n)",
+       y = expression(bar(X)[n])) +
+  ylim(c(min(cumulative_means) - 0.5, max(cumulative_means) + 0.5))
+```
+
+## Multiple realizations of the LLN
+
+```{r fig.width=6, fig.height=3, echo=F}
+set.seed(123)
+n_simulations <- 10
+max_n <- 1000
+
+# Generate multiple sequences
+sim_data <- lapply(1:n_simulations, function(sim) {
+  samples <- rpois(max_n, lambda)
+  cumulative_means <- cumsum(samples) / seq_len(max_n)
+  cumulative_sd <- c(NA, sapply(2:max_n, function(n) {
+      sd(samples[1:n])
+  }))
+  data.frame(n = seq_len(max_n),
+             sample_mean = cumulative_means,
+             sample_sd = cumulative_sd,
+             simulation = sim)
+}) %>% bind_rows()
+
+ggplot(sim_data, aes(x = n, y = sample_mean, group = simulation)) +
+  geom_line(aes(colour=`sim`), alpha = 0.4, color = "steelblue") +
+  geom_hline(yintercept = lambda, color = "red", linetype = "dashed", linewidth = 1) +
+  annotate("text", x = max_n * 0.8, y = lambda + 0.3,
+           label = paste0("True λ = ", lambda), color = "red", size = 5) +
+  labs(title = paste0(n_simulations, " independent realizations"),
+       x = "Sample size (n)",
+       y = expression(bar(X)[n]))
+```
+
+## Central Limit Theorem
+
+:::::: {.columns}
+::: {.column width=.45}
+
+::: {.block}
+### Central Limit Theorem
+
+Let $X_1, X_2, \ldots, X_n$ be i.i.d. with mean $\mathbb{E}\!\left[X_{1}\right] = \mu$ and variance $\mathbb{V}\!\left[X_{1}\right] = \sigma^2$.
+
+${}$
+
+The sample mean $\bar{X}_n = n^{-1} \sum_{i=1}^n X_i$ converges in distribution to a normal distribution:
+
+$$\bar{X}_n \xrightarrow{d} \mathcal{N}(\mu, \sigma^2/n)$$
+
+as $n \to \infty$.
+
+:::
+
+:::
+::: {.column width=.45}
+
+* For any distribution, CLT holds!
+
+* The distribution of sample mean $\bar{X}_{n}$ becomes approximately normal for large $n$
+
+* The variance of $\bar{X}_n$ decreases as $n$ increases (how fast?)
+
+:::
+::::::
+
+
+## The sample Poisson example
+
+```{r fig.width=4, fig.height=3, echo=F}
+x <- 0:15
+data.frame(x = x, probability = dpois(x, lambda)) %>%
+  ggplot(aes(x = x, y = probability)) +
+  geom_col(fill = "steelblue") +
+  geom_vline(xintercept = lambda, linetype = "dashed", color = "red", linewidth = 1) +
+  labs(title = "Poisson(λ=5) - Individual observations",
+       x = "x", y = "P(X = x)")
+```
+
+<!-- This is discrete and somewhat skewed (skewness = $1/\sqrt{\lambda} \approx 0.45$) -->
+
+## Sample means with data size n=5
+
+```{r fig.width=5, fig.height=3, echo=F}
+set.seed(42)
+n <- 5
+n_samples <- 10000
+
+sample_means <- replicate(n_samples, mean(rpois(n, lambda)))
+
+mu <- lambda
+sigma2 <- lambda
+
+.df <- 
+data.frame(xbar = sample_means)
+ggplot(.df, aes(x = xbar)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "steelblue", alpha = 0.7) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sqrt(sigma2/n)),
+                color = "red", linewidth = 1) +
+  labs(title = paste0("Sample means from Poisson(5), n=", n),
+       x = expression(bar(X)[n]),
+       y = "Density") +
+  annotate("text", x = mu + 1, y = 0.3,
+           label = paste0("N(", mu, ", ", round(sigma2/n, 2), ")"),
+           color = "red", size = 5)
+```
+
+## Sample means with n=30
+
+```{r fig.width=5, fig.height=3, echo=F}
+set.seed(42)
+n <- 30
+sample_means <- replicate(n_samples, mean(rpois(n, lambda)))
+
+data.frame(xbar = sample_means) %>%
+  ggplot(aes(x = xbar)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 40, fill = "steelblue", alpha = 0.7) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sqrt(sigma2/n)),
+                color = "red", linewidth = 1) +
+  labs(title = paste0("Sample means from Poisson(5), n=", n),
+       x = expression(bar(X)[n]),
+       y = "Density") +
+  annotate("text", x = mu + 0.5, y = 0.8,
+           label = paste0("N(", mu, ", ", round(sigma2/n, 2), ")"),
+           color = "red", size = 5)
+```
+
+
+## Sample means with n=100
+
+```{r fig.width=5, fig.height=3, echo=F}
+set.seed(423)
+n <- 100
+sample_means <- replicate(n_samples, mean(rpois(n, lambda)))
+
+data.frame(xbar = sample_means) %>%
+  ggplot(aes(x = xbar)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 40, fill = "steelblue", alpha = 0.7) +
+  stat_function(fun = dnorm, args = list(mean = mu, sd = sqrt(sigma2/n)),
+                color = "red", linewidth = 1) +
+  labs(title = paste0("Sample means from Poisson(5), n=", n),
+       x = expression(bar(X)[n]),
+       y = "Density") +
+  annotate("text", x = mu + 0.5, y = 0.8,
+           label = paste0("N(", mu, ", ", round(sigma2/n, 2), ")"),
+           color = "red", size = 5)
+```
+
+## Different (data) sample sizes (10k simulations)
+
+```{r fig.width=6, fig.height=3, echo=F}
+set.seed(42)
+sample_sizes <- c(1, 10, 30, 100)
+n_samples <- 10000
+
+results <- lapply(sample_sizes, function(n) {
+  sample_means <- replicate(n_samples, mean(rpois(n, lambda)))
+  data.frame(n = paste0("n=", n), xbar = sample_means)
+}) %>% bind_rows()
+
+results$n <- factor(results$n, paste0("n=", sample_sizes))
+
+ggplot(results, aes(xbar)) +
+    geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "steelblue", alpha = 0.7) +
+    facet_wrap(~n, scales="free", nrow = 1) +
+    labs(x = expression(bar(X)[n]))
+```
+
+## Some clarifications
+
+Given $\bar{X}_{n} = \frac{1}{n} \sum_{i=1}^{n} X_{i}$, i.i.d., $X_{i} \sim \mathcal{N}\!\left(\mu, \sigma^{2}\right)$
+
+can you distinguish the following?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+$$\mathbb{E}\!\left[X_{1}\right]$$
+
+\centerline{vs.}
+
+$$\mathbb{E}\!\left[\bar{X}_{n}\right]$$
+
+:::
+::: {.column width=.45}
+
+$$\mathbb{V}\!\left[X_{1}\right]$$
+
+\centerline{vs.}
+
+$$\mathbb{V}\!\left[\bar{X}_{n}\right]$$
+
+:::
+::::::
+
+
+## Some clarifications
+
+Given $\bar{X}_{n} = \frac{1}{n} \sum_{i=1}^{n} X_{i}$, i.i.d., $X_{i} \sim \mathcal{N}\!\left(\mu, \sigma^{2}\right)$
+
+can you distinguish the following?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+$$\mathbb{E}\!\left[X_{1}\right] = \mu$$
+
+\centerline{vs.}
+
+$$\mathbb{E}\!\left[\bar{X}_{n}\right] = \mu$$
+
+:::
+::: {.column width=.45}
+
+$$\mathbb{V}\!\left[X_{1}\right] = \sigma^{2}$$
+
+\centerline{vs.}
+
+$$\mathbb{V}\!\left[\bar{X}_{n}\right] = \sigma^{2}/n$$
+
+:::
+::::::
+
+
+## What CLT suggests in real world applications...
+
+* If your variable of interest is something like sample mean?
+
+* If you have enough sample size?
+
+
+## Can you suggest probability distributions for these?
+
+- number of chromosomes
+
+- survival time
+
+- mRNA expression level
+
+## Common Discrete Distributions
+
+```{r fig.width=6, fig.height=3, echo=F}
+# Set up parameters for different discrete distributions
+x_range <- 0:20
+
+                                        # Discrete Uniform (on 1 to 10)
+uniform_x <- 1:10
+p1 <- data.frame(x = uniform_x, pmf = rep(1/10, 10)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "steelblue", width = 0.7) +
+    labs(title = "Discrete Uniform(1,10)",
+         x = "x", y = "P(X = x)") +
+    ylim(0, 0.4) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Binomial
+binom_n <- 20
+binom_p <- 0.3
+p2 <- data.frame(x = 0:binom_n,
+                 pmf = dbinom(0:binom_n, size = binom_n, prob = binom_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "coral", width = 0.7) +
+    labs(title = paste0("Binomial(n=", binom_n, ", p=", binom_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Poisson
+pois_lambda <- 6
+p3 <- data.frame(x = x_range,
+                 pmf = dpois(x_range, lambda = pois_lambda)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "darkgreen", width = 0.7) +
+    labs(title = paste0("Poisson(λ=", pois_lambda, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Geometric
+geom_p <- 0.3
+p4 <- data.frame(x = x_range,
+                 pmf = dgeom(x_range, prob = geom_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "purple", width = 0.7) +
+    labs(title = paste0("Geometric(p=", geom_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Negative Binomial
+nb_r <- 5
+nb_p <- 0.5
+p5 <- data.frame(x = x_range,
+                 pmf = dnbinom(x_range, size = nb_r, prob = nb_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "orange", width = 0.7) +
+    labs(title = paste0("Negative Binomial\n(r=", nb_r, ", p=", nb_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+                                        # Hypergeometric
+hyper_m <- 50  # success states in population
+hyper_n <- 50  # failure states in population
+hyper_k <- 20  # number of draws
+p6 <- data.frame(x = x_range,
+                 pmf = dhyper(x_range, m = hyper_m, n = hyper_n, k = hyper_k)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "darkred", width = 0.7) +
+    labs(title = paste0("Hypergeometric\n(m=", hyper_m, ", n=", hyper_n, ", k=", hyper_k, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Arrange all plots in a 2x3 grid
+(p1 | p2 | p3) / (p4 | p5 | p6)
+```
+
+## Common Continuous Distributions
+
+```{r fig.width=6, fig.height=3, echo=F}
+# Set up x range for continuous distributions
+x_cont <- seq(-4, 10, length.out = 500)
+
+## Continuous Uniform
+unif_a <- 0
+unif_b <- 5
+c1 <- data.frame(x = x_cont) %>%
+    filter(x >= unif_a - 1 & x <= unif_b + 1) %>%
+    mutate(pdf = dunif(x, min = unif_a, max = unif_b)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "steelblue", linewidth = 1) +
+    labs(title = paste0("Continuous Uniform\n(a=", unif_a, ", b=", unif_b, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Normal
+norm_mu <- 0
+norm_sd <- 1
+c2 <- data.frame(x = x_cont) %>%
+    mutate(pdf = dnorm(x, mean = norm_mu, sd = norm_sd)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "coral", linewidth = 1) +
+    labs(title = paste0("Normal(μ=", norm_mu, ", σ=", norm_sd, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Exponential
+exp_rate <- 0.5
+c3 <- data.frame(x = seq(0, 10, length.out = 500)) %>%
+    mutate(pdf = dexp(x, rate = exp_rate)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "darkgreen", linewidth = 1) +
+    labs(title = paste0("Exponential(λ=", exp_rate, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Gamma
+gamma_shape <- 2
+gamma_rate <- 1
+c4 <- data.frame(x = seq(0, 10, length.out = 500)) %>%
+    mutate(pdf = dgamma(x, shape = gamma_shape, rate = gamma_rate)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "purple", linewidth = 1) +
+    labs(title = paste0("Gamma(α=", gamma_shape, ", β=", gamma_rate, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Beta
+beta_a <- 2
+beta_b <- 5
+c5 <- data.frame(x = seq(0, 1, length.out = 500)) %>%
+    mutate(pdf = dbeta(x, shape1 = beta_a, shape2 = beta_b)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "orange", linewidth = 1) +
+    labs(title = paste0("Beta(α=", beta_a, ", β=", beta_b, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Chi-squared
+chisq_df <- 4
+c6 <- data.frame(x = seq(0, 15, length.out = 500)) %>%
+    mutate(pdf = dchisq(x, df = chisq_df)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "darkred", linewidth = 1) +
+    labs(title = paste0("Chi-squared(df=", chisq_df, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Arrange all plots in a 2x3 grid
+(c1 | c2 | c3) / (c4 | c5 | c6)
+```
+
+##
+
+\Large
+
+How do we know **which distribution** works well with our own data?
+
+\normalsize
+
+
+##
+
+\Large
+
+Should we use just one type of distribution or many?
+
+\normalsize
+
+
+## Pop quiz: What are they?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r eval=F}
+## 1.
+rnorm(...)
+
+## 2.
+dnorm(...)
+
+## 3.
+pnorm(...)
+
+## 4.
+qnorm(...)
+```
+
+:::
+::: {.column width=.45}
+
+```{python eval=F}
+import numpy as np
+import scipy.stats as stats
+
+## 1.
+np.random.normal(...)
+
+## 2.
+stats.norm.pdf(...)
+
+## 3.
+stats.norm.cdf(...)
+
+## 4.
+stats.norm.ppf(...)
+```
+
+:::
+::::::
+
+
+
+## Summary
+
+- Random variables are variables that have a probability distribution
+
+- Any statistic of sampled data is a RV, and hence has an associated probability distribution
+
+- The CLT gives us the sampling distribution of the mean of any RV (regardless of its distribution)
+
+- We can use statistical inference to estimate population parameters from a sample
+
+
+# Matrix Algebra Primer
+
+
+## Why do we use matrix?
+
+Two main reasons:
+
+1. **Simplify mathematical notation**: Describe many linear models concisely in one line
+
+2. **Efficient computation**: many programming languages (`Python`, `R`, `C/C++`, `Fortran`) implement matrix operations efficiently (a library built on decades of optimization)
+
+\vfill
+
+* Matrix (linear) algebra is a foundational tool to represent whole space of vectors (many variables).
+
+* Our long-term goal: We want to think of a multivariate linear regression in terms of "column space."
+
+## 
+
+\centerline{\includegraphics[height=0.8\textheight]{img/xkcd_machine_learning.png}}
+
+\vfill
+
+\tiny
+Source: [xkcd #1838: Machine Learning](https://xkcd.com/1838/)
+\normalsize
+
+## Example: A system of linear equations
+
+Solve for $a$, $b$, $c$:
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{align*}
+a + b + c &= 6 \\
+3a - 2b + c &= 2 \\
+2a + b - c &= 1
+\end{align*}
+
+:::
+::: {.column width=.45}
+
+\onslide<2->{
+Matrix form:
+
+$$
+\begin{bmatrix}
+1 & 1 & 1 \\
+3 & -2 & 1 \\
+2 & 1 & -1
+\end{bmatrix}
+\begin{bmatrix}
+a \\ b \\ c
+\end{bmatrix}
+=
+\begin{bmatrix}
+6 \\ 2 \\ 1
+\end{bmatrix}
+$$
+
+More compact: $\mathbf{A}\mathbf{x} = \mathbf{b}$
+}
+
+:::
+::::::
+
+\vfill
+\tiny
+Source: [Matrix Notations](https://genomicsclass.github.io/book/pages/matrix_notation.html) 
+\normalsize
+
+## Matrix Notation: Scalars, Vectors, Matrices
+
+:::::: {.columns}
+::: {.column width=.3}
+
+**Scalar**
+
+Single number
+
+$a = 5$
+
+$\lambda = 3.14$
+
+:::
+::: {.column width=.3}
+
+**Vector**
+
+Ordered collection (bold)
+
+$$\mathbf{y} = \begin{bmatrix} y_1 \\ y_2 \\ \vdots \\ y_n \end{bmatrix}$$
+
+$n \times 1$ matrix
+
+:::
+::: {.column width=.3}
+
+**Matrix**
+
+Rectangular array (bold)
+
+$$\mathbf{X} = \begin{bmatrix}
+x_{1,1} & x_{1,2} \\
+x_{2,1} & x_{2,2} \\
+\vdots & \vdots \\
+x_{n,1} & x_{n,2}
+\end{bmatrix}$$
+
+$n \times p$ matrix
+
+:::
+::::::
+
+\vfill
+\tiny
+Source: [Matrix Notations](https://genomicsclass.github.io/book/pages/matrix_notation.html) 
+\normalsize
+
+## Notation conventions
+
+- **(Bold) uppercase** for matrices: $\mathbf{X}$, $\mathbf{A}$
+
+- **Bold lowercase** for vectors: $\mathbf{y}$, $\mathbf{x}$
+
+- Regular lowercase for scalars: $a$, $x_{i,j}$
+
+- $x_{i,j}$ denotes element in row $i$, column $j$ of matrix $\mathbf{X}$
+
+- Vectors are typically $n \times 1$ (column vectors) by convention (statistics)
+
+- Vectors are usually $1 \times n$ (row vectors) in many AI/deep learning libraries
+
+\vfill
+\tiny
+Source: [Matrix Notations](https://genomicsclass.github.io/book/pages/matrix_notation.html) 
+\normalsize
+
+## Example in R: Creating matrices
+
+```{r}
+# Create a vector
+y <- c(1, 2, 3, 4, 5)
+y
+
+# Create a matrix by binding columns
+X <- cbind(c(1, 1, 1), c(1, 2, 3))
+X
+```
+
+## Creating matrices in R (continued)
+
+```{r}
+# Using matrix() function (fills column by column by default)
+A <- matrix(c(1, 3, 2, 1, -2, 1, 1, 1, -1),
+            nrow = 3, ncol = 3)
+A
+```
+
+## Creating matrices in R (continued)
+
+```{r}
+# Fill row by row instead
+B <- matrix(c(1, 1, 1, 3, -2, 1, 2, 1, -1),
+            nrow = 3, ncol = 3, byrow = TRUE)
+B
+```
+
+## Pop quiz
+
+Is it row-major or column major?
+
+```{r eval=F}
+matrix(...)
+```
+
+
+## Pop quiz
+
+Is it row-major or column major?
+
+```{r eval=F}
+matrix(..., byrow = TRUE)
+```
+
+
+
+## Scalar Multiplication
+
+Multiply each element by the scalar:
+
+:::::: {.columns}
+::: {.column width=.35}
+
+$$c \mathbf{X} = c \begin{bmatrix}
+x_{1,1} & x_{1,2} \\
+x_{2,1} & x_{2,2}
+\end{bmatrix}$$
+
+$$= \begin{bmatrix}
+c \cdot x_{1,1} & c \cdot x_{1,2} \\
+c \cdot x_{2,1} & c \cdot x_{2,2}
+\end{bmatrix}$$
+
+:::
+::: {.column width=.6}
+
+```{r}
+X <- matrix(c(1, 2, 3, 4), 2, 2)
+X
+
+# Scalar multiplication
+3 * X
+```
+
+:::
+::::::
+
+\vfill
+\tiny
+Source: [Matrix Operations](https://genomicsclass.github.io/book/pages/matrix_operations.html)
+\normalsize
+
+## Transpose
+
+Converts rows into columns and columns into rows: $\mathbf{X}^{\top}$
+
+:::::: {.columns}
+::: {.column width=.35}
+
+If $\mathbf{X}$ is $n \times p$, then $\mathbf{X}^{\top}$ is $p \times n$
+
+$$\mathbf{X} = \begin{bmatrix}
+1 & 3 \\
+2 & 4 \\
+3 & 5
+\end{bmatrix}_{3 \times 2}$$
+
+$$\mathbf{X}^{\top} = \begin{bmatrix}
+1 & 2 & 3 \\
+3 & 4 & 5
+\end{bmatrix}_{2 \times 3}$$
+
+:::
+::: {.column width=.6}
+
+```{r}
+X <- matrix(c(1, 2, 3, 3, 4, 5), 3, 2)
+X
+
+# Transpose
+t(X)
+```
+
+:::
+::::::
+
+\vfill
+\tiny
+Source: [Matrix Operations](https://genomicsclass.github.io/book/pages/matrix_operations.html)
+\normalsize
+
+## Matrix Multiplication
+
+**Check**: Number of columns in first matrix = number of rows in second matrix.
+
+:::::: {.columns}
+::: {.column width=.45}
+
+If $\mathbf{A}$ is $n \times p$ and $\mathbf{B}$ is $p \times m$, then $\mathbf{A}\mathbf{B}$ is $n \times m$.
+
+$$(\mathbf{A}\mathbf{B})_{i,j} = \sum_{k=1}^p a_{i,k} b_{k,j}$$
+
+Row $i$ of $\mathbf{A}$ times column $j$ of $\mathbf{B}$
+
+:::
+::: {.column width=.45}
+
+```{r}
+A <- matrix(c(1, 2, 3, 4), 2, 2)
+B <- matrix(c(5, 6, 7, 8), 2, 2)
+
+# Matrix multiplication
+A %*% B
+```
+
+:::
+::::::
+
+\vfill
+\tiny
+Source: [Matrix Operations](https://genomicsclass.github.io/book/pages/matrix_operations.html)
+\normalsize
+
+## Matrix Multiplication
+
+:::::: {.columns}
+::: {.column width=.45}
+
+Note:
+
+```{r}
+# Matrix multiplication
+A %*% B
+```
+
+:::
+::: {.column width=.45}
+
+This is different from:
+
+```{r}
+# Element-wise multiplication
+A * B
+```
+
+:::
+::::::
+
+\vfill
+\tiny
+Source: [Matrix Operations](https://genomicsclass.github.io/book/pages/matrix_operations.html)
+\normalsize
+
+
+## Matrix Multiplication Example
+
+$$\begin{bmatrix}
+1 & 3 \\
+2 & 4
+\end{bmatrix}
+\begin{bmatrix}
+5 & 7 \\
+6 & 8
+\end{bmatrix}
+= \begin{bmatrix}
+1 \cdot 5 + 3 \cdot 6 & 1 \cdot 7 + 3 \cdot 8 \\
+2 \cdot 5 + 4 \cdot 6 & 2 \cdot 7 + 4 \cdot 8
+\end{bmatrix}$$
+
+$$= \begin{bmatrix}
+23 & 31 \\
+34 & 46
+\end{bmatrix}$$
+
+```{r}
+matrix(c(1, 2, 3, 4), 2, 2) %*% matrix(c(5, 6, 7, 8), 2, 2)
+```
+
+\vfill
+\tiny
+Source: [Matrix Operations](https://genomicsclass.github.io/book/pages/matrix_operations.html)
+\normalsize
+
+## Identity Matrix
+
+$n \times n$ square matrix with ones on diagonal, zeros elsewhere: $\mathbf{I}_n$
+
+$$\mathbf{I}_3 = \begin{bmatrix}
+1 & 0 & 0 \\
+0 & 1 & 0 \\
+0 & 0 & 1
+\end{bmatrix}$$
+
+Property: $\mathbf{X}\mathbf{I} = \mathbf{I}\mathbf{X} = \mathbf{X}$ (like multiplying by 1)
+
+```{r}
+I <- diag(3)
+I
+```
+
+\vfill
+\tiny
+Source: [Matrix Operations](https://genomicsclass.github.io/book/pages/matrix_operations.html)
+\normalsize
+
+## Matrix Inverse
+
+For square matrix $\mathbf{A}$, the inverse $\mathbf{A}^{-1}$ satisfies:
+
+$$\mathbf{A}^{-1}\mathbf{A} = \mathbf{A}\mathbf{A}^{-1} = \mathbf{I}$$
+
+Not all matrices have inverses!
+
+```{r}
+A <- matrix(c(1, 3, 2, 1, -2, 1, 1, 1, -1), 3, 3, byrow = TRUE)
+A_inv <- solve(A)
+A_inv
+```
+
+## Verify: Should give identity matrix
+
+For square matrix $\mathbf{A}$, the inverse $\mathbf{A}^{-1}$ satisfies:
+
+$$\mathbf{A}^{-1}\mathbf{A} = \mathbf{A}\mathbf{A}^{-1} = \mathbf{I}$$
+
+
+```{r}
+A %*% A_inv
+```
+
+## Solving linear equations with matrix inverse
+
+Recall: $\mathbf{A}\mathbf{x} = \mathbf{b}$
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\begin{eqnarray*}
+\mathbf{A}^{-1}\mathbf{A}\mathbf{x} &=& \mathbf{A}^{-1}\mathbf{b}\\
+\mathbf{I}\mathbf{x} &=& \mathbf{A}^{-1}\mathbf{b}\\
+\mathbf{x} &=& \mathbf{A}^{-1}\mathbf{b}
+\end{eqnarray*}
+
+```{r echo = F}
+b <- c(6, 2, 1)
+```
+
+:::
+::: {.column width=.55}
+
+```{r}
+## solve linear equations
+x <- solve(A, b)
+round(x, 2)
+## another way (less efficient)
+x <- solve(A) %*% b
+round(t(x), 2)
+```
+
+:::
+::::::
+
+## Summary 
+
+* A system of linear equations: 
+
+$$A \mathbf{x} = \mathbf{b}$$
+
+* Matrix operations: **multiplication**, **transpose**, **inverse**
+
+* Recipe: [**The Matrix Cookbook**](https://www2.imm.dtu.dk/pubdb/pubs/3274-full.html)
+
+# Matrix Algebra in Statistics
+
+## Calculating moments with matrices
+
+Goal: Express mean and variance using matrix operations
+
+Given data vector $\mathbf{y} = \begin{bmatrix} y_1 \\ y_2 \\ \vdots \\ y_n \end{bmatrix}$
+
+## Sample mean using matrix operations
+
+The sample mean: $\bar{y} = \frac{1}{n}\sum_{i=1}^n y_i$
+
+Using matrices: Define $\mathbf{1}_n = \begin{bmatrix} 1 \\ 1 \\ \vdots \\ 1 \end{bmatrix}$ (vector of ones)
+
+$$\bar{y} = \frac{1}{n} \mathbf{1}_n^{\top} \mathbf{y}$$
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+y <- c(3, 5, 7, 2, 8)
+n <- length(y)
+ones <- rep(1, n)
+```
+
+:::
+::: {.column width=.45}
+
+```{r}
+## Sample mean using matrix multiplication
+mean.y <- (1/n) * t(ones) %*% y
+mean.y
+
+## check
+all(mean(y) == mean.y)
+```
+
+:::
+::::::
+
+## Centering data with matrices
+
+Centered data: $y_i - \bar{y}$ for all observations
+
+Matrix form: $\mathbf{y} - \bar{y}\mathbf{1}_n$
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+y <- c(3, 5, 7, 2, 8)
+mean.y <- mean(y)
+n <- length(y)
+```
+
+:::
+::: {.column width=.45}
+
+```{r}
+## Centering
+ones.n <- rep(1,n)
+y.cent <- y - mean.y * ones.n
+y.cent
+
+mean(y.cent)
+```
+
+:::
+::::::
+
+
+## Sample variance using matrix operations
+
+Sample variance: $s^2 = (n-1)^{-1}\sum_{i=1}^n (y_i - \bar{y})^2$
+
+Letting (centered data)
+
+$$\tilde{\mathbf{y}} = \mathbf{y} - \bar{y}\mathbf{1}_n$$
+
+\onslide<2>{
+
+$$s^2 = (n-1)^{-1} \tilde{\mathbf{y}}^{\top} \tilde{\mathbf{y}}$$
+
+}
+
+## Sample variance using matrix operations
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+y <- c(3, 5, 7, 2, 8)
+n <- length(y)
+y.tilde <- y - mean(y)
+```
+
+:::
+::: {.column width=.45}
+
+```{r}
+# using matrix multiplication
+var.y <- t(y.tilde) %*% y.tilde
+var.y <- var.y /(n-1)
+
+# Compare with built-in var
+all(var.y == var(y))
+```
+
+:::
+::::::
+
+## Covariance matrix using matrix operations
+
+For two variables $X$ and $Y$, the covariance matrix is:
+
+$$\boldsymbol{\Sigma} = \begin{bmatrix} \text{Var}(X) & \text{Cov}(X,Y) \\ \text{Cov}(X,Y) & \text{Var}(Y) \end{bmatrix}$$
+
+With centered data matrix $\tilde{\mathbf{X}}$ ($n \times 2$):
+
+$$\boldsymbol{\Sigma} = \frac{1}{n-1} \tilde{\mathbf{X}}^{\top} \tilde{\mathbf{X}}$$
+
+## Computing 2x2 covariance matrix in R
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+# Two variables
+x1 <- c(3, 5, 7, 2, 8)
+x2 <- c(4, 6, 5, 3, 7)
+n <- length(x1)
+
+# Create data matrix
+X <- cbind(x1, x2)
+X
+```
+
+:::
+::: {.column width=.45}
+
+```{r}
+# Center the data
+X.tilde <- scale(X, scale = FALSE)
+X.tilde
+```
+
+:::
+::::::
+
+## Computing 2x2 covariance matrix in R (continued)
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+# Covariance matrix
+Sigma <- t(X.tilde) %*% X.tilde
+Sigma <- Sigma / (n-1)
+Sigma
+```
+
+:::
+::: {.column width=.45}
+
+```{r}
+# Compare with built-in cov
+cov(X)
+```
+
+:::
+::::::
+
+
+
+
+## Summary: Why use matrix notation?
+
+1. **Concise representation**: Express complex operations compactly
+
+2. **Generalization**: Easily extend to multivariate data (multiple variables)
+
+3. **Computational efficiency**: Matrix libraries are highly optimized
+
+
+<!-- \vfill -->
+
+<!-- This becomes especially important when dealing with: -->
+<!-- - Multiple variables (multivariate analysis) -->
+<!-- - High-dimensional genomic data -->
+<!-- - Linear regression and other statistical models -->
+
+
