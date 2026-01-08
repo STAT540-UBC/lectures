@@ -38,7 +38,6 @@ header-includes:
     \include{toc}
 ---
 
-
 ```{r setup, include=FALSE}
 setwd("~/work/stat540/lectures/lect02-intro-stat-matrix/")
 library(data.table)
@@ -81,9 +80,9 @@ These are wonderful online books (hyperlinks):
 
 * The last lecture was to introduce genomics to statisticians
 
-## Today's goal is to introduce statistics to biologists
+## Today's goal is to introduce statistics to scientists
 
-Basic tools/frameworks for:
+We need a general frameworks for addressing:
 
 1. How can we deal with the **uncertainty** of genomic data (statistics)?
 
@@ -97,7 +96,11 @@ Basic tools/frameworks for:
 
 ## What is Statistics?
 
--   The field of statistics concerns the science of **collecting, analyzing/modeling, interpreting** data and **communicating uncertainty** about the results
+-   The science of
+
+    - **collecting, analyzing/modeling, interpreting** data 
+
+	- and **communicating uncertainty** about the results
 
 -   Statistics is **not** a collection of generic "recipes" to follow
 
@@ -140,7 +143,7 @@ X &\sim& P(\theta) \\
 :::
 ::::::
 
-## A real example: mutation in HIV genome
+## A toy example: mutation in HIV genome
 
 * Human Immunodeficiency Virus (HIV) Genome: $10^{4}$ nucleotides
 
@@ -179,11 +182,13 @@ $$
 
 ## So, will you see mutation or not?
 
-![](img/prediction.png)
+\centerline{\includegraphics[height=.6\textheight]{img/prediction.png}}
+
+\vfill
 
 XKCD on "prediction"
 
-## Remark on the mutation indicator variable $X$
+## What do we call the mutation indicator variable $X$?
 
 \begin{itemize}
 \item<1-> It's like a coin flipping with an unequal chance of head and tail.
@@ -191,6 +196,17 @@ XKCD on "prediction"
 \item<3-> We set a Bernoulli random variable $X = 1$, assigning the value $1$ for an outcome of the mutation event (head), or $X = 0$ for the non-mutation (tail).
 \item<4> It is a {\color{magenta}"random"} variable, not a deterministic variable, because we assign the value with some probability.
 \end{itemize}
+
+## Two types of random variables
+
+-   A **discrete** RV has a countable number of possible values
+
+    -   e.g. coin flip, throwing dice, genotype at a particular locus
+
+-   A **continuous** RV takes on values in an interval of numbers
+
+    -   e.g. blood glucose level, height of individuals
+
 
 ## Probability of a Bernoulli trial
 
@@ -235,6 +251,10 @@ $x \in \{0, 1\}$.
 
 The lower case $x$ is a particular value of the random variable $X$.
 
+${}$
+
+What is $f(x=1)$? Or $f(x=0)$?
+
 :::
 ::::::
 
@@ -260,21 +280,28 @@ $$n=1$$
 
 trial.
 
+\vfill
+
+Let's see the relationship between Bernoulli and Binomial.
+
 :::
 ::: {.column width=.45}
 
+**Bernoulli PMF**:
+
 $$
-f(x; n,p) = 
+f(x; p) = p^{x} (1-p)^{1-x}
 $$
 
-```{r}
-size <- 1
-prob <- 5 * 10^-4
-```
+\centerline{vs.}
 
-${}$
+**Binomial PMF**:
 
-Okay, let's use `R` to play with this Bernoulli distribution. Can you find any function related to Bernoulli?
+$$
+f(x; n,p) = {\color{magenta}\bf \binom{n}{x}} p^{x} (1- p)^{n-x}
+$$
+
+if $x \in \{0, 1\}$ and $n=1$?
 
 :::
 ::::::
@@ -332,9 +359,7 @@ trial.
 :::
 ::: {.column width=.55}
 
-$$
-f(x; n,p) = 
-$$
+$f(x; n,p)$ in `R`
 
 ```{r}
 size <- 1
@@ -475,11 +500,15 @@ Usage:
 ::: {.block}
 ### Probability Density Function (PDF)
 
-* Discrete $x \in \mathcal{X}$:
+${}$
+
+Discrete $x \in \mathcal{X}$:
 
 $f(x) = P(X = x)$
 
-* Continuous $x \in \mathcal{X}$:
+${}$
+
+Continuous $x \in \mathcal{X}$:
 
 $f(x) = dF(x)/dx$
 
@@ -494,7 +523,13 @@ $\quad = F'(x)$
 ::: {.block}
 ### Cumulative Distribution Function (CDF)
 
+${}$
+
 $F(x) = P(X \leq x)$
+
+$\quad = \sum_{t \le x} f(t)$
+
+${}$
 
 $\quad = \int_{-\infty}^{x} f(t) dt$
 
@@ -507,7 +542,9 @@ $\quad = \int_{-\infty}^{x} f(t) dt$
 ::: {.block}
 ### Quantile Function or inverse CDF
 
-$F^{-1}(p) = \inf\{x: F(x) \geq p\}$
+$F^{-1}(p)=$
+
+$\inf\{x: F(x) \geq p\}$
 
 for $p \in [0,1]$
 
@@ -515,6 +552,8 @@ for $p \in [0,1]$
 
 :::
 ::::::
+
+\vfill
 
 These definitions correspond to the R functions: `dbinom`, `pbinom`, `qbinom`.
 
@@ -568,17 +607,8 @@ ggplot(.df, aes(x = p, y = quantile)) +
 
 $F^{-1}(p)$ gives the value $x$ such that $P(X \leq x) \geq p$
 
-## Two types of random variables
 
--   A **discrete** RV has a countable number of possible values
-
-    -   e.g. coin flip, throwing dice, genotype at a particular locus
-
--   A **continuous** RV takes on values in an interval of numbers
-
-    -   e.g. blood glucose level, height of individuals
-
-## Expectation (the 1st moment)
+## Let's discuss expectation (the 1st moment)
 
 :::::: {.columns}
 ::: {.column width=.35}
@@ -736,8 +766,12 @@ gam <- (1 - 2*p)/sqrt(n * p * (1-p))
 c(mu, sig2, gam)
 ```
 
+\vfill
 
-## What if the genome is very long, mutation is very rare
+Q. What can you say about this Binomial distribution based on the moments?
+
+
+## What if the genome is very long, and the mutation events are very rare
 
 For $X \sim \mathsf{Binomial}(n, p)$, probability function:
 
@@ -891,7 +925,21 @@ $\ldots\}$
 
 ## How can we estimate the unknown parameters?
 
-* Assume $x_{i} \in D$ values are observation of independent and identically distributed (i.i.d.) $X$ RV.
+* Assume $x_{i} \in D$ values are observation of independent and identically distributed (i.i.d.) $X$ random variable.
+
+* Goal: Estimate the unknown parameter (thus the corresponding data generating scheme) from observed _noisy_ data...
+
+## Can we? Do we have some theoretical foundation?
+
+\centerline{\includegraphics[height=.7\textheight]{img/dependency_2x.png}}
+
+\vfill
+
+\tiny
+
+[https://xkcd.com/2347/](https://xkcd.com/2347/)
+
+\normalsize
 
 ## Can we estimate mean parameter by sample mean?
 
@@ -1006,11 +1054,15 @@ as $n \to \infty$.
 
 * The variance of $\bar{X}_n$ decreases as $n$ increases (how fast?)
 
+$${}$$
+
+Well, let's if that really works empirically.
+
 :::
 ::::::
 
 
-## The sample Poisson example
+## The sample Poisson example with data size $n=1$
 
 ```{r fig.width=4, fig.height=3, echo=F}
 x <- 0:15
@@ -1024,7 +1076,7 @@ data.frame(x = x, probability = dpois(x, lambda)) %>%
 
 <!-- This is discrete and somewhat skewed (skewness = $1/\sqrt{\lambda} \approx 0.45$) -->
 
-## Sample means with data size n=5
+## Sample means with data size $n=5$
 
 ```{r fig.width=5, fig.height=3, echo=F}
 set.seed(42)
@@ -1050,7 +1102,7 @@ ggplot(.df, aes(x = xbar)) +
            color = "red", size = 5)
 ```
 
-## Sample means with n=30
+## Sample means with data size $n=30$
 
 ```{r fig.width=5, fig.height=3, echo=F}
 set.seed(42)
@@ -1343,20 +1395,15 @@ c6 <- data.frame(x = seq(0, 15, length.out = 500)) %>%
 (c1 | c2 | c3) / (c4 | c5 | c6)
 ```
 
-##
+## Discussion
 
-\Large
+\large
 
-How do we know **which distribution** works well with our own data?
+* How do we know **which distribution** works well with our own data?
 
-\normalsize
+* Should we use just **one** type of distribution or **many**?
 
-
-##
-
-\Large
-
-Should we use just one type of distribution or many?
+* Can we mix them up in one model?
 
 \normalsize
 
@@ -1433,9 +1480,9 @@ Two main reasons:
 
 * Our long-term goal: We want to think of a multivariate linear regression in terms of "column space."
 
-## 
+## AI/ML: It's all about matrix.
 
-\centerline{\includegraphics[height=0.8\textheight]{img/xkcd_machine_learning.png}}
+\centerline{\includegraphics[height=0.75\textheight]{img/xkcd_machine_learning.png}}
 
 \vfill
 
@@ -1889,7 +1936,8 @@ ones <- rep(1, n)
 ::: {.column width=.45}
 
 ```{r}
-## Sample mean using matrix multiplication
+## Using
+## matrix multiplication
 mean.y <- (1/n) * t(ones) %*% y
 mean.y
 

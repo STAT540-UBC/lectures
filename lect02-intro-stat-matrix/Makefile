@@ -1,12 +1,12 @@
-RMD := $(wildcard *.rmd) $(wildcard *.Rmd)
-PDF := $(RMD:.rmd=-slides.pdf) $(RMD:.Rmd=-beamer.pdf) $(RMD:.Rmd=-handout.pdf)
+RMD := $(wildcard *.Rmd)
+PDF := $(RMD:.Rmd=-beamer.pdf)
 HTML := $(RMD:.rmd=.html) $(RMD:.Rmd=.html)
 TEX := $(RMD:.rmd=.tex) $(RMD:.Rmd=.tex)
 
 all: $(PDF)
 
 clean:
-	rm -f $(PDF)
+	rm -f $(PDF) $(RMD:.Rmd=-handout.pdf)
 
 %-beamer.pdf: %.Rmd
 	Rscript -e "rmarkdown::render('$<', output_format='beamer_presentation', output_file='$@');"
