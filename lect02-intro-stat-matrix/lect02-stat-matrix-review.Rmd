@@ -5,10 +5,6 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 classoption: "aspectratio=169"
 fontsize: 12pt
 output:
-    powerpoint_presentation:
-        reference_doc: "_template.pptx"
-    html_document:
-        self_contained: true
     beamer_presentation:
         theme: Madrid
         keep_md: true
