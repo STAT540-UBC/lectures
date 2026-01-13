@@ -1,16 +1,19 @@
 RMD := $(wildcard *.Rmd)
-PDF := $(RMD:.Rmd=-beamer.pdf)
+SLIDES := $(RMD:.Rmd=-slides.pdf)
+HANDOUT := $(RMD:.Rmd=-handout.pdf)
 HTML := $(RMD:.rmd=.html) $(RMD:.Rmd=.html)
 TEX := $(RMD:.rmd=.tex) $(RMD:.Rmd=.tex)
 
-all: $(PDF)
+all: $(SLIDES)
+
+handout: $(HANDOUT)
 
 clean:
-	rm -f $(PDF) $(RMD:.Rmd=-handout.pdf)
+	rm -f $(SLIDES) $(HANDOUT)
 
-%-beamer.pdf: %.Rmd
+%-slides.pdf: %.Rmd
 	Rscript -e "rmarkdown::render('$<', output_format='beamer_presentation', output_file='$@');"
-	rm -f %-beamer.log  %-beamer.tex
+	rm -f $*-slides.log
 
 %-handout.pdf: %.Rmd handout-header.tex
 	Rscript -e "rmarkdown::render('$<', output_format=rmarkdown::beamer_presentation(pandoc_args=c('--variable=classoption:handout,aspectratio=169', '--include-in-header=handout-header.tex')), output_file='$@');"
