@@ -1,6 +1,6 @@
 # Lecture 4: 
 
-## Pre-reading:
+### Relevant sections in MSMB:
 
 Sections 2-5 of Chapter 6 (Hypothesis Testing) in ["Modern Statistics for Modern Biology"](http://web.stanford.edu/class/bios221/book/) by Susan Holmes and Wolfgang Huber:
 
