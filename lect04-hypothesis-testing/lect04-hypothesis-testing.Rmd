@@ -1000,6 +1000,10 @@ get.expr.data <- function(gene_name, rse, clinical) {
 
 # Modular function to plot gene expression density by ER status
 plot.gene.density <- function(gene_name, gene_data) {
+    # Add X_label to gene_data once
+    gene_data <- gene_data %>%
+        mutate(X_label = ifelse(X == 0, "X = 0\n(ER Negative)", "X = 1\n(ER Positive)"))
+    
     # Calculate sample means
     .means <- gene_data %>%
         group_by(X) %>%
@@ -1008,7 +1012,6 @@ plot.gene.density <- function(gene_name, gene_data) {
 
     # Create density plots
     gene_data %>%
-        mutate(X_label = ifelse(X == 0, "X = 0\n(ER Negative)", "X = 1\n(ER Positive)")) %>%
         ggplot(aes(x = Y, fill = factor(X))) +
         geom_density(alpha = 0.7) +
         geom_vline(data = .means, aes(xintercept = mean_Y),
