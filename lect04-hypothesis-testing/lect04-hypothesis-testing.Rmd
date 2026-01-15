@@ -1,0 +1,1825 @@
+---
+title: "Hypothesis Testing"
+author: "Yongjin Park\n(slide credit: Keegan Korthauer)"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+bibliography: BRCA.bib
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{positioning,calc,arrows.meta}
+  - \tikzset{>={Stealth[length=3mm,width=2mm]}}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+if (!requireNamespace("ggpubr", quietly = TRUE)) {
+    install.packages("ggpubr")
+}
+library(ggpubr)
+if (!requireNamespace("ggrepel", quietly = TRUE)) {
+    install.packages("ggrepel")
+}
+library(ggrepel)
+source("Setup.R")
+fig.dir <- "../Fig/hypothesis-testing/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+if (!requireNamespace("recount3", quietly = TRUE)) {
+    BiocManager::install("recount3")
+}
+library(recount3)
+```
+
+
+## Previously...
+
+\large
+
+* `lect02` - fundamentals of statistics
+
+* `lect03` - a biological question $\to$ a computational one
+
+\normalsize
+
+## Today: learning objective
+
+\large
+
+1. Identify hypothesis testing problems
+
+2. Understand what hypothesis testing is
+
+3. Apply hypothesis testing procedures
+
+\normalsize
+
+# Motivation and Problem definition 
+
+## Obs \#1: breast cancer subtypes by hormone receptors
+
+Estrogen receptor (ER) protein expression affects breast cancer prognosis [@Early-Breast-Cancer-Trialists-Collaborative-Group-EBCTCG-2011-nxj;@Cancer_Genome_Atlas_Network2012-lx].
+
+* **ER+** (estrogen receptor positive): ~70% of breast cancers
+  - Treatment: hormone therapy (e.g., tamoxifen)
+  - Better prognosis
+
+* **ER-** (Estrogen Receptor negative): ~30% of breast cancers
+  - Treatment: chemotherapy
+  - More aggressive, poor outcomes
+
+## Obs \#2: age and menopause effects on estrogen
+
+Menopause (~50 years) dramatically changes estrogen levels
+
+* Pre-menopausal: high circulating estrogen
+* Post-menopausal: low circulating estrogen
+
+\vspace{0.3cm}
+
+* Age-correlated gene expression in breast cancer is largely regulated by **endocrine (estrogen) signaling** [@Osako2020-mq]
+
+## Three axes of variation
+
+\begin{center}
+\begin{tikzpicture}[
+    woman/.style={scale=0.4},
+    axis/.style={->, thick, >=stealth},
+    label/.style={font=\small}
+]
+
+% Age axis
+\node[label, anchor=east] at (-5, 1.5) {\textbf{Age}};
+\draw[axis] (-4, 1.5) -- (4, 1.5);
+\node[label] at (-3.5, 1.1) {Young};
+\node[label] at (3.5, 1.1) {Old};
+\foreach \x in {-3, -1.5, 0, 1.5, 3} {
+    \fill[black] (\x, 2.3) circle (0.1);
+    \draw[black, thick] (\x, 2.2) -- (\x, 1.9);
+    \draw[black, thick] (\x, 2.1) -- ++(-0.15, -0.2);
+    \draw[black, thick] (\x, 2.1) -- ++(0.15, -0.2);
+    \draw[black, thick] (\x, 1.9) -- ++(-0.12, -0.35);
+    \draw[black, thick] (\x, 1.9) -- ++(0.12, -0.35);
+}
+
+% Menopause axis
+\node[label, anchor=east] at (-5, -0.5) {\textbf{Menopause}};
+\draw[axis] (-4, -0.5) -- (4, -0.5);
+\node[label] at (-2.5, -0.9) {Pre};
+\node[label] at (2.5, -0.9) {Post};
+\foreach \x in {-3, -1.5} {
+    \fill[black!40] (\x, 0.3) circle (0.1);
+    \draw[black!40, thick] (\x, 0.2) -- (\x, -0.1);
+    \draw[black!40, thick] (\x, 0.1) -- ++(-0.15, -0.2);
+    \draw[black!40, thick] (\x, 0.1) -- ++(0.15, -0.2);
+    \draw[black!40, thick] (\x, -0.1) -- ++(-0.12, -0.35);
+    \draw[black!40, thick] (\x, -0.1) -- ++(0.12, -0.35);
+}
+\foreach \x in {1.5, 3} {
+    \fill[black] (\x, 0.3) circle (0.1);
+    \draw[black, thick] (\x, 0.2) -- (\x, -0.1);
+    \draw[black, thick] (\x, 0.1) -- ++(-0.15, -0.2);
+    \draw[black, thick] (\x, 0.1) -- ++(0.15, -0.2);
+    \draw[black, thick] (\x, -0.1) -- ++(-0.12, -0.35);
+    \draw[black, thick] (\x, -0.1) -- ++(0.12, -0.35);
+}
+
+% ER status axis
+\node[label, anchor=east] at (-5, -2.5) {\textbf{ER status}};
+\draw[axis] (-4, -2.5) -- (4, -2.5);
+\node[label] at (-2.5, -2.9) {ER+};
+\node[label] at (2.5, -2.9) {ER--};
+\foreach \x in {-3, -1.5} {
+    \fill[blue!70] (\x, -1.7) circle (0.1);
+    \draw[blue!70, thick] (\x, -1.8) -- (\x, -2.1);
+    \draw[blue!70, thick] (\x, -1.9) -- ++(-0.15, -0.2);
+    \draw[blue!70, thick] (\x, -1.9) -- ++(0.15, -0.2);
+    \draw[blue!70, thick] (\x, -2.1) -- ++(-0.12, -0.35);
+    \draw[blue!70, thick] (\x, -2.1) -- ++(0.12, -0.35);
+}
+\foreach \x in {1.5, 3} {
+    \fill[red!70] (\x, -1.7) circle (0.1);
+    \draw[red!70, thick] (\x, -1.8) -- (\x, -2.1);
+    \draw[red!70, thick] (\x, -1.9) -- ++(-0.15, -0.2);
+    \draw[red!70, thick] (\x, -1.9) -- ++(0.15, -0.2);
+    \draw[red!70, thick] (\x, -2.1) -- ++(-0.12, -0.35);
+    \draw[red!70, thick] (\x, -2.1) -- ++(0.12, -0.35);
+}
+
+\end{tikzpicture}
+\end{center}
+
+## Key question: multiple sources of variation
+
+- Can we identify multiple independent disease mechanisms?
+
+- How do they manifest in observed transcriptional profiles?
+
+\vspace{0.3cm}
+
+1. **ER status**: Tumor-intrinsic differences (ER+ vs ER-)
+2. **Age**: age effects in general population
+3. **Menopause**: pre- vs. post-menopause
+
+\vspace{0.3cm}
+
+They are all correlated... but not necessarily the same
+
+* Post-menopausal but young (e.g., surgical menopause)
+* Pre-menopausal but older (late menopause)
+
+## Probabilistic model
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm}
+]
+\node[observed] (age) {Age};
+\node[observed, right=2.5cm of age] (meno) {Meno};
+\node[observed, below=2cm of age] (er) {ER};
+\node[observed, below=2cm of meno] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- (meno);
+\draw[->, thick] (age) -- (er);
+\draw[->, thick] (meno) to[bend right=20] (er);
+\draw[->, thick] (meno) -- node[right] {$\beta$} (expr);
+\draw[->, thick] (er) -- node[below] {$\mu$} (expr);
+\draw[->, thick] (age) to[bend right=20] node[right] {$\alpha$} (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.45}
+
+**Observed** variables:
+
+* Age (continuous), Menopause (categorical), ER status (categorical)
+
+* Gene expression matrix $Y_{gi}$ for a gene $g$ in a sample $i$.
+
+\vspace{0.3cm}
+
+**Parameters** (open):
+
+* $\mu$: ER status effect
+* $\alpha$: direct age effect
+* $\beta$: menopause effect
+
+:::
+::::::
+
+
+## E.g., TCGA BRCA data downloaded via `recount3`
+
+\small
+
+```{r include=F}
+data.dir <- "../data/recount3"
+dir.create(data.dir, recursive = TRUE, showWarnings = FALSE)
+.file <- file.path(data.dir, "tcga_brca_rse.rds")
+```
+
+```{r tcga_brca_via_recount3, message=F, size="small"}
+library(recount3) ## install via Bioconductor
+
+if.needed(.file, {
+    ## Take TCGA
+    tcga.proj <- subset(available_projects(),
+                        file_source == "tcga")
+    ## Choose BRCA (breast cancer)
+    brca.info <- tcga.proj[tcga.proj$project == "BRCA", ]            
+    ## Save the object
+    rse.brca <- create_rse(brca.info)                                
+    saveRDS(rse.brca, .file)
+})
+## We can quickly read in `.rds` in the memory
+rse <- readRDS(.file)
+```
+
+
+## Side: a trick to avoid overwriting
+
+```{r eval=F}
+if.needed <- 
+    function(.file, .code) {
+        if(!all(file.exists(unlist(.file)))){ .code }
+        stopifnot(all(file.exists(unlist(.file))))
+    }
+```
+
+## Side: What is `RangedSummarizedExperiment` object?
+
+```
+                        samples (columns)
+                     ┌─────────────────────┐
+                     │  S1   S2   S3  ...  │
+               ┌─────┼─────────────────────┤
+     genes     │ G1  │  10   25   18  ...  │  ← assays (counts, TPM)
+     (rows)    │ G2  │   5   12    8  ...  │
+               │ ... │ ...  ...  ...  ...  │
+               └─────┴─────────────────────┘
+
+  rowRanges: genomic coordinates (chr, start, end, strand)
+  colData:   sample metadata (tumor/normal, clinical info)
+```
+
+## Column (sample) data
+
+```{r size="small"}
+clinical <-
+    colData(rse) %>%
+    as.data.frame() %>%
+    select(
+        sample.id = tcga.tcga_barcode,
+        sample.type = tcga.cgc_sample_sample_type,
+        age = tcga.gdc_cases.diagnoses.age_at_diagnosis,
+        menopause = tcga.xml_menopause_status,
+        tumor.stage = tcga.gdc_cases.diagnoses.tumor_stage,
+        ER.status = tcga.xml_breast_carcinoma_estrogen_receptor_status,
+        PR.status = tcga.xml_breast_carcinoma_progesterone_receptor_status,
+        HER2.status = tcga.xml_lab_proc_her2_neu_immunohistochemistry_receptor_status
+    ) %>%
+    as.data.table()
+```
+
+## Header lines
+
+```{r size="tiny"}
+head(clinical, 5)
+```
+
+## Age distribution by menopause status
+
+```{r age.by.menopause, echo=FALSE, fig.width=5, fig.height=3}
+menopause.comparisons <- list(c("Pre", "Peri"), c("Pre", "Post"),
+                               c("Pre", "Indeterminate"), c("Peri", "Post"),
+                               c("Peri", "Indeterminate"), c("Post", "Indeterminate"))
+
+clinical %>%
+    filter(!is.na(menopause)) %>%
+    mutate(age = age / 365.25,
+           menopause = case_when(
+               grepl("^Pre", menopause) ~ "Pre",
+               grepl("^Peri", menopause) ~ "Peri",
+               grepl("^Post", menopause) ~ "Post",
+               TRUE ~ "Indeterminate"
+           ),
+           menopause = factor(menopause, levels = c("Pre", "Peri", "Indeterminate", "Post"))) %>%
+    ggplot(aes(x = menopause, y = age, fill = menopause)) +
+    geom_violin() +
+    geom_boxplot(width = 0.2, fill = "white") +
+    stat_compare_means(comparisons = menopause.comparisons,
+                       method = "t.test", label = "p.format", size = 6/.pt) +
+    labs(x = "Menopause Status", y = "Age at Diagnosis (years)") +
+    theme_classic() +
+    theme(legend.position = "none")
+```
+
+## Age distribution by ER status
+
+```{r age.by.er, echo=FALSE, fig.width=4, fig.height=3}
+clinical %>%
+    filter(ER.status %in% c("Positive", "Negative")) %>%
+    mutate(age = age / 365.25) %>%
+    ggplot(aes(x = ER.status, y = age, fill = ER.status)) +
+    geom_violin() +
+    geom_boxplot(width = 0.2, fill = "white") +
+    stat_compare_means(comparisons = list(c("Positive", "Negative")),
+                       method = "t.test", label = "p.format", size = 6/.pt) +
+    labs(x = "ER Status", y = "Age at Diagnosis (years)") +
+    theme_classic() +
+    theme(legend.position = "none")
+```
+
+
+## Age distribution by subtype
+
+
+```{r subtype, include=F}
+clinical <- clinical %>%
+    mutate(subtype = case_when(
+               ER.status == "Negative" &
+               PR.status == "Negative" &
+               HER2.status == "Negative" ~ "Triple-negative",
+               HER2.status == "Positive" ~ "HER2+",
+               ER.status == "Positive" | PR.status == "Positive" ~ "Luminal",
+               TRUE ~ NA_character_
+           ))
+
+table(clinical$subtype)
+```
+
+```{r age.by.subtype, echo=FALSE, fig.width=5, fig.height=3}
+comparisons <- list(c("Triple-negative", "Luminal"),
+                    c("Triple-negative", "HER2+"),
+                    c("HER2+", "Luminal"))
+
+clinical %>%
+    filter(!is.na(subtype)) %>%
+    mutate(age = age / 365.25) %>%
+    ggplot(aes(x = subtype, y = age, fill = subtype)) +
+    geom_violin() +
+    geom_boxplot(width = 0.2, fill = "white") +
+    stat_compare_means(comparisons = comparisons, method = "t.test",
+                       label = "p.format", size = 6/.pt) +
+    labs(x = "Subtype", y = "Age at Diagnosis (years)") +
+    theme_classic() +
+    theme(legend.position = "none")
+```
+
+## Probabilistic model
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!5, minimum size=0cm}
+]
+\node[observed] (age) {Age};
+\node[observed, right=2.5cm of age] (meno) {Meno};
+\node[observed, below=2cm of age] (er) {ER};
+\node[observed, below=2cm of meno] (expr) {$X_g$};
+
+\draw[->, thick] (age) -- (meno);
+\draw[->, thick] (age) -- (er);
+\draw[->, thick] (meno) to[bend right=20] (er);
+\draw[->, thick] (meno) -- node[right] {$\beta$} (expr);
+\draw[->, thick] (er) -- node[below] {$\mu$} (expr);
+\draw[->, thick] (age) to[bend right=20] node[right] {$\alpha$} (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.45}
+
+**Observed** variables:
+
+* Age (continuous), Menopause (categorical), ER status (categorical)
+
+* Gene expression matrix $X_{gi}$ for a gene $g$ in a sample $i$.
+
+\vspace{0.3cm}
+
+**Parameters** (open):
+
+* $\mu$: ER status effect
+* $\alpha$: direct age effect
+* $\beta$: menopause effect
+
+:::
+::::::
+
+## Let's focus on one sub-problem: ER+ vs. ER-
+
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!5, minimum size=0cm}
+]
+\node[observed] (age) {$A_{i}$};
+\node[observed, right=2.5cm of age] (meno) {$M_{i}$};
+\node[observed, below=2cm of age] (er) {$X_{i}$};
+\node[observed, below=2cm of meno] (expr) {$Y_{ig}$};
+
+\draw[->, thick] (age) -- (meno);
+\draw[->, thick] (age) -- (er);
+\draw[->, thick] (meno) to[bend right=20] (er);
+\draw[->, thick] (meno) -- node[right] {$\beta$} (expr);
+\draw[->, thick] (er) -- node[below] {$\mu$} (expr);
+\draw[->, thick] (age) to[bend right=20] node[right] {$\alpha$} (expr);
+\end{tikzpicture}
+\end{center}
+
+\vspace{.5cm}
+
+\centerline{"divide and conquer"}
+
+:::
+::: {.column width=.45}
+
+\large
+
+\begin{itemize}
+\item<1-> Instead of resolving all the parameters all at once, can we estimate each effect one by one?
+\item<2-> Are there any genes \textbf{\color{magenta} significantly changed} as a result of the ER status?
+\item<3-> How can we \textbf{\color{magenta} test} any significant changes?
+\end{itemize}
+
+:::
+::::::
+
+
+# Key concepts
+
+## Recap: random variable (`lect02`)
+
+**Random Variable**
+
+* Mathematical representation of all possible values
+* Denoted by uppercase letters: $K$, $X$, $T$
+* Represents abstract set of possibilities
+
+\vspace{0.5cm}
+
+**Observed Value**
+
+* Actual result from experiment
+* Denoted by lowercase letters: $k$, $x$, $t$
+* The specific measurement we obtained
+
+## Probability Distribution (`lect02`)
+
+**Definition**: Map: possible value $\to$ probability
+
+\vspace{0.5cm}
+
+* Describes how frequently different values occur
+* Discrete (finite) or continuous (infinite)
+
+\vspace{0.5cm}
+
+**Examples**:
+
+* Discrete: Binomial, Poisson
+
+* Continuous: Normal (Gaussian) distribution
+
+## Common Discrete Distributions
+
+```{r fig.width=6, fig.height=3, echo=F}
+# Set up parameters for different discrete distributions
+x_range <- 0:20
+
+                                        # Discrete Uniform (on 1 to 10)
+uniform_x <- 1:10
+p1 <- data.frame(x = uniform_x, pmf = rep(1/10, 10)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "steelblue", width = 0.7) +
+    labs(title = "Discrete Uniform(1,10)",
+         x = "x", y = "P(X = x)") +
+    ylim(0, 0.4) +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Binomial
+binom_n <- 20
+binom_p <- 0.3
+p2 <- data.frame(x = 0:binom_n,
+                 pmf = dbinom(0:binom_n, size = binom_n, prob = binom_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "coral", width = 0.7) +
+    labs(title = paste0("Binomial(n=", binom_n, ", p=", binom_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Poisson
+pois_lambda <- 6
+p3 <- data.frame(x = x_range,
+                 pmf = dpois(x_range, lambda = pois_lambda)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "darkgreen", width = 0.7) +
+    labs(title = paste0("Poisson(λ=", pois_lambda, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Geometric
+geom_p <- 0.3
+p4 <- data.frame(x = x_range,
+                 pmf = dgeom(x_range, prob = geom_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "purple", width = 0.7) +
+    labs(title = paste0("Geometric(p=", geom_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Negative Binomial
+nb_r <- 5
+nb_p <- 0.5
+p5 <- data.frame(x = x_range,
+                 pmf = dnbinom(x_range, size = nb_r, prob = nb_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "orange", width = 0.7) +
+    labs(title = paste0("Negative Binomial\n(r=", nb_r, ", p=", nb_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+                                        # Hypergeometric
+hyper_m <- 50  # success states in population
+hyper_n <- 50  # failure states in population
+hyper_k <- 20  # number of draws
+p6 <- data.frame(x = x_range,
+                 pmf = dhyper(x_range, m = hyper_m, n = hyper_n, k = hyper_k)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "darkred", width = 0.7) +
+    labs(title = paste0("Hypergeometric\n(m=", hyper_m, ", n=", hyper_n, ", k=", hyper_k, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Arrange all plots in a 2x3 grid
+(p1 | p2 | p3) / (p4 | p5 | p6)
+```
+
+## Common Continuous Distributions
+
+```{r fig.width=6, fig.height=3, echo=F}
+# Set up x range for continuous distributions
+x_cont <- seq(-4, 10, length.out = 500)
+
+## Continuous Uniform
+unif_a <- 0
+unif_b <- 5
+c1 <- data.frame(x = x_cont) %>%
+    filter(x >= unif_a - 1 & x <= unif_b + 1) %>%
+    mutate(pdf = dunif(x, min = unif_a, max = unif_b)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "steelblue", linewidth = 1) +
+    labs(title = paste0("Continuous Uniform\n(a=", unif_a, ", b=", unif_b, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Normal
+norm_mu <- 0
+norm_sd <- 1
+c2 <- data.frame(x = x_cont) %>%
+    mutate(pdf = dnorm(x, mean = norm_mu, sd = norm_sd)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "coral", linewidth = 1) +
+    labs(title = paste0("Normal(μ=", norm_mu, ", σ=", norm_sd, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Exponential
+exp_rate <- 0.5
+c3 <- data.frame(x = seq(0, 10, length.out = 500)) %>%
+    mutate(pdf = dexp(x, rate = exp_rate)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "darkgreen", linewidth = 1) +
+    labs(title = paste0("Exponential(λ=", exp_rate, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Gamma
+gamma_shape <- 2
+gamma_rate <- 1
+c4 <- data.frame(x = seq(0, 10, length.out = 500)) %>%
+    mutate(pdf = dgamma(x, shape = gamma_shape, rate = gamma_rate)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "purple", linewidth = 1) +
+    labs(title = paste0("Gamma(α=", gamma_shape, ", β=", gamma_rate, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Beta
+beta_a <- 2
+beta_b <- 5
+c5 <- data.frame(x = seq(0, 1, length.out = 500)) %>%
+    mutate(pdf = dbeta(x, shape1 = beta_a, shape2 = beta_b)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "orange", linewidth = 1) +
+    labs(title = paste0("Beta(α=", beta_a, ", β=", beta_b, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Chi-squared
+chisq_df <- 4
+c6 <- data.frame(x = seq(0, 15, length.out = 500)) %>%
+    mutate(pdf = dchisq(x, df = chisq_df)) %>%
+    ggplot(aes(x = x, y = pdf)) +
+    geom_line(color = "darkred", linewidth = 1) +
+    labs(title = paste0("Chi-squared(df=", chisq_df, ")"),
+         x = "x", y = "f(x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size = 6))
+
+## Arrange all plots in a 2x3 grid
+(c1 | c2 | c3) / (c4 | c5 | c6)
+```
+
+## What is Hypothesis Testing?
+
+A formal procedure for making decisions based on finite data samples
+
+**Key question**: Is the observed effect real, or could it have occurred by chance?
+
+\vspace{0.5cm}
+
+**Applications in genomics**:
+
+* Is a gene differentially expressed between conditions?
+* Are two genetic variants associated with a trait?
+* Does a drug treatment have an effect on gene expression?
+
+## First hypothesis test: The Lady Tasting Tea
+
+:::::: {.columns}
+::: {.column width=.6}
+
+* Dr. Muriel Bristol claimed she could tell whether milk or tea was poured first into a cup
+
+* RA Fisher designed a randomized control experiment:
+  - 8 cups of tea (4 milk-first, 4 tea-first)
+  - Dr. Bristol tasted all 8 cups
+  - She had to identify which 4 were milk-first
+
+:::
+::: {.column width=.3}
+
+![](img/Nice_Cup_of_Tea.jpg)
+
+:::
+::::::
+
+\vspace{0.3cm}
+
+**The question**: Could she really tell the difference, or was she just guessing?
+
+* $H_0$: She's guessing (no ability)
+* If guessing, probability of getting all 4 correct by chance = $1/\binom{8}{4} \approx 0.014$
+<!-- \vspace{0.3cm} -->
+<!-- **Result**: She correctly identified all 8 cups! -->
+<!-- \vspace{0.3cm} -->
+<!-- **This experiment** laid the foundation for modern hypothesis testing -->
+
+\vfill
+
+\small
+
+[https://en.wikipedia.org/wiki/Lady_tasting_tea](https://en.wikipedia.org/wiki/Lady_tasting_tea)
+
+## Let's focus on how $X$ affects $Y$ in the full PGM
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=.2cm,
+    observed/.style={circle, draw, fill=gray!30, minimum size=0cm},
+    latent/.style={circle, draw, fill=gray!0, minimum size=0cm}
+]
+\node[observed] (er) {$X_{i}$};
+\node[latent, right=1cm of er] (mu) {$\mu_{g}$};
+\node[observed, below=1cm of er] (expr) {$Y_{ig}$};
+\draw[->, thick] (er) -- (expr);
+\draw[->, thick] (mu) -- (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.55}
+
+\large
+
+* $X_{i}$ for each $i \in [n]$:
+
+$$X_{i} = 
+\left\{\begin{array}{ll} 
+	0 & \text{if ER+} \\
+	1 & \text{if ER-}
+\end{array}
+\right.$$
+
+* We can say gene expression $Y_{ig}$ changes as a function of $X$ by a gene $g$'s $\mu_{g}$
+
+* What would be the probability distribution of $Y$?
+
+:::
+::::::
+
+## How **significantly** $X$ affects $Y$?
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=.2cm,
+    observed/.style={circle, draw, fill=gray!30, minimum size=0cm},
+    latent/.style={circle, draw, fill=gray!0, minimum size=0cm}
+]
+\node[observed] (er0) {$X_{i} = 0$};
+\node[latent, right=.5cm of er0] (mu0) {$\mu_{g0}$};
+\node[observed, below=1cm of er0] (expr0) {$Y_{ig}$};
+\node[observed, right=4cm of er0] (er1) {$X_{i} = 1$};
+\node[latent, right=.5cm of er1] (mu1) {$\mu_{g1}$};
+\node[observed, below=1cm of er1] (expr1) {$Y_{ig}$};
+\draw[->, thick] (er0) -- (expr0);
+\draw[->, thick] (mu0) -- (expr0);
+\draw[->, thick] (er1) -- (expr1);
+\draw[->, thick] (mu1) -- (expr1);
+\end{tikzpicture}
+\end{center}
+
+<!-- \draw[->, thick] (age) -- (er); -->
+<!-- \draw[->, thick] (meno) to[bend right=20] (er); -->
+<!-- \draw[->, thick] (meno) -- node[right] {$\beta$} (expr); -->
+<!-- \draw[->, thick] (er) -- node[below] {$\mu$} (expr); -->
+<!-- \draw[->, thick] (age) to[bend right=20] node[right] {$\alpha$} (expr); -->
+
+\vfill
+
+\large
+
+\only<1>{
+
+Here, we show the "data-generating" scheme more explicitly.
+
+}
+
+\only<2>{
+\begin{enumerate}
+\item Has this gene $g$ been affected by ER? 
+\item $Y_{g}$ changes depending on $X=0$ or $X=1$? 
+\item Is $\mu_{g0} = \mu_{g1}$?
+\end{enumerate}
+}
+
+\only<3>{
+Formal writing of hypothesis testing:
+$$H_{0}: \mu_{g0} = \mu_{g1} \quad \text{vs.} \quad H_{1}: \mu_{g0} \neq \mu_{g1}$$
+}
+
+\normalsize
+
+# An example of hypothesis testing
+
+## Five Steps of Hypothesis Testing
+
+\Large
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{enumerate}
+\item<1-> \textbf{\color{teal} Choose Test statistic}
+\item<2-> Establish Null Hypothesis ($H_0$)
+\item<3-> Define "rejection" region
+\end{enumerate}
+
+:::
+::: {.column width=.45}
+
+\onslide<4>{
+
+4. Compute Test Statistic
+
+5. Make a decision
+
+\vspace{1cm}
+
+\centerline{straightforward}
+
+}
+
+:::
+::::::
+
+\vfill
+
+\onslide<3->{
+For Step 1-3: What would happen **under the null**?
+}
+
+## How to come up with test statistic?
+
+\Large
+
+* Decide on the effect of interest
+
+* Design experiment or study
+
+* \textbf{\color{teal} Modelling can guide us}
+
+* Choose a data summary function and test statistic
+
+## Choose test statistic: How **significantly** $X$ affects $Y$?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=.2cm,
+    observed/.style={circle, draw, fill=gray!30, minimum size=0cm},
+    latent/.style={circle, draw, fill=gray!0, minimum size=0cm}
+]
+\node[observed] (er0) {$X_{i} = 0$};
+\node[latent, right=.5cm of er0] (mu0) {$\boldsymbol{\mu}_{g0}$};
+\node[observed, below=1cm of er0] (expr0) {$Y_{ig}$};
+\node[observed, right=2cm of er0] (er1) {$X_{i} = 1$};
+\node[latent, right=.5cm of er1] (mu1) {$\boldsymbol{\mu}_{g1}$};
+\node[observed, below=1cm of er1] (expr1) {$Y_{ig}$};
+\draw[->, thick] (er0) -- (expr0);
+\draw[->, thick] (mu0) -- (expr0);
+\draw[->, thick] (er1) -- (expr1);
+\draw[->, thick] (mu1) -- (expr1);
+\end{tikzpicture}
+\end{center}
+
+\large
+
+$$H_{0}: \mu_{g1} = \mu_{g0} \quad \text{vs.} \quad H_{1}: \mu_{g1} \neq \mu_{g0} $$
+
+\normalsize
+
+:::
+::: {.column width=.45}
+
+\large
+
+\begin{enumerate}
+\item<1-> What's our interest?
+\item<2-> The difference of the "average" parameters
+\item<3> How can we estimate the mean (1st moment) from data?
+\end{enumerate}
+\onslide<3>{
+$$\{Y_{1g},\ldots,Y_{ng}\}$$
+}
+
+\normalsize
+:::
+::::::
+
+## Step 1. Choose Test Statistics
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=.2cm,
+    observed/.style={circle, draw, fill=gray!30, minimum size=0cm},
+    latent/.style={circle, draw, fill=gray!0, minimum size=0cm}
+]
+\node[observed] (er0) {$X_{i} = 0$};
+\node[latent, right=.5cm of er0] (mu0) {$\boldsymbol{\mu}_{g0}$};
+\node[observed, below=1cm of er0] (expr0) {$Y_{ig}$};
+\node[observed, right=2cm of er0] (er1) {$X_{i} = 1$};
+\node[latent, right=.5cm of er1] (mu1) {$\boldsymbol{\mu}_{g1}$};
+\node[observed, below=1cm of er1] (expr1) {$Y_{ig}$};
+\draw[->, thick] (er0) -- (expr0);
+\draw[->, thick] (mu0) -- (expr0);
+\draw[->, thick] (er1) -- (expr1);
+\draw[->, thick] (mu1) -- (expr1);
+\end{tikzpicture}
+\end{center}
+
+\large
+
+$$H_{0}: \mu_{g1} = \mu_{g0} \quad \text{vs.} \quad H_{1}: \mu_{g1} \neq \mu_{g0} $$
+
+:::
+::: {.column width=.45}
+
+\large
+
+* Sample mean for $X_{i}=0$
+
+$$\bar{Y}_{g0} = \frac{\sum_{i=1}^{n} (1- X_{i}) Y_{i}}{\sum_{i=1}^{n} (1 - X_{i})}$$
+
+* Sample mean for $X_{i}=1$
+
+$$\bar{Y}_{g1} =\frac{\sum_{i=1}^{n} X_{i} Y_{i}}{\sum_{i=1}^{n} X_{i}}$$
+
+:::
+::::::
+
+```{r plot.functions, include=FALSE}
+# Modular function to create gene expression data frame
+get.expr.data <- function(gene_name, rse, clinical) {
+    # Find gene
+    gene_idx <- which(rowData(rse)$gene_name == gene_name)
+
+    if (length(gene_idx) == 0) {
+        stop(sprintf("Gene %s not found", gene_name))
+    }
+
+    # Extract expression (log2 transformed)
+    gene_expr <- log2(assay(rse)[gene_idx, ] + 1)
+
+    # Create data frame with X and Y
+    .df <- clinical %>%
+        filter(ER.status %in% c("Positive", "Negative")) %>%
+        mutate(
+            X = ifelse(ER.status == "Negative", 1, 0),
+            Y = gene_expr[match(sample.id, colData(rse)$tcga.tcga_barcode)]
+        ) %>%
+        filter(!is.na(Y))
+
+    return(.df)
+}
+
+# Modular function to plot gene expression density by ER status
+plot.gene.density <- function(gene_name, gene_data) {
+    # Calculate sample means
+    .means <- gene_data %>%
+        group_by(X) %>%
+        summarise(mean_Y = mean(Y)) %>%
+        mutate(X_label = ifelse(X == 0, "X = 0\n(ER Negative)", "X = 1\n(ER Positive)"))
+
+    # Create density plots
+    gene_data %>%
+        mutate(X_label = ifelse(X == 0, "X = 0\n(ER Negative)", "X = 1\n(ER Positive)")) %>%
+        ggplot(aes(x = Y, fill = factor(X))) +
+        geom_density(alpha = 0.7) +
+        geom_vline(data = .means, aes(xintercept = mean_Y),
+                   linetype = "dashed", linewidth = 1, color = "black") +
+        facet_grid(X_label ~ ., scales = "free_y") +
+        labs(x = sprintf("%s Expression: Y = log2(count + 1)", gene_name),
+             y = "Density",
+             title = sprintf("Distribution of %s Expression by ER Status", gene_name)) +
+        scale_fill_manual(values = c("0" = "#E69F00", "1" = "#56B4E9"),
+                         labels = c("ER Negative", "ER Positive")) +
+        theme_classic() +
+        theme(legend.position = "right",
+              legend.title = element_blank(),
+              strip.background = element_rect(fill = "grey90"),
+              strip.text.y = element_text(angle = 0))
+}
+
+# Modular function to plot t-distribution with test results
+plot.gene.tdist <- function(gene_name, gene_data, color = "#E41A1C", show.label = F) {
+    # Perform t-test
+    gene_test <- t.test(Y ~ X, data = gene_data, var.equal = TRUE)
+    t_stat <- gene_test$statistic
+    df <- gene_test$parameter
+    p_value <- gene_test$p.value
+
+    # Generate t-distribution
+    t_range <- seq(-6, 6, length.out = 500)
+    t_density <- dt(t_range, df = df)
+    t_df <- data.frame(t = t_range, density = t_density)
+
+    # Create label data frames for ggrepel
+    label_obs <- data.frame(
+        x = t_stat,
+        y = max(t_density) * 0.8,
+        label = sprintf("Observed\nt = %.2f\np = %.3f", t_stat, p_value)
+    )
+
+    label_crit <- data.frame(
+        x = qt(0.975, df),
+        y = max(t_density) * 0.3,
+        label = sprintf("α/2 = 0.025\nt = %.2f", qt(0.975, df))
+    )
+
+    ret <- ggplot(t_df, aes(x = t, y = density)) +
+        geom_line(linewidth = 1, color = "black") +
+        ## Shade rejection regions (two-tailed, alpha = 0.05)
+        geom_area(data = subset(t_df, t < qt(0.025, df)),
+                  aes(x = t, y = density), fill = "red", alpha = 0.3) +
+        geom_area(data = subset(t_df, t > qt(0.975, df)),
+                  aes(x = t, y = density), fill = "red", alpha = 0.3) +
+        ## Mark critical values
+        geom_vline(xintercept = qt(c(0.025, 0.975), df),
+                   linetype = "dashed", color = "red", linewidth = 0.8) +
+
+        ## Mark observed t-statistic
+        geom_vline(xintercept = t_stat,
+                   linetype = "solid", color = color, linewidth = 1.5) +
+        labs(x = "t-statistic", y = "Density",
+             title = sprintf("%s: t-distribution (df = %d) under H₀: μ₁ = μ₀", gene_name, df)) +
+        theme_classic() +
+        theme(plot.title = element_text(size = 12),
+              plot.subtitle = element_text(size = 10, color = "darkgray"))
+
+    if(show.label){
+        ## Add labels with ggrepel
+        ret <-
+            ret +
+            geom_label_repel(data = label_obs, aes(x = x, y = y, label = label),
+                             color = color, fontface = "bold", size = 3,
+                             box.padding = 0.5, point.padding = 0.5,
+                             segment.color = color, segment.size = 0.5,
+                             min.segment.length = 0) +
+            geom_label_repel(data = label_crit, aes(x = x, y = y, label = label),
+                             color = "red", size = 2.5,
+                             box.padding = 0.5, point.padding = 0.5,
+                             segment.color = "red", segment.size = 0.5,
+                             min.segment.length = 0)
+    }
+
+    ret
+}
+```
+
+## Example: _ESR1_ expression by ER status
+
+```{r esr1.expr, echo=FALSE, fig.width=5, fig.height=3}
+# Get data and plot for ESR1
+.df_esr1 <- get.expr.data("ESR1", rse, clinical)
+plot.gene.density("ESR1", .df_esr1)
+```
+
+
+
+## Example: _BEST1_ expression by ER status
+
+```{r best1.expr, echo=FALSE, fig.width=5, fig.height=3}
+# Get data and plot for BEST1
+.df_best1 <- get.expr.data("BEST1", rse, clinical)
+plot.gene.density("BEST1", .df_best1)
+```
+
+## Define Test Statistics - idea 1
+
+\huge
+
+$$T = \bar{Y}_{g1} - \bar{Y}_{g0}$$
+
+\normalsize
+
+\vfill
+
+Maybe... or why not?
+
+## Compare variance: _ESR1_ vs. _BEST1_
+
+```{r variance.comparison, echo=FALSE, fig.width=6, fig.height=3}
+# Combine ESR1 and BEST1 data
+.df_combined <- bind_rows(
+    .df_esr1 %>% mutate(gene = "ESR1"),
+    .df_best1 %>% mutate(gene = "BEST1")
+)
+
+# Calculate means and SDs for each gene
+.stats <- .df_combined %>%
+    group_by(gene) %>%
+    summarise(
+        mean_Y = mean(Y),
+        sd_Y = sd(Y),
+        var_Y = var(Y)
+    )
+
+# Create marginal density plots with mean and ±1 SD marked
+.df_combined %>%
+    ggplot(aes(x = Y, fill = gene)) +
+    geom_density(alpha = 0.5) +
+    # Add mean lines
+    geom_vline(data = .stats, aes(xintercept = mean_Y, color = gene),
+               linetype = "solid", linewidth = 1) +
+    # Add ±1 SD regions
+    geom_rect(data = .stats,
+              aes(xmin = mean_Y - sd_Y, xmax = mean_Y + sd_Y,
+                  ymin = -Inf, ymax = Inf, fill = gene),
+              alpha = 0.2, inherit.aes = FALSE) +
+    # Add labels
+    geom_text(data = .stats,
+              aes(x = mean_Y, y = 0.2,
+                  label = sprintf("μ = %.2f\nσ = %.2f",
+                                mean_Y, sd_Y),
+                  color = gene),
+              vjust = 0, hjust = -0.1, size = 3) +
+    facet_grid(gene~.) +
+    labs(x = "Expression: Y = log2(count + 1)",
+         y = "Density",
+         title = "Variance Comparison: ESR1 vs BEST1 (Marginal Distributions)") +
+    scale_fill_manual(values = c("ESR1" = "#E41A1C", "BEST1" = "#377EB8")) +
+    scale_color_manual(values = c("ESR1" = "#E41A1C", "BEST1" = "#377EB8")) +
+    theme_classic() +
+    theme(legend.position = "none",
+          strip.background = element_rect(fill = "grey90"))
+```
+
+## Revised Test Statistic - should adjust T by variance
+
+\huge
+
+$$T = \frac{ \bar{Y}_{g1} - \bar{Y}_{g0} } { \sqrt{ \mathbb{V}\!\left[\bar{Y}_{g1} - \bar{Y}_{g0}\right] } }$$
+
+\normalsize
+
+## Side note: Test statistic is a random variable
+
+In this example,
+
+$$T = \frac{ \bar{Y}_{g1} - \bar{Y}_{g0} } { \sqrt{ \mathbb{V}\!\left[\bar{Y}_{g1} - \bar{Y}_{g0}\right] } }$$
+
+
+- $Y$ is a random variable
+
+- And the sample mean is a function of $Y$ (also, random variable)
+
+- In general, if $X$ is a random variable, a function take on $X$, i.e., $g(X)$, is also a random variable. 
+
+## Five Steps of Hypothesis Testing
+
+\Large
+
+\begin{enumerate}
+\item Choose Test statistic
+\item \textbf{\color{teal} Establish Null Hypothesis ($H_0$)}
+\item Define "rejection" region
+\item Compute Test Statistic
+\item Make a decision
+\end{enumerate}
+
+\normalsize
+
+## Step 2. Estimate/simulate null Distribution
+
+**Definition**: The probability distribution of a test statistic when $H_0$ is true
+
+\vspace{0.5cm}
+
+* Represents expected outcomes if there were **no real effect**
+* Used as baseline for comparison
+* Allows us to assess how "extreme" our observed data is
+
+\vspace{0.5cm}
+
+**Idea**: 
+
+* If observed statistic is unlikely under null distribution, we have evidence against $H_0$
+
+* Under the null hypothesis $H_{0}$, what would be the distribution of test statistic $T$?
+
+## How do we estimate the distribution of $T$?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Option 1: Theoretical**
+
+\small
+
+* Make distributional assumptions
+* Derive the null distribution mathematically
+* Use known probability distributions
+
+\vspace{0.3cm}
+
+**Example**: t-distribution
+
+* Assume normality
+* Use Central Limit Theorem
+* Analytical formula available
+
+\vspace{0.3cm}
+
+**Pros**: Fast, well-studied
+
+**Cons**: Requires assumptions
+
+:::
+::: {.column width=.45}
+
+**Option 2: Empirical**
+
+\small
+
+* Simulate/resample data
+* Generate null distribution empirically
+* No distributional assumptions needed
+
+\vspace{0.3cm}
+
+**Example**: Permutation test
+
+* Randomly shuffle group labels
+* Recalculate test statistic
+* Repeat many times
+
+\vspace{0.3cm}
+
+**Pros**: Assumption-free
+
+**Cons**: Computationally intensive
+
+:::
+::::::
+
+## Option 1: Theoretical approach (t-distribution)
+
+**For ESR1 gene**:
+
+```{r theoretical.esr1, echo=TRUE, eval=FALSE}
+# Perform t-test using theoretical t-distribution
+t.test(Y ~ X, data = .df_esr1, var.equal = TRUE)
+```
+
+\vspace{0.3cm}
+
+**How it works**:
+
+1. Assume $Y_{ig} \sim N(\mu_g, \sigma^2)$
+2. Under $H_0$: $T = \frac{\bar{Y}_1 - \bar{Y}_0}{s_{\text{pooled}}\sqrt{\frac{1}{n_0} + \frac{1}{n_1}}} \sim t_{n_0+n_1-2}$
+3. Look up p-value from $t$-distribution tables/functions
+
+## Option 2: Empirical approach (Permutation test)
+
+**For ESR1 gene**:
+
+```{r permutation.setup, include=FALSE}
+# Function to perform permutation test
+perm.test <- function(gene_data, n_perm = 10000) {
+    # Observed test statistic
+    obs_diff <- mean(gene_data$Y[gene_data$X == 1]) - mean(gene_data$Y[gene_data$X == 0])
+
+    # Permutation distribution
+    perm_diffs <- replicate(n_perm, {
+        # Shuffle group labels
+        shuffled_X <- sample(gene_data$X)
+        # Recalculate difference
+        mean(gene_data$Y[shuffled_X == 1]) - mean(gene_data$Y[shuffled_X == 0])
+    })
+
+    # Calculate p-value (two-tailed)
+    p_value <- mean(abs(perm_diffs) >= abs(obs_diff))
+
+    return(list(
+        obs_diff = obs_diff,
+        perm_diffs = perm_diffs,
+        p_value = p_value
+    ))
+}
+```
+
+```{r permutation.esr1, echo=TRUE, eval=FALSE}
+# Permutation test for ESR1
+set.seed(123)
+perm_result <- perm.test(.df_esr1, n_perm = 10000)
+```
+
+\vspace{0.3cm}
+
+**How it works**:
+
+1. Calculate observed difference: $T_{\text{obs}} = \bar{Y}_1 - \bar{Y}_0$
+2. Shuffle group labels (X) many times
+3. Recalculate $T$ for each shuffle
+4. P-value = proportion of shuffles with $|T| \geq |T_{\text{obs}}|$
+
+## Comparing approaches: ESR1 (significant gene)
+
+```{r compare.esr1, echo=FALSE, fig.width=6, fig.height=2.5}
+# Run permutation test for ESR1
+set.seed(123)
+perm_esr1 <- perm.test(.df_esr1, n_perm = 10000)
+
+# Get theoretical t-test results
+t_esr1 <- t.test(Y ~ X, data = .df_esr1, var.equal = TRUE)
+
+# Create comparison plot
+p1 <- data.frame(t = perm_esr1$perm_diffs) %>%
+    ggplot(aes(x = t)) +
+    geom_histogram(aes(y = after_stat(density)), bins = 50, fill = "gray70", color = "black", alpha = 0.7) +
+    geom_vline(xintercept = perm_esr1$obs_diff, color = "#E41A1C", linewidth = 1.5) +
+    labs(title = "Empirical: Permutation distribution",
+         x = "Mean difference (ER+ - ER-)",
+         y = "Density") +
+    theme_classic()
+
+p2 <- plot.gene.tdist("ESR1", .df_esr1, color = "#E41A1C") +
+    labs(title = "Theoretical: t-distribution")
+
+p1 | p2
+```
+
+**ESR1**: Both approaches agree - highly significant (p < 0.001)
+
+## Comparing approaches: BEST1 (non-significant gene)
+
+```{r compare.best1, echo=FALSE, fig.width=6, fig.height=2.5}
+# Run permutation test for BEST1
+set.seed(456)
+perm_best1 <- perm.test(.df_best1, n_perm = 10000)
+
+# Get theoretical t-test results
+t_best1 <- t.test(Y ~ X, data = .df_best1, var.equal = TRUE)
+
+# Create comparison plot
+p1 <- data.frame(t = perm_best1$perm_diffs) %>%
+    ggplot(aes(x = t)) +
+    geom_histogram(aes(y = after_stat(density)), bins = 50, fill = "gray70", color = "black", alpha = 0.7) +
+    geom_vline(xintercept = perm_best1$obs_diff, color = "#377EB8", linewidth = 1.5) +
+    labs(title = "Empirical: Permutation distribution",
+         x = "Mean difference (ER+ - ER-)",
+         y = "Density") +
+    theme_classic()
+
+p2 <- plot.gene.tdist("BEST1", .df_best1, color = "#377EB8") +
+    labs(title = "Theoretical: t-distribution")
+
+p1 | p2
+```
+
+**BEST1**: Both approaches agree - not significant (p > 0.05)
+
+## When to use which approach?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Theoretical (t-distribution)**
+
+\small
+
+**Use when**:
+
+* Sample size is moderate to large
+* Data is approximately normal
+* Speed is important
+* Need confidence intervals
+
+\vspace{0.3cm}
+
+**Advantages**:
+
+* Fast computation
+* Well-established theory
+* Standard in literature
+
+:::
+::: {.column width=.45}
+
+**Empirical (Permutation)**
+
+\small
+
+**Use when**:
+
+* Sample size is small
+* Data is non-normal
+* Variance assumptions violated
+* Custom test statistics
+
+\vspace{0.3cm}
+
+**Advantages**:
+
+* No distribution assumptions
+* Exact p-values (for small samples)
+* Flexible
+
+:::
+::::::
+
+
+## Five Steps of Hypothesis Testing
+
+\Large
+
+\begin{enumerate}
+\item Choose Test statistic
+\item Establish Null Hypothesis ($H_0$)
+\item \textbf{\color{teal} Define "rejection" region}
+\item \textbf{\color{teal} Compute Test Statistic}
+\item Make a decision
+\end{enumerate}
+
+\normalsize
+
+## Step 3. Define the rejection region
+
+**Definition**: Set of test statistic values where we reject $H_0$
+
+\vspace{0.5cm}
+
+**Determined by**:
+
+* **Significance level ($\alpha$)**: Acceptable false positive rate (typically 0.05)
+* **Power considerations**: Maximize probability of detecting true effects
+* **Alternative hypothesis type**:
+  * Two-sided tests: Split rejection region between both tails
+  * One-sided tests: Concentrate region on one tail
+
+\vspace{0.5cm}
+
+**Choice reflects**: What values provide "sufficient evidence" against $H_0$
+
+## Step 4. Two-sample t-statistic by sample mean \& var.
+
+1. **Calculate sample means** for each group:
+
+$$\bar{Y}_0 = \frac{1}{n_0}\sum_{i: X_i=0} Y_i \quad \text{and} \quad \bar{Y}_1 = \frac{1}{n_1}\sum_{i: X_i=1} Y_i$$
+
+\vspace{0.3cm}
+
+2. **Calculate sample variances** for each group:
+
+$$s_0^2 = \frac{1}{n_0-1}\sum_{i: X_i=0} (Y_i - \bar{Y}_0)^2 \quad \text{and} \quad s_1^2 = \frac{1}{n_1-1}\sum_{i: X_i=1} (Y_i - \bar{Y}_1)^2$$
+
+\vspace{0.3cm}
+
+## Step 4. Two-sample t-statistic - continued
+
+3. **Calculate pooled variance** (assuming equal variance):
+
+$$s_{\text{pooled}}^2 = \frac{(n_0-1)s_0^2 + (n_1-1)s_1^2}{n_0 + n_1 - 2}$$
+
+\vspace{0.3cm}
+
+4. **Compute the t-statistic**:
+
+$$T = \frac{\bar{Y}_1 - \bar{Y}_0}{s_{\text{pooled}}\sqrt{\frac{1}{n_0} + \frac{1}{n_1}}}$$
+
+## In practice, use a built-in `t.test` function
+
+\small
+
+```
+t.test                  package:stats                  R Documentation
+
+Student's t-Test
+
+Description:
+
+     Performs one and two sample t-tests on vectors of data.
+
+Usage:
+
+     t.test(x, ...)
+```
+
+## In practice, for many hypotheses, `matrixTests`
+
+\small
+
+```
+ttest               package:matrixTests                R Documentation
+
+t-test
+
+Description:
+
+     Performs a t-test on each row/column of the input matrix.
+
+Usage:
+
+     row_t_equalvar(x, y, null = 0, alternative = "two.sided", conf.level = 0.95)
+```
+
+
+
+## $t$-distribution of _ESR1_
+
+```{r esr1.ttest, echo=FALSE, fig.width=6, fig.height=2.8}
+plot.gene.tdist("ESR1", .df_esr1, color = "#E41A1C", show.label=T)
+```
+
+## $t$-distribution of _BEST1_
+
+```{r best1.ttest, echo=FALSE, fig.width=6, fig.height=2.8}
+plot.gene.tdist("BEST1", .df_best1, color = "#377EB8", show.label=T)
+```
+
+
+## P-value
+
+**Definition**: Probability of observing a test statistic as extreme or more extreme than observed, assuming $H_0$ is true
+
+\vspace{0.5cm}
+
+* Scaled to range $[0, 1]$
+* Smaller p-values = stronger evidence against $H_0$
+* Common threshold: $p < 0.05$ for "statistical significance"
+
+\vspace{0.5cm}
+
+**Important**:
+
+* p-value is NOT the probability that $H_0$ is true
+* It's the probability of the data (or more extreme), given $H_0$
+
+
+## Five Steps of Hypothesis Testing
+
+\Large
+
+\begin{enumerate}
+\item Choose Test statistic
+\item Establish Null Hypothesis ($H_0$)
+\item Define "rejection" region
+\item Compute Test Statistic
+\item \textbf{\color{teal} Make a decision }
+\end{enumerate}
+
+\normalsize
+
+## Interpreting p-values
+
+Which of the following are true? (select all that apply)
+
+ a. If the effect size is very small, but the sample size is large enough, it is possible to have a statistically significant p-value
+ b. A study may show a relatively large magnitude of association (effect size), but a statistically insignificant p-value if the sample size is small
+ c. A very small p-value indicates there is a very small chance the finding is a false positive
+
+# Discussion
+
+
+## Types of Errors
+
+|                    | $H_0$ True         | $H_0$ False          |
+|--------------------|--------------------|----------------------|
+| **Reject $H_0$**   | Type I Error ($\alpha$) | Correct (Power)      |
+| **Fail to reject** | Correct            | Type II Error ($\beta$) |
+
+\vspace{0.5cm}
+
+**Type I Error (False Positive)**
+
+* Reject $H_0$ when it's actually true
+* Controlled by significance level $\alpha$
+
+**Type II Error (False Negative)**
+
+* Fail to reject $H_0$ when it's actually false
+* Related to power: Power = $1 - \beta$
+
+## Visualizing Type I and Type II Errors
+
+```{r type.errors.viz, echo=FALSE, fig.width=6, fig.height=3}
+# Parameters for null and alternative distributions
+mu_0 <- 0          # Mean under H0
+mu_1 <- 2          # Mean under H1 (effect size)
+sigma <- 1         # Standard deviation
+alpha <- 0.05      # Significance level
+
+# Critical value for two-tailed test
+critical_value <- qnorm(1 - alpha/2, mean = mu_0, sd = sigma)
+
+# Generate data for plotting
+x <- seq(-4, 6, length.out = 500)
+y_null <- dnorm(x, mean = mu_0, sd = sigma)
+y_alt <- dnorm(x, mean = mu_1, sd = sigma)
+
+# Create data frame
+df_plot <- data.frame(
+    x = rep(x, 2),
+    density = c(y_null, y_alt),
+    distribution = rep(c("H₀: μ = 0 (Null)", "H₁: μ = 2 (Alternative)"), each = length(x))
+)
+
+# Calculate beta (Type II error)
+beta <- pnorm(critical_value, mean = mu_1, sd = sigma)
+power <- 1 - beta
+
+# Create the plot
+ggplot(df_plot, aes(x = x, y = density, color = distribution, linetype = distribution)) +
+    geom_line(linewidth = 1.2) +
+
+    # Type I error (alpha) - right tail of null
+    geom_area(data = subset(df_plot, distribution == "H₀: μ = 0 (Null)" & x > critical_value),
+              aes(x = x, y = density), fill = "red", alpha = 0.3, inherit.aes = FALSE) +
+
+    # Type II error (beta) - left tail of alternative
+    geom_area(data = subset(df_plot, distribution == "H₁: μ = 2 (Alternative)" & x < critical_value),
+              aes(x = x, y = density), fill = "orange", alpha = 0.3, inherit.aes = FALSE) +
+
+    # Power - right tail of alternative
+    geom_area(data = subset(df_plot, distribution == "H₁: μ = 2 (Alternative)" & x > critical_value),
+              aes(x = x, y = density), fill = "green", alpha = 0.3, inherit.aes = FALSE) +
+
+    # Critical value line
+    geom_vline(xintercept = critical_value, linetype = "dashed", color = "black", linewidth = 0.8) +
+
+    # Add labels
+    annotate("text", x = critical_value + 0.3, y = max(y_null) * 0.95,
+             label = sprintf("Critical value\n(α = %.2f)", alpha),
+             hjust = 0, size = 3) +
+
+    annotate("text", x = 3.5, y = 0.15,
+             label = sprintf("Type I Error\nα = %.2f", alpha),
+             color = "red", fontface = "bold", size = 3) +
+
+    annotate("text", x = 0.5, y = 0.08,
+             label = sprintf("Type II Error\nβ = %.2f", beta),
+             color = "orange", fontface = "bold", size = 3) +
+
+    annotate("text", x = 3.5, y = 0.05,
+             label = sprintf("Power\n1-β = %.2f", power),
+             color = "darkgreen", fontface = "bold", size = 3) +
+
+    scale_color_manual(values = c("H₀: μ = 0 (Null)" = "blue",
+                                   "H₁: μ = 2 (Alternative)" = "darkgreen")) +
+    scale_linetype_manual(values = c("H₀: μ = 0 (Null)" = "solid",
+                                      "H₁: μ = 2 (Alternative)" = "dashed")) +
+
+    labs(x = "Test Statistic", y = "Density",
+         title = "Type I Error, Type II Error, and Statistical Power",
+         color = "Distribution", linetype = "Distribution") +
+    theme_classic() +
+    theme(legend.position = "top",
+          legend.text = element_text(size = 9))
+```
+
+**Key**: Red = Type I error (α), Orange = Type II error (β), Green = Power (1-β)
+
+## Statistical Power
+
+**Definition**: Probability of correctly rejecting a false $H_0$
+
+\vspace{0.5cm}
+
+* Measures ability to detect real effects when they exist
+* Power = $1 - \beta$, where $\beta$ is Type II error rate
+
+\vspace{0.5cm}
+
+**Factors affecting power**:
+
+* Sample size (larger $\rightarrow$ higher power)
+* Effect size (larger $\rightarrow$ higher power)
+* Significance level $\alpha$ (larger $\rightarrow$ higher power)
+* Variability in data (lower $\rightarrow$ higher power)
+
+
+## Common p-value pitfalls
+
+A p-value is **NOT**:
+
+- The probability that the null hypothesis is true
+
+- The probability that the finding is a "fluke"
+
+- A measure of the size or importance of observed effects
+
+
+## Different kinds of *t*-tests:
+
+- One sample *or* **two samples**
+
+- One-sided *or* **two sided**
+
+- Paired *or* **unpaired**
+
+- Equal variance *or* unequal variance
+
+## Common Non-parametric Tests
+
+**Wilcoxon Rank-Sum Test (Mann-Whitney U)**
+
+* Non-parametric alternative to two-sample t-test
+* Tests if two distributions differ
+\vspace{0.5cm}
+
+**Wilcoxon Signed-Rank Test**
+
+* Non-parametric alternative to paired t-test
+\vspace{0.5cm}
+
+**Permutation Tests**
+
+* Simulate null distribution
+
+## Final quiz: True or False
+
+\large
+
+* Modelling doesn't help us design hypothesis testing
+
+* We need complete knowledge to come up with a working hypothesis
+
+* p-value is the evidence for the null hypothesis
+
+* A small p-value suggests our alternative hypothesis $H_1$ is true
+
+* It is highly recommended to implement my own hypothesis tests
+
+* Hypothesis testing is an ultimate scientific proof
+
+## Some aspect of scientific explanation
+
+\large
+
+> "Explaining a contrast is sometimes easier than explaining the fact"
+
+\vfill
+
+\centerline{"P rather than Q" vs. "P" or "Q" alone}
+
+\vfill
+
+[@Lipton1991-mq]
+
+## Multiple lines of orthogonal evidence
+
+How can we overcome the limitation of hypothesis testing?
+
+\centerline{\includegraphics[height=.7\textheight]{img/multiple_lines_of_evidence.pdf}}
+
+\vfill
+
+[@Munafo2018-gb]
+
+## Summary
+
+\large
+
+* Modelling $\implies$ expose a specific hypothesis
+
+* We may **NOT** have complete knowledge before hypothesis
+
+* Testing **ONLY** reject the null hypothesis
+
+* Use existing (`R`) hypothesis test functions whenever possible
+
+\normalsize
+
+<!-- ## False Discovery Rate (FDR) -->
+<!-- **Problem**: Testing thousands of hypotheses simultaneously (common in genomics) -->
+<!-- \vspace{0.5cm} -->
+<!-- **False Discovery Rate**: Expected proportion of false positives among rejected hypotheses -->
+<!-- $$\text{FDR} = \mathbb{E}\left[\frac{\text{False Positives}}{\text{Total Rejections}}\right]$$ -->
+<!-- \vspace{0.5cm} -->
+<!-- * More appropriate than controlling family-wise error rate -->
+<!-- * Allows for some false positives while maintaining control -->
+<!-- * Benjamini-Hochberg procedure commonly used -->
+
+
+
+## References
+
+\scriptsize
+
+
