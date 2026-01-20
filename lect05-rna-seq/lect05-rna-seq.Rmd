@@ -144,7 +144,7 @@ _data generation_ followed by _inference_ or validation
 <!--------------------->
 
 
-# RNA-Seq data generation
+# RNA-Seq data generation scheme
 
 ## RNA-seq: pooling mRNA reads with poly-A tails
 
@@ -480,7 +480,7 @@ RNA-seq: from beginning to end – BAM to count data
 
 \normalsize
 
-## Aside: Allele-specific analysis separately quantifies diploid transcriptome [@Montgomery2010-th; @Pickrell2010-ie]
+## Aside: Allele-specific analysis separately quantifies diploid transcriptome
 
 \begin{center}
 \begin{tikzpicture}[scale=0.9]
@@ -588,7 +588,7 @@ RNA-seq: from beginning to end – BAM to count data
 
 \vfill\small
 
-We can discuss in the regulatory genomics lecture (`lect12`)
+[@Montgomery2010-th; @Pickrell2010-ie] Let's do this in `lect12`
 
 # RNA-seq data normalization
 
@@ -1047,6 +1047,16 @@ deseq.norm <- counts(dds, normalized = TRUE)
 **2. Sequencing depth / Library size bias**
 
 **3. RNA composition bias** (TMM)
+
+## Pop quiz!
+
+\large
+
+1. For differential expression analysis, namely gene-by-gene comparison, which normalization methods should be applied?
+
+1. For gene set enrichment analysis, which normalization methods should be applied?
+
+\normalsize
 
 # Understanding the nature of RNA-seq data
 
@@ -1709,6 +1719,17 @@ $\implies$ negative binomial PMF with $p = \beta/ (1+\beta)$
 :::
 ::::::
 
+## Discussion
+
+\large
+
+1. Can I ignore over-dispersion if I don't have deep sequencing?
+
+1. I forgot to perform TMM normalization, but can I adjust library depth by incorporating overdispersion parameters?
+
+\normalsize
+
+
 ## Statistical methods for estimating overdispersion $\phi_{g}$
 
 \large
@@ -1744,5 +1765,6 @@ $\implies$ negative binomial PMF with $p = \beta/ (1+\beta)$
 * Properties in RNA-seq-derived count data
 
 \normalsize
+
 
 ## Reference {.allowframebreaks}
