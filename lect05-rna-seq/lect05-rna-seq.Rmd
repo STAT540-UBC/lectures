@@ -1460,6 +1460,16 @@ $r \to \infty$ (or $\phi \to 0$) $\Rightarrow$ **Poisson**
 Source: \url{https://en.wikipedia.org/wiki/Negative_binomial_distribution}
 
 
+## Let's take a look at overdispersion $\phi$ (or $1/\phi$)
+
+$$P(Y = y) = \frac{\Gamma(y + 1/\phi)}{\Gamma(1/\phi) \, \Gamma(y + 1)} {\color{teal} \left(\frac{1}{1 + \phi\mu}\right) }^{1/\phi} {\color{magenta} \left(\frac{\phi\mu}{1 + \phi\mu}\right) }^y$$
+
+where $\Gamma(\cdot)$ is Euler's gamma function.
+
+$$\text{\color{magenta}success:} \qquad p = \frac{\phi \mu}{1 + \phi \mu} = \frac{ \mu}{1/\phi + \mu}$$
+
+$$\text{\color{teal}failure:} \qquad 1-p = \frac{1}{1 + \phi \mu} = \frac{1/\phi}{1/\phi + \mu}$$
+
 ## What do overdispersion parameters do?
 
 ```{r nb-overdispersion-comparison, fig.width=6, fig.height=2.5, echo=F}
@@ -1570,8 +1580,7 @@ ggplot(plot_data, aes(x = x, y = log_pmf, fill = distribution)) +
 
 \vfill
 
-Higher $\phi$ $\implies$ more variance $\implies$ expecting wider distribution 
-
+With higher $\phi$, low count, e.g., $y=1$, matters more or less?
 
 ## Poisson vs. Negative Binomial in terms of $\mu,\phi$
 
