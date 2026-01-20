@@ -1460,6 +1460,119 @@ $r \to \infty$ (or $\phi \to 0$) $\Rightarrow$ **Poisson**
 Source: \url{https://en.wikipedia.org/wiki/Negative_binomial_distribution}
 
 
+## What do overdispersion parameters do?
+
+```{r nb-overdispersion-comparison, fig.width=6, fig.height=2.5, echo=F}
+## Compare two negative binomial distributions with different overdispersion
+
+## Set parameters
+mu <- 10  # mean expression level
+phi_low <- 0.1   # low overdispersion (closer to Poisson)
+phi_high <- 1.0  # high overdispersion
+
+## Convert to (size, prob) parameterization used by dnbinom
+## phi = 1/size, so size = 1/phi
+## prob = 1/(1 + phi*mu)
+size_low <- 1/phi_low
+prob_low <- 1/(1 + phi_low * mu)
+
+size_high <- 1/phi_high
+prob_high <- 1/(1 + phi_high * mu)
+
+## Generate x values
+x_range <- 0:30
+
+## Create data
+plot_data <- rbind(
+  data.table(
+    x = x_range,
+    pmf = dnbinom(x_range, size = size_low, prob = prob_low),
+    distribution = sprintf("Low overdispersion (φ=%.1f)", phi_low),
+    variance = mu + phi_low * mu^2
+  ),
+  data.table(
+    x = x_range,
+    pmf = dnbinom(x_range, size = size_high, prob = prob_high),
+    distribution = sprintf("High overdispersion (φ=%.1f)", phi_high),
+    variance = mu + phi_high * mu^2
+  )
+)
+
+## Create plot
+## Create named vector for colors
+color_vals <- c("darkgreen", "orange")
+names(color_vals) <- c(sprintf("Low overdispersion (φ=%.1f)", phi_low),
+                       sprintf("High overdispersion (φ=%.1f)", phi_high))
+
+## Extract specific values for annotation at y=1 and y=10
+highlight_vals <- plot_data[x %in% c(1, 10)]
+
+## Calculate log-probability gaps
+gap_low <- highlight_vals[x == 10 & grepl("Low", distribution), log(pmf)] -
+           highlight_vals[x == 1 & grepl("Low", distribution), log(pmf)]
+gap_high <- highlight_vals[x == 10 & grepl("High", distribution), log(pmf)] -
+            highlight_vals[x == 1 & grepl("High", distribution), log(pmf)]
+
+## Prepare annotation data with positions for dodged bars
+dodge_width <- 0.8
+highlight_vals[, x_pos := x + c(-0.5, 0.5) * dodge_width/2, by = x]
+
+## Add log probabilities to plot_data
+plot_data[, log_pmf := log(pmf)]
+highlight_vals[, log_pmf := log(pmf)]
+
+## Create vertical bar data showing the gap at x=25
+gap_bars <- data.table(
+    distribution = c(sprintf("Low overdispersion (φ=%.1f)", phi_low),
+                     sprintf("High overdispersion (φ=%.1f)", phi_high)),
+    x = 10,
+    y_min = c(highlight_vals[x == 1 & grepl("Low", distribution), log_pmf],
+              highlight_vals[x == 1 & grepl("High", distribution), log_pmf]),
+    y_max = c(highlight_vals[x == 10 & grepl("Low", distribution), log_pmf],
+              highlight_vals[x == 10 & grepl("High", distribution), log_pmf]),
+    gap = c(abs(gap_low), abs(gap_high))
+)
+
+ggplot(plot_data, aes(x = x, y = log_pmf, fill = distribution)) +
+    facet_grid(. ~ `distribution`) +
+    geom_col(position = position_dodge(width = dodge_width), width = 0.7, alpha = 0.8) +
+    scale_fill_manual(values = color_vals) +
+    ## Add vertical lines at x=1 and x=10
+    geom_vline(xintercept = c(1, 10), linetype = "dashed", color = "gray40", linewidth = 0.3) +
+    ## Add horizontal lines showing log probability levels
+    geom_hline(data = highlight_vals,
+               aes(yintercept = log_pmf, color = distribution),
+               linetype = 2, linewidth = 0.5, alpha = 0.7) +
+    scale_color_manual(values = color_vals, guide = "none") +
+    ## Add vertical bars showing the gap at x=25
+    geom_segment(data = gap_bars,
+                 aes(x = x, xend = x, y = y_min, yend = y_max),
+                 color = "red", linewidth = .5, inherit.aes = FALSE,
+                 arrow = arrow(ends = "both", length = unit(0.05, "inches"))) +
+    ## Add gap value labels
+    geom_text(data = gap_bars,
+              aes(x = x, y = (y_min + y_max)/2, label = sprintf("%.2f", gap)),
+              size = 3.5, fontface = "bold", color = "red",
+              hjust = -0.3, inherit.aes = FALSE) +
+    ## Annotate x=1 and x=10
+    annotate("text", x = 1, y = min(plot_data$log_pmf) * 1.05,
+             label = "y=1", size = 2, fontface = "bold", color = "gray20") +
+    annotate("text", x = 10, y = min(plot_data$log_pmf) * 1.05,
+             label = "y=10", size = 2, fontface = "bold", color = "gray20") +
+    labs(
+        title = sprintf("Negative Binomial distributions (μ=%d)", mu),
+        x = "Count (y)",
+        y = "log P(Y = y| μ, φ)",
+        fill = "Distribution"
+    ) +
+    theme(legend.position = "none")
+```
+
+\vfill
+
+Higher $\phi$ $\implies$ more variance $\implies$ expecting wider distribution 
+
+
 ## Poisson vs. Negative Binomial in terms of $\mu,\phi$
 
 \begin{center}
@@ -1719,11 +1832,16 @@ $\implies$ negative binomial PMF with $p = \beta/ (1+\beta)$
 :::
 ::::::
 
+
+
+
+
+
 ## Discussion
 
 \large
 
-1. Can I ignore over-dispersion if I don't have deep sequencing?
+1. Can I ignore overdispersion if I don't have deep sequencing?
 
 1. I forgot to perform TMM normalization, but can I adjust library depth by incorporating overdispersion parameters?
 
