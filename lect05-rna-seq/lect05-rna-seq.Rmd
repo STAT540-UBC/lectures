@@ -1,0 +1,1748 @@
+---
+title: "RNA-seq Data Analysis"
+author: "Yongjin Park\n(slide credit: Keegan Korthauer)"
+date: "20 January 2026"
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+bibliography: rna-seq.bib
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{positioning,calc,arrows.meta}
+  - \tikzset{>={Stealth[length=3mm,width=2mm]}}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/rna-seq/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(recount3)
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(ggpubr)
+library(ggrepel)
+
+theme_set(theme_minimal())
+```
+
+
+## Roadmap of STAT/BIOF/GSAT540 2026
+
+_data generation_ followed by _inference_ or validation
+
+\vfill
+
+\large
+
+:::::: {.columns}
+::: {.column width=.45}
+
+3. Formulating biological questions
+
+4. Hypothesis testing
+
+5. \textbf{\color{magenta}RNA-seq data} (Today)
+
+6. \textbf{\color{teal}Inference focusing on RNA-seq} (Thursday)
+
+7. \textbf{\color{olive} Experimental design} (next week)
+
+:::
+::: {.column width=.45}
+
+8. Single-cell genomics
+
+9. Matrix factorization
+
+10. Genome-wide association studies
+
+11. Multiple hypothesis testing
+
+:::
+::::::
+
+\normalsize
+
+## Learning objectives of RNA-seq analysis
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**How do we get sequencing data?**
+
+\vspace{0.5cm}
+
+* High-throughput sequencing data
+  - data generation scheme
+  - quantification
+
+* Data normalization
+  - intrinsic biases
+  - gene-level adjustment
+  - gene and sample adjustment
+
+* Over-dispersed nature
+  - count data
+  - transformation
+
+:::
+::: {.column width=.45}
+
+**How can we fit a model to sequencing data?** 
+
+* Linear modelling
+  - a Gaussian linear model
+  - a generalized linear model
+
+* Multivariate linear models
+  - a column space view
+
+* Model-based inference
+  - maximum likelihood learning
+  - parametric inference
+
+* Revisit RNA-seq
+  - \textcolor{blue}{\texttt{\textbf{DESeq2}}} vs. \textcolor{blue}{\texttt{\textbf{limma-voom}}}
+  - modelling and estimation
+
+:::
+::::::
+
+<!--------------------->
+<!-- dont go further -->
+<!--------------------->
+
+
+# RNA-Seq data generation
+
+## RNA-seq: pooling mRNA reads with poly-A tails
+
+\centerline{\includegraphics[height=.7\textheight]{img/RNA_seq_step1_WangGersteinSnyder.pdf}}
+
+\vfill\tiny
+@Wang2009-tg
+
+## RNA-seq: mapping short reads to reference genome
+
+\centerline{\includegraphics[height=.7\textheight]{img/RNA_seq_step2_WangGersteinSnyder.pdf}}
+
+\vfill\tiny
+@Wang2009-tg
+
+## Before RNA-seq: The Pre-2008 Era
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**EST sequencing** (1990s)
+
+- Low throughput Sanger sequencing of cDNA clones
+- Expensive and labor-intensive
+
+\vspace{.5cm}
+
+**SAGE** (1995)
+
+- Short sequence tags from cDNA
+- Limited dynamic range
+
+:::
+::: {.column width=.45}
+
+**Microarrays** (late 1990s-2000s)
+
+- Required **predefined probes** for known transcripts
+- High background noise, cross-hybridization
+- Limited dynamic range (~3 orders of magnitude)
+- Poor at detecting low-abundance transcripts
+- Species-specific probe design required
+
+:::
+::::::
+
+\vfill\tiny
+@Wang2009-tg
+
+## Microarrays had been revolutionary, too
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\centerline{\includegraphics[height=.7\textheight]{img/Brown_Botstein_1999.pdf}}
+
+:::
+::: {.column width=.4}
+
+> Thousands of genes are being discovered for the first time by sequencing the genomes of model organisms, **an exhilarating reminder** that much of the natural world remains to be explored at the molecular level. 
+
+:::
+::::::
+
+\vfill\tiny
+@Brown1999-sz
+
+## RNA-seq: mapping short reads to reference genome
+
+\centerline{\includegraphics[height=.7\textheight]{img/RNA_seq_step2_WangGersteinSnyder.pdf}}
+
+\vfill\tiny
+@Wang2009-tg
+
+## Why sequencing-based high-throughput assays?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Key improvements**
+
+- Much wider dynamic range (~5 orders of magnitude)
+- No prior annotation needed
+- Single-nucleotide resolution
+- Digital counts vs. analog signals
+- Works for any organism
+
+:::
+::: {.column width=.45}
+
+**New capabilities**
+
+- Discovery of novel transcripts and genes
+- Alternative splicing detection
+- Allele-specific expression
+- Study of non-model organisms
+- Precise isoform quantification
+
+:::
+::::::
+
+\vfill
+
+\begin{center}
+From \textbf{hypothesis-driven} (design probes; fixed arrays)
+
+$\Downarrow$
+
+\textbf{\color{magenta}discovery-driven} (sequence everything, analyze later)
+\end{center}
+
+\vfill\tiny
+@Wang2009-tg
+
+## Foundational experimental work (2008)
+
+:::::: {.columns}
+::: {.column width=.45}
+
+@Nagalakshmi2008-wq
+
+- First complete transcriptome map using deep sequencing
+- Yeast genome transcriptional landscape
+
+:::
+::: {.column width=.45}
+
+@Mortazavi2008-es
+
+- First comprehensive RNA-seq in mouse tissues
+- Introduced **RPKM** normalization
+- Demonstrated superiority over microarrays
+
+:::
+::::::
+
+
+## Sequencing Technologies
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Early Platforms (2005-2010)**
+
+\vspace{.5cm}
+
+- **454 Pyrosequencing**: First NGS platform, longer reads but lower throughput
+- **Illumina/Solexa**: Became dominant platform, higher throughput, shorter reads
+- **SOLiD**: Two-base encoding sequencing
+
+:::
+::: {.column width=.45}
+
+**Modern Era (2011-present)**
+
+\vspace{.5cm}
+
+- **Pacific Biosciences (PacBio)**: Long-read sequencing, full-length transcripts without assembly
+- **Oxford Nanopore**: Portable, long-read, direct RNA sequencing without reverse transcription
+
+:::
+::::::
+
+## RNA-seq: mapping short reads to reference genome
+
+\centerline{\includegraphics[height=.7\textheight]{img/RNA_seq_step2_WangGersteinSnyder.pdf}}
+
+\vfill\tiny
+@Wang2009-tg
+
+
+## The isoform quantification problem
+
+\begin{center}
+\begin{tikzpicture}[scale=0.75]
+  % Gene structure label
+  \node[anchor=east, font=\scriptsize\bfseries] at (-0.5, 3.5) {Gene};
+
+  % Exons (boxes)
+  \fill[blue!60] (0,3.2) rectangle (1.2,3.8);
+  \node[font=\tiny, white] at (0.6, 3.5) {E1};
+  \fill[green!60] (2.2,3.2) rectangle (3.4,3.8);
+  \node[font=\tiny, white] at (2.8, 3.5) {E2};
+  \fill[orange!60] (4.4,3.2) rectangle (5.6,3.8);
+  \node[font=\tiny, white] at (5.0, 3.5) {E3};
+  \fill[red!60] (6.6,3.2) rectangle (7.8,3.8);
+  \node[font=\tiny, white] at (7.2, 3.5) {E4};
+
+  % Introns (lines)
+  \draw (1.2, 3.5) -- (2.2, 3.5);
+  \draw (3.4, 3.5) -- (4.4, 3.5);
+  \draw (5.6, 3.5) -- (6.6, 3.5);
+
+  % Isoform A (all exons)
+  \node[anchor=east, font=\scriptsize\bfseries] at (-0.5, 2.0) {Isoform A};
+  \fill[blue!60] (0,1.7) rectangle (1.2,2.3);
+  \fill[green!60] (1.3,1.7) rectangle (2.5,2.3);
+  \fill[orange!60] (2.6,1.7) rectangle (3.8,2.3);
+  \fill[red!60] (3.9,1.7) rectangle (5.1,2.3);
+
+  % Short reads on Isoform A
+  \fill[gray!70] (0.1,2.4) rectangle (0.7,2.55);
+  \fill[gray!70] (1.6,2.4) rectangle (2.2,2.55);
+  \fill[gray!70] (2.9,2.4) rectangle (3.5,2.55);
+  \fill[gray!70] (4.2,2.4) rectangle (4.8,2.55);
+  % Junction-spanning read (E1-E2) - unique to A
+  \fill[cyan!70] (0.9,2.4) rectangle (1.5,2.55);
+
+  % Isoform B (skip E2)
+  \node[anchor=east, font=\scriptsize\bfseries] at (-0.5, 0.5) {Isoform B};
+  \fill[blue!60] (0,0.2) rectangle (1.2,0.8);
+  \fill[orange!60] (1.3,0.2) rectangle (2.5,0.8);
+  \fill[red!60] (2.6,0.2) rectangle (3.8,0.8);
+
+  % Short reads on Isoform B
+  \fill[gray!70] (0.3,-0.05) rectangle (0.9,0.1);
+  \fill[gray!70] (1.6,-0.05) rectangle (2.2,0.1);
+  \fill[gray!70] (2.9,-0.05) rectangle (3.5,0.1);
+  % Junction-spanning read (E1-E3) - unique to B
+  \fill[magenta!70] (0.9,-0.05) rectangle (1.5,0.1);
+
+  % Annotations
+  \node[anchor=west, font=\tiny] at (5.3, 2.0) {E1-E2-E3-E4};
+  \node[anchor=west, font=\tiny] at (4.0, 0.5) {E1-E3-E4 (E2 skipped)};
+
+  % Legend box
+  \draw[rounded corners, gray] (9, 3.5) rectangle (14, 0.5);
+
+  \fill[gray!70] (9.3, 3.1) rectangle (9.9, 3.3);
+  \node[anchor=west, font=\tiny] at (10.1, 3.2) {Ambiguous (E1, E3, E4)};
+
+  \fill[cyan!70] (9.3, 2.5) rectangle (9.9, 2.7);
+  \node[anchor=west, font=\tiny] at (10.1, 2.6) {Unique to A (E1-E2 junction)};
+
+  \fill[magenta!70] (9.3, 1.9) rectangle (9.9, 2.1);
+  \node[anchor=west, font=\tiny] at (10.1, 2.0) {Unique to B (E1-E3 junction)};
+
+  \node[anchor=north west, font=\tiny, align=left, text width=4.5cm] at (9.3, 1.6) {
+    Ambiguous $\rightarrow$ EM assigns\\
+    fractional counts to isoforms
+  };
+
+\end{tikzpicture}
+\end{center}
+
+Most reads are **ambiguous** $\rightarrow$ require **statistical inference** (EM) to estimate isoform abundance
+
+## Long-read RNA-seq: Full-length transcripts
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**The isoform problem**
+
+- Short reads (~150bp) cannot span full transcripts
+- Transcript assembly is computationally challenging
+- Isoform quantification relies on statistical inference
+
+\centerline{$\Downarrow$}
+
+**Long-read solution**: Sequence entire transcripts (1-10+ kb) without fragmentation
+
+:::
+::: {.column width=.45}
+
+**Key advantages**
+
+- Direct isoform identification without assembly
+- Novel splice variant discovery
+- Fusion transcript detection
+- Allele-specific (break the tie)
+
+\vspace{.3cm}
+
+**Trade-offs**
+
+- Lower throughput than short-read
+- Higher error rates
+- Higher cost per base
+
+:::
+::::::
+
+\vfill\tiny
+@Sharon2013-dr
+
+## RNA-seq: mapping short reads to reference genome
+
+\centerline{\includegraphics[height=.7\textheight]{img/RNA_seq_step2_WangGersteinSnyder.pdf}}
+
+\vfill\tiny
+@Wang2009-tg
+
+
+## Gene-level quantification methods (CS-oriented)
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Burrow-Wheeler (2009-2012)**
+
+- \textcolor{blue}{\texttt{\textbf{bowtie}}} [@Langmead2009-us]: Ultrafast "dictionary" based mapping
+
+- \textcolor{blue}{\texttt{\textbf{TopHat}}} [@Trapnell2009-lq]: Parsing out the `bowtie` results
+
+- \textcolor{blue}{\texttt{\textbf{cufflinks}}} [@Trapnell2010-cv]: Exact transcript assembly model (first suggested FPKM)
+
+- \textcolor{blue}{\texttt{\textbf{RSEM}}} [@Li2011-sj]: Expectation Maximization-based splice isoform quantification 
+
+:::
+::: {.column width=.45}
+
+**Isoform-aware mapping (2012-2014)**
+
+- \textcolor{blue}{\texttt{\textbf{STAR}}} [@Dobin2013-cv]: longer reads and splice-aware
+
+\vspace{.5cm}
+
+**Pseudo-alignment (2015-2017)**
+
+- \textcolor{blue}{\texttt{\textbf{kallisto}}}: Ultra-fast pseudoalignment, orders of magnitude faster [@Bray2016-cn]
+
+- \textcolor{blue}{\texttt{\textbf{salmon}}}: Fast, bias-aware quantification [@Patro2017-ch]
+
+:::
+::::::
+
+## Hands-on session in `Seminar 06`
+
+\Large
+
+RNA-seq: from beginning to end – BAM to count data
+
+\normalsize
+
+## Aside: Allele-specific analysis separately quantifies diploid transcriptome [@Montgomery2010-th; @Pickrell2010-ie]
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+  % Maternal chromosome
+  \node[font=\small\bfseries] at (-2, 4.5) {Maternal};
+
+  % Gene on maternal chromosome
+  \draw[thick, fill=blue!30] (0, 4) rectangle (4, 4.5);
+  \node[font=\scriptsize] at (1, 4.25) {Gene};
+
+  % SNP marker on maternal
+  \fill[red] (2, 4.25) circle (0.1);
+  \node[above] at (2, 4.6) {SNP: A};
+
+  % RNA from maternal (many)
+  \foreach \x in {0.5, 1, 1.5, 2, 2.5, 3, 3.5} {
+    \draw[->, thick, blue!60] (\x, 3.9) -- (\x, 3.2);
+  }
+  \node[font=\scriptsize, blue!60] at (5, 3.5) {High expression};
+
+  % Sequencing reads from maternal (15 reads)
+  % Row 1
+  \draw[fill=blue!20] (0.2, 2.8) rectangle (0.9, 3.0);
+  \node[font=\tiny] at (0.55, 2.9) {A};
+  \draw[fill=blue!20] (1.0, 2.8) rectangle (1.7, 3.0);
+  \node[font=\tiny] at (1.35, 2.9) {A};
+  \draw[fill=blue!20] (1.8, 2.8) rectangle (2.5, 3.0);
+  \node[font=\tiny] at (2.15, 2.9) {A};
+  \draw[fill=blue!20] (2.6, 2.8) rectangle (3.3, 3.0);
+  \node[font=\tiny] at (2.95, 2.9) {A};
+  \draw[fill=blue!20] (3.4, 2.8) rectangle (4.1, 3.0);
+  \node[font=\tiny] at (3.75, 2.9) {A};
+  % Row 2
+  \draw[fill=blue!20] (0.2, 2.55) rectangle (0.9, 2.75);
+  \node[font=\tiny] at (0.55, 2.65) {A};
+  \draw[fill=blue!20] (1.0, 2.55) rectangle (1.7, 2.75);
+  \node[font=\tiny] at (1.35, 2.65) {A};
+  \draw[fill=blue!20] (1.8, 2.55) rectangle (2.5, 2.75);
+  \node[font=\tiny] at (2.15, 2.65) {A};
+  \draw[fill=blue!20] (2.6, 2.55) rectangle (3.3, 2.75);
+  \node[font=\tiny] at (2.95, 2.65) {A};
+  \draw[fill=blue!20] (3.4, 2.55) rectangle (4.1, 2.75);
+  \node[font=\tiny] at (3.75, 2.65) {A};
+  % Row 3
+  \draw[fill=blue!20] (0.2, 2.3) rectangle (0.9, 2.5);
+  \node[font=\tiny] at (0.55, 2.4) {A};
+  \draw[fill=blue!20] (1.0, 2.3) rectangle (1.7, 2.5);
+  \node[font=\tiny] at (1.35, 2.4) {A};
+  \draw[fill=blue!20] (1.8, 2.3) rectangle (2.5, 2.5);
+  \node[font=\tiny] at (2.15, 2.4) {A};
+  \draw[fill=blue!20] (2.6, 2.3) rectangle (3.3, 2.5);
+  \node[font=\tiny] at (2.95, 2.4) {A};
+  \draw[fill=blue!20] (3.4, 2.3) rectangle (4.1, 2.5);
+  \node[font=\tiny] at (3.75, 2.4) {A};
+
+  % Paternal chromosome
+  \node[font=\small\bfseries] at (-2, 1.3) {Paternal};
+
+  % Gene on paternal chromosome
+  \draw[thick, fill=orange!30] (0, 0.8) rectangle (4, 1.3);
+  \node[font=\scriptsize] at (1, 1.05) {Gene};
+
+  % SNP marker on paternal
+  \fill[blue] (2, 1.05) circle (0.1);
+  \node[above] at (2, 1.4) {SNP: G};
+
+  % RNA from paternal (fewer)
+  \foreach \x in {1, 2, 3} {
+    \draw[->, thick, orange!60] (\x, 0.7) -- (\x, 0.0);
+  }
+  \node[font=\scriptsize, orange!60] at (5, 0.3) {Low expression};
+
+  % Sequencing reads from paternal (3 reads)
+  \draw[fill=orange!20] (0.5, -0.4) rectangle (1.3, -0.2);
+  \node[font=\tiny] at (0.9, -0.3) {G};
+  \draw[fill=orange!20] (1.5, -0.4) rectangle (2.3, -0.2);
+  \node[font=\tiny] at (1.9, -0.3) {G};
+  \draw[fill=orange!20] (2.5, -0.4) rectangle (3.3, -0.2);
+  \node[font=\tiny] at (2.9, -0.3) {G};
+
+  % Result box (smaller and moved right)
+  \node[font=\small\bfseries] at (8.25, 4.3) {RNA-seq};
+
+  \node[font=\scriptsize, align=left] at (8.25, 3.4) {
+    Read counts:\\
+    Allele A: 15 reads\\
+    Allele G: 3 reads
+  };
+
+  \node[font=\scriptsize, align=left] at (8.25, 2.4) {
+    $\Rightarrow$ Allelic imbalance\\
+    5:1 ratio
+  };
+
+  \node[font=\scriptsize, align=left] at (8.25, 1.0) {
+    \textbf{Biological insights:}\\
+    \tiny
+    - Cis-regulatory\\
+    - Imprinting\\
+    - X-inactivation
+  };
+
+\end{tikzpicture}
+\end{center}
+
+\vfill\small
+
+We can discuss in the regulatory genomics lecture (`lect12`)
+
+# RNA-seq data normalization
+
+## Why normalize RNA-seq data?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Technical biases**
+
+- Sequencing depth varies across samples
+- Gene length affects read counts
+- GC-content bias
+- Batch effects
+
+:::
+::: {.column width=.45}
+
+**Goal**
+
+- Make expression levels comparable across genes and samples
+- Remove technical variation while preserving biological signal
+
+:::
+::::::
+
+## Normalization methods
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Within-sample normalization**
+
+- **RPKM/FPKM**: Reads per kilobase per million mapped reads [@Mortazavi2008-es]
+- **TPM**: Transcripts per million (improved RPKM)
+
+\vspace{.3cm}
+
+*Adjusts for sequencing depth and gene length*
+
+:::
+::: {.column width=.45}
+
+**Between-sample normalization**
+
+- **TMM**: Trimmed mean of M-values [@Robinson2010-mk]
+- **DESeq size factors**: Median of ratios [@Anders2010-cf]
+- **RUVSeq**: Removing unwanted variation [@Risso2014-sa]
+
+\vspace{.3cm}
+
+*Addresses composition bias*
+
+:::
+::::::
+
+## Continue to work on TCGA data
+
+```{r}
+data.dir <- "../data/recount3"
+dir.create(data.dir, recursive = TRUE, showWarnings = FALSE)
+.file <- file.path(data.dir, "tcga_brca_rse.rds")
+
+if.needed(.file, {
+    tcga.proj <- subset(available_projects(),
+                        file_source == "tcga")
+    brca.info <- tcga.proj[tcga.proj$project == "BRCA", ]
+    rse.brca <- create_rse(brca.info)
+    saveRDS(rse.brca, .file)
+})
+rse <- readRDS(.file)
+```
+
+## After alignment: `SummarizedExperiment`
+
+```
+                        samples (columns)
+                     +---------------------+
+                     |  S1   S2   S3  ...  |
+               +-----|---------------------+
+     genes     | G1  |  10   25   18  ...  |  <- assays (counts)
+     (rows)    | G2  |   5   12    8  ...  |
+               | ... | ...  ...  ...  ...  |
+               +-----+---------------------+
+
+  rowData: genomic coordinates (chr, start, end, strand)
+  colData: sample metadata (tumor/normal, clinical info)
+```
+
+## Learning objectives: identify biases and address them
+
+\Large
+
+1. Gene bias (rows)
+
+2. Sequencing depth (samples/columns)
+
+3. Composition bias (corollary to sequencing depth)
+
+\normalsize
+
+## Get the data and compute the statistics
+
+Here is gene expression count data:
+
+```{r}
+raw.counts <- assay(rse, "raw_counts")
+```
+
+Here is gene/row annotations
+
+```{r size="scriptsize"}
+rowData(rse) %>% head(3)
+```
+
+## Bias 1. Gene length vs. gene expression
+
+```{r gene-length-bias-avg, echo=F, fig.width=3, fig.height=2.8, message=F}
+## Calculate average log1p expression per gene
+avg.expr <- rowMeans(raw.counts)
+
+## Get gene length from rowData
+bp.length <- rowData(rse)$bp_length
+
+## Create data frame for plotting
+.dt <- data.table(bp.length, avg.expr) %>%
+    filter(avg.expr > 0)
+
+ggplot(.dt, aes(x = log10(bp.length), y = log10(avg.expr))) +
+    ggrastr::rasterize(geom_point(alpha=.5,size=0.5,colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_smooth(method = "lm", se = F, color = "red", lty=2, linewidth=.5) +
+    stat_regline_equation(size = 4) +
+    labs(x = "log10 gene length (bp)", y="log10 average expression")
+```
+
+## How did the gene length bias occur?
+
+Original transcript:
+
+```
+5'--[5'UTR]--[=======CDS=======]--[3'UTR]--AAAAAAA 3'
+                                           (polyA)
+```
+
+**RNA is fragmented before sequencing**
+
+After fragmentation:
+
+```
+   ===    ===   ===    ===   ===    ===   ===
+     ===    ===   ===    ===   ===    ===
+```
+
+## Longer genes produce more fragments
+
+```
+Short gene (1 kb):
+|----------|
+   ==  ==  ==
+     ==  ==
+   ~5 reads
+```
+
+```
+Long gene (4 kb):
+|------------------------------------------|
+   ==  ==  ==  ==  ==  ==  ==  ==  ==  ==
+     ==  ==  ==  ==  ==  ==  ==  ==  ==
+   ~20 reads
+```
+
+Same expression $\implies$ 4 $\times$ more counts for the 4 $\times$ longer
+
+## RPKM (Reads Per Kilobase per Million mapped)
+
+$$\text{RPKM}_{gi} = \frac{Y_{gi}}{L_{g} / 1000 \times N_{i} / 10^6} = \frac{Y_{gi} \times 10^9}{L_{g} \times N_{i}}$$
+
+Where:
+
+- $Y_{gi}$ = raw count for gene $g$ in sample $i$
+- $L_{g}$ = gene length of gene $g$ in bp
+- $N_{i}$ = total mapped reads on a sample $i$ (library size)
+
+*Order:* Normalize by library size first, then gene length.
+
+\vfill\tiny
+@Mortazavi2008-es
+
+## TPM (Transcripts Per Million)
+
+$$\text{TPM}_{gi} 
+= \frac{Y_{gi} / L_{g}}{\sum_{g'} (Y_{g'i} / L_{g'})} \, 10^6
+= \frac{\text{FPKM}_{gi}}{\sum_{g'}\text{FPKM}_{g'i} / 10^{6}}$$
+
+*Order:* Normalize by gene length first, then scale to per million.
+
+**Key difference:** TPM values sum to 1 million across genes within each sample, making samples directly comparable.
+
+\vfill\tiny
+@Li2011-sj, @Wagner2012-tpm
+
+## Gene length vs. expression after RPKM adjustment
+
+```{r gene-length-rpkm, fig.width=5, fig.height=2.8, message=F, echo=F, only.plot="1"}
+## Calculate RPKM: RPKM = Y_g × 10^9 / (L_g × N)
+## Y_g = raw count, L_g = gene length, N = total mapped reads
+lib.sizes <- colSums(raw.counts)
+
+rpkm <- sweep(sweep(raw.counts, 2, lib.sizes, `/`), 1, bp.length, `/`) * 1e9
+      
+## rpkm <- t(t(raw.counts) / lib.sizes) * 1e9 / bp.length
+
+## Average RPKM per gene
+avg.rpkm <- rowMeans(rpkm)
+avg.expr <- rowMeans(raw.counts)
+
+## Create data frame for plotting
+.dt <-
+    rbind(data.table(bp.length, y=avg.expr, type="count"),
+          data.table(bp.length, y=avg.rpkm, type="RPKM")) %>% 
+    filter(y > 0, y < 1e7)
+
+ggplot(.dt, aes(x = log10(bp.length), y = y)) +
+    facet_wrap(~ `type`, nrow=1, scales="free") +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_smooth(method = "lm", se = F,color = "red", lty=2, linewidth=.5) +
+    stat_regline_equation(size = 4) +
+    labs(x = "log10 gene length (bp)", y="average ...")
+```
+
+```{r gene-length-rpkm-log10, fig.width=5, fig.height=2.8, message=F, echo=F, only.plot="2"}
+ggplot(.dt, aes(x = log10(bp.length), y = log10(y))) +
+    facet_wrap(~ `type`, nrow=1, scales="free") +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_smooth(method = "lm", se = F,color = "red", lty=2, linewidth=.5) +
+    stat_regline_equation(size = 4) +
+    labs(x = "log10 gene length (bp)", y="log10 of average ...")
+```
+
+## Gene length vs. expression after TPM adjustment
+
+```{r gene-length-tpm, fig.width=5, fig.height=2.8, echo=F, message=F, only.plot="1"}
+## Calculate TPM: TPM = (Y_g / L_g) / sum(Y_g' / L_g') × 10^6
+## First normalize by gene length, then scale to per million
+reads.per.bp <- sweep(raw.counts, 1, bp.length, `/`)
+tpm <- sweep(reads.per.bp, 2, colSums(reads.per.bp), `/`) * 1e6
+
+## t(t(reads.per.bp) / colSums(reads.per.bp)) * 1e6
+
+## Average TPM per gene
+avg.tpm <- rowMeans(tpm)
+avg.expr <- rowMeans(raw.counts)
+
+## Create data frame for plotting
+.dt <-
+    rbind(data.table(bp.length, y=avg.expr, type="count"),
+          data.table(bp.length, y=avg.tpm, type="TPM")) %>% 
+    filter(y > 0, y < 1e7)
+
+ggplot(.dt, aes(x = log10(bp.length), y = y)) +
+    facet_wrap(~ `type`, nrow=1, scales="free") +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_smooth(method = "lm", se = F,color = "red", lty=2, linewidth=.5) +
+    stat_regline_equation(size = 4) +
+    labs(x = "log10 gene length (bp)", y="average ...")
+```
+
+```{r gene-length-tpm-log10, fig.width=5, fig.height=2.8, message=F, echo=F, only.plot="2"}
+ggplot(.dt, aes(x = log10(bp.length), y = log10(y))) +
+    facet_wrap(~ `type`, nrow=1, scales="free") +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_smooth(method = "lm", se = F,color = "red", lty=2, linewidth=.5) +
+    stat_regline_equation(size = 4) +
+    labs(x = "log10 gene length (bp)", y="log10 of average ...")
+```
+
+## Bias 2. Sequencing depth and library size
+
+* Different samples are sequenced to different depths
+
+* Different total read counts even when biological content is identical.
+
+\vfill
+
+```{r eval=F, echo=T, size="Large"}
+lib.sizes <- colSums(raw.counts)
+```
+
+## Bias 2. Sequencing depth and library size
+
+```{r library-size-variation, echo=F, fig.width=5, fig.height=2.5, message=F}
+## Calculate library sizes (total reads per sample)
+lib.sizes <- colSums(raw.counts)
+
+## Visualize library size variation
+.dt <- data.table(sample = 1:length(lib.sizes),
+                  lib_size = sort(lib.sizes)) %>%
+    mutate(lib_size_M = lib_size / 1e6,
+           label = case_when(
+               sample == 1 ~ sprintf("min: %.1fM", lib_size_M),
+               sample == n() ~ sprintf("max: %.1fM", lib_size_M),
+               TRUE ~ NA_character_
+           ))
+
+ggplot(.dt, aes(x = sample, y = lib_size_M)) +
+    geom_point(alpha = 0.5) +
+    geom_label_repel(aes(label = label), na.rm = TRUE,
+                     nudge_y = 5, size = 3) +
+    labs(x = "Sample (sorted)", y = "Library Size (millions of reads)",
+         title = "Variation in sequencing depth across TCGA BRCA samples")
+```
+
+## Bias 3. RNA composition change by normalization
+
+- Two samples, each with 1 million total reads
+- Sample A: 1000 genes each expressed equally (1000 reads/gene)
+- Sample B: One gene upregulated 100×, now takes 500,000 reads
+  - The remaining 999 genes now share only 500,000 reads (~500 reads/gene)
+  - These 999 genes appear "downregulated" even though their absolute expression is unchanged!
+
+## RNA composition bias due to outlier genes
+
+![](img/SequenceSpace.pdf)
+
+\vfill
+
+What would happen if normalized by library size?
+
+## What would happen with naive normalization
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+  % Sample 1 box
+  \node[font=\small\bfseries] at (1.5, 4.2) {Sample 1};
+  \node[font=\scriptsize] at (1.5, 3.7) {(10 transcripts)};
+
+  % Sample 1 normalized values
+  \node[anchor=east, font=\scriptsize] at (0.3, 2.8) {\textcolor{red}{Red:}};
+  \node[anchor=west, font=\scriptsize] at (0.5, 2.8) {$3/10 = 0.30$};
+
+  \node[anchor=east, font=\scriptsize] at (0.3, 2.2) {\textcolor{blue}{Blue:}};
+  \node[anchor=west, font=\scriptsize] at (0.5, 2.2) {$3/10 = 0.30$};
+
+  \node[anchor=east, font=\scriptsize] at (0.3, 1.6) {\textcolor{green!60!black}{Green:}};
+  \node[anchor=west, font=\scriptsize] at (0.5, 1.6) {$4/10 = 0.40$};
+
+  % Arrow and fold change (between samples)
+  \draw[->, thick] (2.8, 2.8) -- (4.2, 2.8);
+  \node[font=\tiny] at (3.5, 3.2) {0.45x};
+
+  \draw[->, thick] (2.8, 2.2) -- (4.2, 2.2);
+  \node[font=\tiny] at (3.5, 2.6) {0.45x};
+
+  \draw[->, thick] (2.8, 1.6) -- (4.2, 1.6);
+  \node[font=\tiny] at (3.5, 2.0) {1.8x};
+
+  % Sample 2 box
+  \node[font=\small\bfseries] at (6.8, 4.2) {Sample 2};
+  \node[font=\scriptsize] at (6.8, 3.7) {(22 transcripts)};
+
+  % Sample 2 normalized values
+  \node[anchor=east, font=\scriptsize] at (5.8, 2.8) {\textcolor{red}{Red:}};
+  \node[anchor=west, font=\scriptsize] at (6.0, 2.8) {$3/22 = 0.14$};
+
+  \node[anchor=east, font=\scriptsize] at (5.8, 2.2) {\textcolor{blue}{Blue:}};
+  \node[anchor=west, font=\scriptsize] at (6.0, 2.2) {$3/22 = 0.14$};
+
+  \node[anchor=east, font=\scriptsize] at (5.8, 1.6) {\textcolor{green!60!black}{Green:}};
+  \node[anchor=west, font=\scriptsize] at (6.0, 1.6) {$16/22 = 0.73$};
+
+  % Conclusion box
+  \draw[rounded corners, red!50, thick] (8.5, 3.5) rectangle (13.8, 1.2);
+  \node[font=\scriptsize\bfseries, red!70!black] at (11.1, 3.2) {False conclusion:};
+  \node[font=\scriptsize, align=left] at (11.1, 2.5) {Red \& Blue appear};
+  \node[font=\scriptsize, align=left] at (11.1, 2.0) {\textbf{downregulated} (0.45x)};
+  \node[font=\scriptsize, align=left] at (11.1, 1.5) {but actual counts unchanged!};
+
+\end{tikzpicture}
+\end{center}
+
+\vfill
+
+\small
+**Problem**: Green gene's high expression "steals" proportional representation from others
+
+## TMM (Trimmed Mean of M-values) by @Robinson2010-mk
+
+- "A scaling normalization method for differential expression analysis of RNA-seq data"
+
+- Implemented in **edgeR** Bioconductor package
+
+- Calculate scaling factors based on weighted trimmed mean of log-fold-changes between samples.
+
+- Normalization tailored for differential expression analysis (Thursday)
+
+## TMM algorithm
+
+1. Choose a reference sample (typically sample with median library size)
+2. For each sample vs. reference, calculate:
+   - M-values (log fold-change): 
+   
+$$M_g = \log_2\left(\frac{\text{count}_g^{\text{sample}}}{\text{count}_g^{\text{ref}}}\right)$$
+
+3. Trim extreme M-values (default: 30%)
+
+4. Calculate weighted mean of remaining M-values
+
+5. Convert to scaling factor
+
+**Assumption:** Most genes are not differentially expressed between samples.
+
+## TMM implemented in \textcolor{blue}{\texttt{\textbf{edgeR}}}
+
+```{r edger_setup}
+library(edgeR)
+
+## Create DGEList object
+dge <- DGEList(counts = raw.counts)
+```
+
+```{r tmm_normalization, size="large"}
+## Calculate TMM normalization factors
+dge <- calcNormFactors(dge, method = "TMM")
+```
+
+## Another idea implemented in \textcolor{blue}{\texttt{\textbf{DESeq2}}}
+
+```{r deseq2_setup}
+library(DESeq2)
+coldata <- data.frame(sample = colnames(raw.counts))
+
+dds <- DESeqDataSetFromMatrix(countData = raw.counts,
+                              colData = coldata,
+                              design = ~ 1)
+```
+
+```{r deseq_normalization, size="large"}
+## Calculate size factors
+dds <- estimateSizeFactors(dds)
+
+## Get normalized counts
+deseq.norm <- counts(dds, normalized = TRUE)
+```
+
+## Summary: Three main sources of bias
+
+\large
+
+**1. Gene length bias** (RPKM/FPKM/TPM)
+
+**2. Sequencing depth / Library size bias**
+
+**3. RNA composition bias** (TMM)
+
+# Understanding the nature of RNA-seq data
+
+## Sequencing generates count data
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9]
+  % Microarray side
+  \node[font=\large\bfseries, UBCblue] at (2, 5) {Microarray};
+
+  % Continuous spectrum
+  \draw[thick, ->] (0, 4) -- (4, 4);
+  \node[below, font=\scriptsize] at (0, 4) {0};
+  \node[below, font=\scriptsize] at (4, 4) {$\infty$};
+  \node[above, font=\small] at (2, 4) {Continuous intensity};
+
+  % Example values on spectrum
+  \fill[blue!60] (1.2, 4) circle (0.08);
+  \fill[red!60] (2.8, 4) circle (0.08);
+
+  % Normal distribution (bell curve)
+  \draw[thick, blue, smooth] plot[domain=0.2:3.8, samples=50]
+    (\x, {2.2 + 1.3*exp(-(\x-2)^2/0.5)});
+  \node[font=\scriptsize] at (2, 1.75) {$Y \sim \mathcal{N}(\mu, \sigma^2)$};
+
+  % Methods
+  \node[font=\scriptsize, align=center] at (2, 1.6) {t-test, ANOVA\\linear models};
+
+  % Vertical divider
+  \draw[thick, gray!50] (5, 0.5) -- (5, 5.5);
+
+  % RNA-seq side
+  \node[font=\large\bfseries, UBCblue] at (8, 5) {RNA-seq};
+
+  % Discrete counts
+  \draw[thick, ->] (6, 4) -- (10, 4);
+  \foreach \x in {6,6.5,7,7.5,8,8.5,9,9.5,10} {
+    \draw (\x, 3.9) -- (\x, 4.1);
+  }
+  \node[below, font=\scriptsize] at (6, 4) {0};
+  \node[below, font=\scriptsize] at (7, 4) {1};
+  \node[below, font=\scriptsize] at (8, 4) {2};
+  \node[below, font=\scriptsize] at (9, 4) {3};
+  \node[above, font=\small] at (8, 4.15) {Discrete counts};
+
+  % Example values
+  \fill[blue!60] (7, 4) circle (0.08);
+  \fill[red!60] (8.5, 4) circle (0.08);
+
+  % Discrete distribution
+  \foreach \x/\h in {6.5/0.15, 7/0.35, 7.5/0.45, 8/0.50, 8.5/0.45, 9/0.35, 9.5/0.20} {
+    \draw[thick, fill=orange!60] (\x, 2.8) rectangle (\x+0.3, 2.8+\h);
+  }
+  \node[font=\scriptsize] at (8, 2.4) {$Y \sim \text{NB}(\mu, \phi)$};
+
+  % Methods
+  \node[font=\scriptsize, align=center] at (8, 1.6) {GLM (log-link)\\DESeq2, edgeR};
+
+\end{tikzpicture}
+\end{center}
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Microarray**
+
+- Continuous intensity values
+- Normal distribution assumptions
+
+:::
+::: {.column width=.45}
+
+**RNA-seq**
+
+- Discrete count data
+- Poisson/Negative binomial models
+
+:::
+::::::
+
+## RNA-seq: mapping short reads to reference genome
+
+\centerline{\includegraphics[height=.7\textheight]{img/RNA_seq_step2_WangGersteinSnyder.pdf}}
+
+\vfill\tiny
+@Wang2009-tg
+
+
+## Learning objectives
+
+\Large
+
+1. Understand mean-variance relationship in RNA-seq
+
+2. Why Negative Binomial distribution for RNA-seq
+
+3. Identify challenges in NB modelling
+
+\normalsize
+
+## Recap: the distributions for discrete data
+
+```{r fig.width=6, fig.height=2.5, echo=F}
+# Set up parameters for different discrete distributions
+x_range <- 0:20
+
+## Binomial
+binom_n <- 20
+binom_p <- 0.3
+p1 <- data.frame(x = 0:binom_n,
+                 pmf = dbinom(0:binom_n, size = binom_n, prob = binom_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "coral", width = 0.7) +
+    labs(title = paste0("Binomial(n=", binom_n, ", p=", binom_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Poisson
+pois_lambda <- 6
+p2 <- data.frame(x = x_range,
+                 pmf = dpois(x_range, lambda = pois_lambda)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "darkgreen", width = 0.7) +
+    labs(title = paste0("Poisson(λ=", pois_lambda, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+## Negative Binomial
+nb_r <- 5
+nb_p <- 0.5
+p3 <- data.frame(x = x_range,
+                 pmf = dnbinom(x_range, size = nb_r, prob = nb_p)) %>%
+    ggplot(aes(x = x, y = pmf)) +
+    geom_col(fill = "orange", width = 0.7) +
+    labs(title = paste0("Negative Binomial\n(r=", nb_r, ", p=", nb_p, ")"),
+         x = "x", y = "P(X = x)") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 8), axis.text = element_text(size=6))
+
+p1 | p2 | p3
+```
+
+\vfill
+Which one best captures RNA-seq count data?
+
+## Let's take a look at gene-level statistics
+
+```{r mean-var-raw, size="large"}
+## Calculate mean and variance per gene
+gene.mean <- rowMeans(raw.counts)
+gene.var <- rowVars(raw.counts)
+```
+
+## Mean-variance relationships in RNA-seq data
+
+```{r rna_seq_mean-vs-var, fig.width=4.5, fig.height=2.5, only.plot="1", echo=F}
+.dt <- data.table(mean = gene.mean, var = gene.var) %>%
+    filter(`mean` > 0, `var` > 0, `var` < 1e7)
+
+ggplot(.dt, aes(`mean`, `var`)) +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    labs(x = "gene-level mean", y = "gene-level variance",
+         title = "Mean-Variance relationship in raw counts")
+```
+
+```{r rna_seq_log10mean-vs-log10var, fig.width=4.5, fig.height=2.5, only.plot="2", echo=F}
+.dt <- data.table(mean = gene.mean, var = gene.var) %>%
+    filter(`mean` > 0, `var` > 0)
+
+ggplot(.dt, aes(log10(`mean`), log10(`var`))) +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_abline(slope = 1, intercept = 0, color = "red", lty=2, linewidth=.5) +
+    annotate("text", x = 0, y = 0, label = "mean = var",
+             color = "red", hjust = 0, size = 4) +
+    labs(x = "log10 gene-level mean", y = "log10 gene-level variance",
+         title = "Mean-Variance relationship in raw counts")
+```
+
+\vfill
+
+What is this called? \only<2>{\textbf{overdispersion}}
+
+
+## Does TMM normalization fix overdispersion?
+
+```{r tmm-mean-var, fig.width=4.5, fig.height=2.5, echo=F}
+## Get TMM-normalized counts (CPM with TMM factors)
+tmm.counts <- edgeR::cpm(dge)
+
+## mean and variance per gene after TMM
+tmm.mean <- rowMeans(tmm.counts)
+tmm.var <- rowVars(as.matrix(tmm.counts))
+
+.dt <- data.table(mean = tmm.mean, var = tmm.var) %>%
+    filter(`mean` > 0, `var` > 0)
+
+ggplot(.dt, aes(log10(`mean`), log10(`var`))) +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_abline(slope = 1, intercept = 0, color = "red", lty=2, linewidth=.5) +
+    annotate("text", x = 0, y = 0.5, label = "mean = var",
+             color = "red", hjust = 0, size = 4) +
+    labs(x = "log10 gene-level mean (TMM)", y = "log10 gene-level variance (TMM)",
+         title = "Mean-Variance relationship after TMM normalization")
+```
+
+\vfill
+
+TMM addresses **composition bias**, not **overdispersion**.
+
+## What about column-wise mean-variance?
+
+```{r size="large"}
+sample.mean <- colMeans(raw.counts)
+sample.var <- colVars(raw.counts)
+```
+
+## Mean and variance per sample (column-wise)
+
+```{r sample-mean-var, fig.width=4.5, fig.height=2.5, echo=F, only.plot="1"}
+.dt <- data.table(mean = sample.mean, var = sample.var) %>%
+    filter(`mean` > 0, `var` > 0)
+
+ggplot(.dt, aes(`mean`, `var`)) +
+    ggrastr::rasterize(geom_point(alpha=.5, size=1, colour="darkblue", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    labs(x = "sample-level mean", y = "sample-level variance",
+         title = "Sample-wise Mean-Variance relationship")
+```
+
+```{r sample-mean-var-log10, fig.width=4.5, fig.height=2.5, echo=F, only.plot="2"}
+ggplot(.dt, aes(log10(`mean`), log10(`var`))) +
+    ggrastr::rasterize(geom_point(alpha=.5, size=1, colour="darkblue", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    labs(x = "log10 sample-level mean", y = "log10 sample-level variance",
+         title = "Sample-wise Mean-Variance relationship")
+```
+
+\vfill
+
+\onslide<2>{
+similar mean-variance relationship?
+}
+
+## What about log2-transformed gene-level variance?
+
+```{r log2-tmm-mean-var, fig.width=4.5, fig.height=2.5, echo=F}
+## Log2 transform TMM-normalized counts
+log2.counts <- log2(tmm.counts + 1)
+
+## Mean and variance per gene after log2 transformation
+log2.mean <- rowMeans(log2.counts)
+log2.var <- rowVars(as.matrix(log2.counts))
+
+.dt <- data.table(mean = log2.mean, var = log2.var) %>%
+    filter(`mean` > 0, `var` > 0)
+
+ggplot(.dt, aes(`mean`, `var`)) +
+    ggrastr::rasterize(geom_point(alpha=.5, size=0.5, colour="gray60", stroke=0)) +
+    geom_density_2d(colour = "blue", linewidth=0.5) +
+    geom_hline(yintercept = 1, color = "red", lty=2, linewidth=.5) +
+    labs(x = "gene-level mean (log2 TMM + 1)", y = "gene-level variance (TMM)",
+         title = "Mean-Variance after log2 transformation")
+```
+
+\vfill
+
+Log transformation helps, but **low-expression genes still have high variance**
+
+
+
+
+## What does "over" dispersion of a random variable mean?
+
+* Is there "under" dispersion?
+
+* If there is neither "over" nor "under" dispersion:
+
+$$\mathbb{E}\!\left[X\right] = \mathbb{V}\!\left[X\right]$$
+
+\vfill
+
+**Which one for RNA-seq data?**
+
+:::::: {.columns}
+::: {.column width=.45}
+
+$$\mathbb{E}\!\left[X\right] < \mathbb{V}\!\left[X\right]$$
+
+:::
+::: {.column width=.45}
+
+$$\mathbb{E}\!\left[X\right] > \mathbb{V}\!\left[X\right]$$
+
+:::
+::::::
+
+## Why not Poisson?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Poisson assumption**
+
+$$\text{Var}(Y) = \mu$$
+
+- Mean equals variance
+- Too restrictive for biological data
+
+:::
+::: {.column width=.45}
+
+**Biological reality**
+
+$$\text{Var}(Y) > \mu$$
+
+- Overdispersion is common
+- Variability exceeds expectation
+
+:::
+::::::
+
+## Negative Binomial model
+
+\only<1>{
+
+$$Y \sim \text{NB}(\mu, \phi)$$
+
+}
+
+- $\mu$: mean expression
+- $\phi$: dispersion parameter (captures overdispersion)
+- $\phi > 0$
+
+\only<2>{
+
+$$P(Y = y) = \binom{y + r - 1}{y} p^r (1-p)^y$$
+
+where $r = 1/\phi$ and $p = 1/(1 + \phi\mu)$
+
+}
+
+$$\mathbb{V}\!\left[Y\right] = \mu + \phi \mu^2$$
+
+\only<3>{
+
+$$P(Y = y) = \frac{\Gamma(y + 1/\phi)}{\Gamma(1/\phi) \, \Gamma(y + 1)} \left(\frac{1}{1 + \phi\mu}\right)^{1/\phi} \left(\frac{\phi\mu}{1 + \phi\mu}\right)^y$$
+
+where $\Gamma(\cdot)$ is Euler's gamma function.
+
+}
+
+## Some intuition of NB distribution
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Classical interpretation**
+
+NB models the number of **failures** before achieving $r$ **successes** in a sequence of independent Bernoulli trials.
+
+\vspace{.3cm}
+
+- $r$: target number of successes
+- $p$: probability of success in each trial
+- $Y$: number of failures before $r$ successes
+
+:::
+::: {.column width=.45}
+
+**Special cases**
+
+\vspace{.3cm}
+
+$r = 1$ $\Rightarrow$ **Geometric distribution**
+
+- Number of failures before the first success
+
+\vspace{.3cm}
+
+$r \to \infty$ (or $\phi \to 0$) $\Rightarrow$ **Poisson**
+
+- Overdispersion vanishes
+- Mean = Variance
+
+\vspace{.3cm}
+
+**For RNA-seq:**
+
+- NB is a flexible count distribution
+- Accommodates overdispersion through $\phi$ (or $r$)
+
+:::
+::::::
+
+\vfill\tiny
+Source: \url{https://en.wikipedia.org/wiki/Negative_binomial_distribution}
+
+
+## Poisson vs. Negative Binomial in terms of $\mu,\phi$
+
+\begin{center}
+\begin{tikzpicture}[scale=1.0]
+  % Poisson model (left)
+  \node[font=\large\bfseries, UBCblue] at (2, 5) {Poisson};
+
+  % Lambda (fixed parameter)
+  \node[draw, circle, minimum size=1cm, fill=white] (lambda1) at (2, 3.5) {$\lambda$};
+  \node[font=\tiny, above] at (2, 4.05) {fixed rate};
+
+  % Y (observed)
+  \node[draw, circle, minimum size=1cm, fill=blue!20, thick] (Y1) at (2, 2) {$Y$};
+  \node[font=\tiny, below] at (2, 1.45) {count};
+
+  % Arrow
+  \draw[->, thick] (lambda1) -- (Y1);
+
+  % Model equation
+  \node[font=\scriptsize, align=center] at (2, 0.5) {$Y \sim \text{Poisson}(\lambda)$\\[0.1cm]$\mathbb{E}[Y] = \mathbb{V}[Y] = \lambda$};
+
+  % Vertical divider
+  \draw[thick, gray!50] (4.5, 0) -- (4.5, 5.5);
+
+  % Negative Binomial model (right)
+  \node[font=\large\bfseries, UBCblue] at (8, 5.3) {Negative Binomial};
+
+  % Hyperparameters (fixed)
+  \node[draw, rectangle, minimum width=0.8cm, minimum height=0.6cm, fill=gray!10] (mu) at (7, 4.5) {$\mu$};
+  \node[draw, rectangle, minimum width=0.8cm, minimum height=0.6cm, fill=gray!10] (phi) at (9, 4.5) {$\phi$};
+
+  % Lambda (random variable - latent)
+  \node[draw, circle, minimum size=1cm, fill=white, dashed, thick] (lambda2) at (8, 3.5) {$\lambda$};
+  \node[font=\tiny, above right] at (8.5, 3.0) {latent};
+
+  % Y (observed)
+  \node[draw, circle, minimum size=1cm, fill=blue!20, thick] (Y2) at (8, 2) {$Y$};
+  \node[font=\tiny, below] at (8, 1.45) {count};
+
+  % Arrows
+  \draw[->, thick] (mu) -- (lambda2);
+  \draw[->, thick] (phi) -- (lambda2);
+  \draw[->, thick] (lambda2) -- (Y2);
+
+  % Model equations
+  \node[font=\scriptsize, align=center] at (8, 0.5) {$\lambda \sim \text{Gamma}(\mu, \phi)$\\[0.05cm]$Y | \lambda \sim \text{Poisson}(\lambda)$\\[0.1cm]$\mathbb{E}[Y] = \mu,\; \mathbb{V}[Y] = \mu + \phi\mu^2$};
+
+  % Legend
+  \draw[rounded corners, gray] (10.5, 5.0) rectangle (13.5, 3.4);
+
+  \node[draw, circle, minimum size=0.45cm, fill=blue!20, thick] at (11, 4.6) {};
+  \node[font=\tiny, right] at (11.3, 4.6) {observed};
+
+  \node[draw, circle, minimum size=0.45cm, fill=white, dashed, thick] at (11, 4.1) {};
+  \node[font=\tiny, right] at (11.3, 4.1) {latent};
+
+  \node[draw, rectangle, minimum width=0.4cm, minimum height=0.3cm, fill=gray!10] at (11, 3.7) {};
+  \node[font=\tiny, right] at (11.3, 3.7) {fixed param};
+
+\end{tikzpicture}
+\end{center}
+
+
+## Poisson vs. Negative Binomial 
+
+\begin{center}
+\begin{tikzpicture}[scale=1.0]
+  % Poisson model (left)
+  \node[font=\large\bfseries, UBCblue] at (2, 5) {Poisson};
+
+  % Lambda (fixed parameter)
+  \node[draw, circle, minimum size=1cm, fill=white] (lambda1) at (2, 3.5) {$\lambda$};
+  \node[font=\tiny, above] at (2, 4.05) {fixed rate};
+
+  % Y (observed)
+  \node[draw, circle, minimum size=1cm, fill=blue!20, thick] (Y1) at (2, 2) {$Y$};
+  \node[font=\tiny, below] at (2, 1.45) {count};
+
+  % Arrow
+  \draw[->, thick] (lambda1) -- (Y1);
+
+  % Model equation
+  \node[font=\scriptsize, align=center] at (2, 0.5) {$Y \sim \text{Poisson}(\lambda)$\\[0.1cm]$\mathbb{E}[Y] = \mathbb{V}[Y] = \lambda$};
+
+  % Vertical divider
+  \draw[thick, gray!50] (4.5, 0) -- (4.5, 5.5);
+
+  % Negative Binomial model (right)
+  \node[font=\large\bfseries, UBCblue] at (8, 5.3) {Negative Binomial};
+
+  % Hyperparameters (fixed)
+  \node[draw, rectangle, minimum width=0.8cm, minimum height=0.6cm, fill=gray!10] (r) at (7, 4.5) {$r$};
+  \node[draw, rectangle, minimum width=0.8cm, minimum height=0.6cm, fill=gray!10] (p) at (9, 4.5) {$p$};
+
+  % Lambda (random variable - latent)
+  \node[draw, circle, minimum size=1cm, fill=white, dashed, thick] (lambda2) at (8, 3.5) {$\lambda$};
+  \node[font=\tiny, above right] at (8.5, 3.0) {latent};
+
+  % Y (observed)
+  \node[draw, circle, minimum size=1cm, fill=blue!20, thick] (Y2) at (8, 2) {$Y$};
+  \node[font=\tiny, below] at (8, 1.45) {count};
+
+  % Arrows
+  \draw[->, thick] (r) -- (lambda2);
+  \draw[->, thick] (p) -- (lambda2);
+  \draw[->, thick] (lambda2) -- (Y2);
+
+  % Model equations
+  \node[font=\scriptsize, align=center] at (8, 0.5) {$\lambda \sim \text{Gamma}(r, p)$\\[0.05cm]$Y | \lambda \sim \text{Poisson}(\lambda)$\\[0.1cm]$\mathbb{E}[Y] = \mu,\; \mathbb{V}[Y] = \mu + \phi\mu^2$};
+
+  % Legend
+  \draw[rounded corners, gray] (10.5, 5.0) rectangle (13.5, 3.4);
+
+  \node[draw, circle, minimum size=0.45cm, fill=blue!20, thick] at (11, 4.6) {};
+  \node[font=\tiny, right] at (11.3, 4.6) {observed};
+
+  \node[draw, circle, minimum size=0.45cm, fill=white, dashed, thick] at (11, 4.1) {};
+  \node[font=\tiny, right] at (11.3, 4.1) {latent};
+
+  \node[draw, rectangle, minimum width=0.4cm, minimum height=0.3cm, fill=gray!10] at (11, 3.7) {};
+  \node[font=\tiny, right] at (11.3, 3.7) {fixed param};
+
+\end{tikzpicture}
+\end{center}
+
+
+## Optional: different parameterizations of NB
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**$(r, p)$ parameterization**
+
+\vspace{.3cm}
+
+$$Y \sim \text{NB}(r, p)$$
+
+\vspace{.2cm}
+
+$$\mathbb{E}[Y] = \frac{r(1-p)}{p}$$
+
+\vspace{.2cm}
+
+$$\mathbb{V}[Y] = \frac{r(1-p)}{p^2}$$
+
+:::
+::: {.column width=.45}
+
+**$(\mu, \phi)$ parameterization**
+
+\vspace{.3cm}
+
+$$Y \sim \text{NB}(\mu, \phi)$$
+
+\vspace{.2cm}
+
+$$\mathbb{E}[Y] = \mu$$
+
+\vspace{.2cm}
+
+$$\mathbb{V}[Y] = \mu + \phi\mu^2$$
+
+:::
+::::::
+
+\vspace{.5cm}
+
+## Optional: different parameterizations of NB
+
+
+$$\mu = \frac{r(1-p)}{p} \qquad \phi = \frac{1}{r}$$
+
+$$r = \frac{1}{\phi} \qquad p = \frac{1}{1 + \phi\mu}$$
+
+\vfill
+
+As $\phi \to 0$ (or $r \to \infty$): NB $\to$ Poisson with mean $\mu$
+
+## Aside: Why Gamma-Poisson = Negative Binomial?
+
+**Hierarchical model:**
+
+$$\lambda|r,\beta \sim \text{Gamma}(r, \beta), \qquad Y | \lambda \sim \text{Poisson}(\lambda)$$
+
+**Marginal distribution** (integrate out $\lambda$):
+
+\begin{eqnarray*}
+P(Y = y | r, \beta) &=& \int_0^\infty P(Y = y | \lambda) \, P(\lambda) \, d\lambda \\
+\only<1>{
+&=& \int_0^\infty \frac{\lambda^y e^{-\lambda}}{y!} \cdot \frac{\beta^r}{\Gamma(r)} \lambda^{r-1} e^{-\beta\lambda} \, d\lambda \\
+&=& \frac{\beta^r}{y! \, \Gamma(r)} \int_0^\infty \lambda^{y+r-1} e^{-(1+\beta)\lambda} \, d\lambda\\
+}
+\only<2>{
+&=& \frac{\beta^r}{y! \, \Gamma(r)} \cdot \frac{\Gamma(y+r)}{(1+\beta)^{y+r}} = \binom{y+r-1}{y} \left(\frac{\beta}{1+\beta}\right)^r \left(\frac{1}{1+\beta}\right)^y
+}
+\end{eqnarray*}
+\only<2>{
+$\implies$ negative binomial PMF with $p = \beta/ (1+\beta)$
+}
+
+
+## Challenge of using NB distribution
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\begin{center}
+\begin{tikzpicture}[scale=1.0]
+  % Parameters (open circles)
+  \node[draw, circle, minimum size=1cm, fill=white] (mu) at (3, 5) {$\mu_{gi}$};
+  \node[font=\tiny, above] at (3, 5.6) {mean};
+
+  \node[draw, circle, minimum size=1cm, fill=white] (phi) at (6, 5) {$\phi_g$};
+  \node[font=\tiny, above] at (6, 5.6) {dispersion};
+
+  % Lambda (latent)
+  \node[draw, circle, minimum size=1cm, fill=white, dashed, thick] (lambda) at (4.5, 3.5) {$\lambda_{gi}$};
+  \node[font=\tiny, right] at (5.1, 3.5) {latent};
+
+  % Y (observed)
+  \node[draw, circle, minimum size=1cm, fill=blue!20, thick] (Y) at (4.5, 1.5) {$Y_{gi}$};
+  \node[font=\tiny, below] at (4.5, 0.95) {count};
+
+  % Arrows
+  \draw[->, thick] (mu) -- (lambda);
+  \draw[->, thick] (phi) -- (lambda);
+  \draw[->, thick] (lambda) -- (Y);
+
+  % Model equation
+  \node[font=\scriptsize, align=center] at (4.5, 0.0) {$\lambda_{gi} \sim \text{Gamma}(\mu_{gi}, \phi_g)$\\[0.05cm]$Y_{gi} | \lambda_{gi} \sim \text{Poisson}(\lambda_{gi})$};
+
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.4}
+
+\large
+
+* $\mu_{gi}$: gene $g$, sample $i$
+
+* $\phi_g$: gene $g$ only
+
+* $Y_{gi}$: observed count
+
+
+\vspace{.5cm}
+
+**How many $\phi_{g}$ values?**
+
+* Just one: $\phi_{g} = \phi_{g'}$ for all $g \neq g'$
+
+* For each gene: $\phi_{g} \neq \phi_{g'}$ if $g \neq g'$
+
+\normalsize
+
+:::
+::::::
+
+## Statistical methods for estimating overdispersion $\phi_{g}$
+
+\large
+
+* \textcolor{blue}{\texttt{\textbf{edgeR}}}: @Robinson2008-pd
+
+* \textcolor{blue}{\texttt{\textbf{DESeq}}}: @Anders2010-cf
+
+* \textcolor{blue}{\texttt{\textbf{DESeq2}}}: @Love2014-dl
+
+\normalsize
+
+## Next lecture 
+
+\large
+
+1. How to estimate overdispersion $\phi_{g}$
+
+2. How to incorporate our working model into $\mu_{gi}$
+
+3. Practical solutions using \textcolor{blue}{\texttt{\textbf{DESeq2}}} and \textcolor{blue}{\texttt{\textbf{limma-voom}}}
+
+\normalsize
+
+## Summary
+
+\large
+
+* RNA-seq count data generation process
+
+* Potential Biases in RNA-seq data (row \& column)
+
+* Properties in RNA-seq-derived count data
+
+\normalsize
+
+## Reference {.allowframebreaks}
