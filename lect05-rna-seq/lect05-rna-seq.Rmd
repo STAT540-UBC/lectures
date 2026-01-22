@@ -139,10 +139,6 @@ _data generation_ followed by _inference_ or validation
 :::
 ::::::
 
-<!--------------------->
-<!-- dont go further -->
-<!--------------------->
-
 
 # RNA-Seq data generation scheme
 

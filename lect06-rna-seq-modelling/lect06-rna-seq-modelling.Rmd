@@ -1,0 +1,1783 @@
+---
+title: "Statistical Inference for RNA-seq Data Analysis"
+author: "Yongjin Park"
+date: "22 January 2026"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: rna-seq.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{positioning,fit}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/rna-seq/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(recount3)
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(ggpubr)
+library(ggrepel)
+library(limma)
+library(edgeR)
+library(DESeq2)
+
+theme_set(theme_minimal())
+```
+
+
+## Announcement
+
+\Large
+
+Check out your teams!
+
+\normalsize
+
+## ASDA \#1: Blood RNAs for Febrile Illness Diagnosis
+
+* Scoping review identified 286 RNA signatures from literature
+
+* Signatures diagnose or predict outcomes of febrile illnesses (sepsis, TB, infections)
+
+* Goal: Characterize and understand potential sources of biases
+
+* Meta-analysis across many different studies
+
+## ASDA \#2: `Breath print` for Lung Cancer Detection
+
+* Breath samples from 500+ participants (lung cancer vs. healthy controls)
+
+* Volatile organic compounds (VOCs) analyzed via mass spectrometry
+
+* High-dimensional data: ~500-1500 compounds per sample
+
+* Goal: Build analysis pipeline for biomarker discovery and classification
+
+
+## Learning objectives of RNA-seq analysis
+
+:::::: {.columns}
+::: {.column width=.45}
+
+How do we get sequencing data?
+
+\vspace{0.5cm}
+
+* High-throughput sequencing data
+  - data generation scheme
+  - quantification
+
+* Data normalization
+  - intrinsic biases
+  - gene-level adjustment
+  - gene and sample adjustment
+
+* Over-dispersed nature
+  - count data
+  - transformation
+
+:::
+::: {.column width=.45}
+
+**How can we fit a model to sequencing data?**
+
+* Linear modelling
+  - a Gaussian linear model
+  - a generalized linear model
+
+* Multivariate linear models
+  - a column space view
+
+* Model-based inference
+  - maximum likelihood learning
+  - parametric inference
+
+* Revisit RNA-seq
+  - \textcolor{blue}{\texttt{\textbf{DESeq2}}} vs. \textcolor{blue}{\texttt{\textbf{limma-voom}}}
+  - modelling and estimation
+
+:::
+::::::
+
+# What is a linear regression model?
+
+## What is a linear regression?
+
+\centerline{\includegraphics[height=.7\textheight]{img/linear_regression.png}}
+
+\vfill\tiny
+[https://www.xkcd.com/1725/](https://www.xkcd.com/1725/)
+
+## A quick survey on your peers' experience
+
+\Large
+
+1. How many people used a linear regression?
+
+1. Why is it called "regression?"
+
+1. How did you know that your regression worked or not?
+
+\normalsize
+
+## TCGA BRCA example: three axes of variation
+
+\begin{center}
+\begin{tikzpicture}[
+    woman/.style={scale=0.4},
+    axis/.style={->, thick, >=stealth},
+    label/.style={font=\small}
+]
+
+% Age axis
+\node[label, anchor=east] at (-5, 1.5) {\textbf{Age}};
+\draw[axis] (-4, 1.5) -- (4, 1.5);
+\node[label] at (-3.5, 1.1) {Young};
+\node[label] at (3.5, 1.1) {Old};
+\foreach \x in {-3, -1.5, 0, 1.5, 3} {
+    \fill[black] (\x, 2.3) circle (0.1);
+    \draw[black, thick] (\x, 2.2) -- (\x, 1.9);
+    \draw[black, thick] (\x, 2.1) -- ++(-0.15, -0.2);
+    \draw[black, thick] (\x, 2.1) -- ++(0.15, -0.2);
+    \draw[black, thick] (\x, 1.9) -- ++(-0.12, -0.35);
+    \draw[black, thick] (\x, 1.9) -- ++(0.12, -0.35);
+}
+
+% Menopause axis
+\node[label, anchor=east] at (-5, -0.5) {\textbf{Menopause}};
+\draw[axis] (-4, -0.5) -- (4, -0.5);
+\node[label] at (-2.5, -0.9) {Pre};
+\node[label] at (2.5, -0.9) {Post};
+\foreach \x in {-3, -1.5} {
+    \fill[black!40] (\x, 0.3) circle (0.1);
+    \draw[black!40, thick] (\x, 0.2) -- (\x, -0.1);
+    \draw[black!40, thick] (\x, 0.1) -- ++(-0.15, -0.2);
+    \draw[black!40, thick] (\x, 0.1) -- ++(0.15, -0.2);
+    \draw[black!40, thick] (\x, -0.1) -- ++(-0.12, -0.35);
+    \draw[black!40, thick] (\x, -0.1) -- ++(0.12, -0.35);
+}
+\foreach \x in {1.5, 3} {
+    \fill[black] (\x, 0.3) circle (0.1);
+    \draw[black, thick] (\x, 0.2) -- (\x, -0.1);
+    \draw[black, thick] (\x, 0.1) -- ++(-0.15, -0.2);
+    \draw[black, thick] (\x, 0.1) -- ++(0.15, -0.2);
+    \draw[black, thick] (\x, -0.1) -- ++(-0.12, -0.35);
+    \draw[black, thick] (\x, -0.1) -- ++(0.12, -0.35);
+}
+
+% ER status axis
+\node[label, anchor=east] at (-5, -2.5) {\textbf{ER status}};
+\draw[axis] (-4, -2.5) -- (4, -2.5);
+\node[label] at (-2.5, -2.9) {ER+};
+\node[label] at (2.5, -2.9) {ER--};
+\foreach \x in {-3, -1.5} {
+    \fill[blue!70] (\x, -1.7) circle (0.1);
+    \draw[blue!70, thick] (\x, -1.8) -- (\x, -2.1);
+    \draw[blue!70, thick] (\x, -1.9) -- ++(-0.15, -0.2);
+    \draw[blue!70, thick] (\x, -1.9) -- ++(0.15, -0.2);
+    \draw[blue!70, thick] (\x, -2.1) -- ++(-0.12, -0.35);
+    \draw[blue!70, thick] (\x, -2.1) -- ++(0.12, -0.35);
+}
+\foreach \x in {1.5, 3} {
+    \fill[red!70] (\x, -1.7) circle (0.1);
+    \draw[red!70, thick] (\x, -1.8) -- (\x, -2.1);
+    \draw[red!70, thick] (\x, -1.9) -- ++(-0.15, -0.2);
+    \draw[red!70, thick] (\x, -1.9) -- ++(0.15, -0.2);
+    \draw[red!70, thick] (\x, -2.1) -- ++(-0.12, -0.35);
+    \draw[red!70, thick] (\x, -2.1) -- ++(0.12, -0.35);
+}
+
+\end{tikzpicture}
+\end{center}
+
+## Key question: multiple sources of variation
+
+- Can we identify multiple independent disease mechanisms?
+
+- How do they manifest in observed transcriptional profiles?
+
+\vspace{0.3cm}
+
+1. **ER status**: Tumor-intrinsic differences (ER+ vs ER-)
+2. **Age**: age effects in general population
+3. **Menopause**: pre- vs. post-menopause
+
+\vspace{0.3cm}
+
+They are all correlated... but not necessarily the same
+
+* Post-menopausal but young (e.g., surgical menopause)
+* Pre-menopausal but older (late menopause)
+
+## From `lect03`: Describe your model by stitching together random variables
+
+\Large
+
+Represent joint probability distributions using graphs
+
+\normalsize
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Nodes** = Random variables
+
+* Observed (shaded)
+* Latent/hidden (open)
+* Parameters (dots or small nodes)
+
+:::
+::: {.column width=.45}
+
+**Edges** = Dependencies
+
+* Arrow $\rightarrow$ = causal/generative direction
+* No arrow = correlation/association
+
+:::
+::::::
+
+
+## Overall graphical model
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm}
+]
+\node[observed] (age) {Age};
+\node[observed, right=2.5cm of age] (meno) {Meno};
+\node[observed, below=2cm of age] (er) {ER};
+\node[observed, below=2cm of meno] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- (meno);
+\draw[->, thick] (age) -- (er);
+\draw[->, thick] (meno) to[bend right=20] (er);
+\draw[->, thick] (meno) -- node[right] {$\beta$} (expr);
+\draw[->, thick] (er) -- node[below] {$\mu$} (expr);
+\draw[->, thick] (age) to[bend right=20] node[right] {$\alpha$} (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.45}
+
+**Observed** variables:
+
+* Age (continuous), Menopause (categorical), ER status (categorical)
+
+* Gene expression matrix $Y_{ig}$ for a gene $g$ in a sample $i$.
+
+\vspace{0.3cm}
+
+**Parameters** (open):
+
+* $\mu$: ER status effect
+* $\alpha$: direct age effect
+* $\beta$: menopause effect
+
+:::
+::::::
+
+## TCGA BRCA data from `recount3`
+
+We will use The Cancer Genome Atlas (TCGA) breast cancer data
+
+```{r download-data}
+data.dir <- "../data/recount3"
+dir.create(data.dir, recursive = TRUE, showWarnings = FALSE)
+.file <- file.path(data.dir, "tcga_brca_rse.rds")
+
+if.needed(.file, {
+    tcga.proj <- subset(available_projects(),
+                        file_source == "tcga")
+    brca.info <- tcga.proj[tcga.proj$project == "BRCA", ]
+    rse.brca <- create_rse(brca.info)
+    saveRDS(rse.brca, .file)
+})
+rse <- readRDS(.file)
+```
+
+## After alignment: `SummarizedExperiment`
+
+```
+                        samples (columns)
+                     +---------------------+
+                     |  S1   S2   S3  ...  |
+               +-----|---------------------+
+     genes     | G1  |  10   25   18  ...  |  <- assays (counts)
+     (rows)    | G2  |   5   12    8  ...  |
+               | ... | ...  ...  ...  ...  |
+               +-----+---------------------+
+
+  rowData: genomic coordinates (chr, start, end, strand)
+  colData: sample metadata (tumor/normal, clinical info)
+```
+
+## Here is gene expression count
+
+```{r size = "tiny"}
+raw.counts <- assay(rse, "raw_counts")
+raw.counts[1:3, 1:3]
+```
+
+## Gene/row annotations
+
+```{r size="tiny"}
+rowData(rse) %>% head(3)
+```
+
+## Sample/column annotations
+
+```{r size="tiny"}
+colData(rse) %>% as.data.frame() %>% select(1:3) %>% head(3)
+```
+
+## A probabilistic model on gene expression $Y$
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1.3cm}
+]
+\node[observed] (age) {Age};
+\node[observed, below=1.5cm of age] (meno) {Meno};
+\node[observed, below=1.5cm of meno] (er) {ER};
+\node[observed, right=2.5cm of meno] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- node[above] {$\beta_1$} (expr);
+\draw[->, thick] (meno) -- node[above] {$\beta_2$} (expr);
+\draw[->, thick] (er) -- node[below] {$\beta_3$} (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.55}
+
+**Linear model for gene $g$:**
+
+$$Y_{ig} = \beta_{1g} \cdot X_{i1} + \beta_{2g} \cdot X_{i2} + \beta_{3g} \cdot X_{i3} + \epsilon_{ig}$$
+
+where $\epsilon_{ig} \sim N(0, \sigma^2_g)$
+
+\vspace{0.3cm}
+
+* $X_{i1}$: Age for individual $i$
+* $X_{i2}$: Menopause status for individual $i$
+* $X_{i3}$: ER status for individual $i$
+* $\beta_{1g}, \beta_{2g}, \beta_{3g}$: Coefficients for gene $g$
+
+:::
+::::::
+
+## Encoding categorical variables
+
+**Categorical variables** need to be converted to numbers for the linear model
+
+\vspace{0.5cm}
+
+:::::: {.columns}
+::: {.column width=.48}
+
+**Menopause status** ($X_{i2}$):
+
+* Pre-menopause: $X_{i2} = 0$
+* Post-menopause: $X_{i2} = 1$
+
+:::
+::: {.column width=.48}
+
+**ER status** ($X_{i3}$):
+
+* ER+: $X_{i3} = 0$
+* ER-: $X_{i3} = 1$
+
+:::
+::::::
+
+\vspace{0.5cm}
+
+**Interpretation:** The coefficient represents the **difference** in expression between the two groups
+
+* $\beta_{2g}$: Post-menopause vs. Pre-menopause difference for gene $g$
+* $\beta_{3g}$: ER- vs. ER+ difference for gene $g$
+
+## More explicit about the parameters
+
+\begin{center}
+\begin{tikzpicture}[
+    scale=1.8,
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1.2cm, font=\large},
+    param/.style={circle, draw, fill=white, minimum size=1cm, font=\large},
+    plate/.style={draw, rectangle, rounded corners, inner sep=12pt, thick}
+]
+
+% Plate for individuals
+\node[observed] (x1) at (-1, 1.5) {$X_{i1}$};
+\node[observed] (x2) at (0, 1.5) {$X_{i2}$};
+\node[observed] (x3) at (1, 1.5) {$X_{i3}$};
+\node[observed] (y) at (0, 0) {$Y_{ig}$};
+
+% Draw plate
+\node[plate, fit=(x1)(x2)(x3)(y)] (plate1) {};
+\node[font=\normalsize, anchor=south east] at (plate1.south east) {$i=1,\ldots,n$};
+
+% Parameters (on the right)
+\node[param] (beta1) at (3, 1.2) {$\beta_{1g}$};
+\node[param] (beta2) at (3, 0.3) {$\beta_{2g}$};
+\node[param] (beta3) at (3, -0.6) {$\beta_{3g}$};
+
+% Arrows from parameters to Y
+\draw[->, thick] (beta1) -- (y);
+\draw[->, thick] (beta2) -- (y);
+\draw[->, thick] (beta3) -- (y);
+
+% Arrows from covariates to Y
+\draw[->, thick] (x1) -- (y);
+\draw[->, thick] (x2) -- (y);
+\draw[->, thick] (x3) -- (y);
+
+\end{tikzpicture}
+\end{center}
+
+## We can write it down as a linear equation
+
+\large
+
+If it is deterministic and linear:
+
+$$Y_{ig} = X_{i1} \beta_{1g} + X_{i2} \beta_{2g} + X_{i3} \beta_{3g}$$
+
+* Are we treating $Y$ as a random variable?
+
+* If not, what should we do?
+
+\normalsize
+
+## Adding uncertainty to the linear equations
+
+\large
+
+If it is stochastic and linear:
+
+$$Y_{ig} = X_{i1} \beta_{1g} + X_{i2} \beta_{2g} + X_{i3} \beta_{3g} + \epsilon_{ig}$$
+
+* What could be the distribution of $\epsilon$?
+
+* Can we have a single $\epsilon$, namely $\epsilon_{ig} = \epsilon^{\star}$ for all $i$ and $g$?
+
+\normalsize
+
+## Building the response vector $\mathbf{y}_g$
+
+For a single gene $g$, the response vector contains expression values across all $n$ samples:
+
+$$\mathbf{y}_g = \begin{pmatrix} Y_{g1} \\ Y_{g2} \\ \vdots \\ Y_{gn} \end{pmatrix}$$
+
+## Example: For a gene in our TCGA BRCA dataset:
+
+```{r}
+rowData(rse)[17709, 1:5]      # gene name etc.
+yy <- raw.counts[17709, ]  # Extract some gene
+head(yy, 10)               # Show first 10 values
+```
+
+Each entry $Y_{ig}$ represents the expression (read count) of gene $g$ in sample $i$
+
+## Building the design matrix $\mathbf{X}$
+
+The design matrix encodes our covariates (predictors) for all $n$ samples:
+
+$$\mathbf{X} = \begin{pmatrix}
+1 & X_{11} & X_{12} & X_{13} \\
+1 & X_{21} & X_{22} & X_{23} \\
+\vdots & \vdots & \vdots & \vdots \\
+1 & X_{n1} & X_{n2} & X_{n3}
+\end{pmatrix} = \begin{pmatrix}
+1 & \text{Age}_1 & \text{Meno}_1 & \text{ER}_1 \\
+1 & \text{Age}_2 & \text{Meno}_2 & \text{ER}_2 \\
+\vdots & \vdots & \vdots & \vdots \\
+1 & \text{Age}_n & \text{Meno}_n & \text{ER}_n
+\end{pmatrix}$$
+
+\vfill
+
+What is the first column?
+
+## TCGA metadata has very long factor names
+
+```{r size="tiny", echo=FALSE}
+temp_data <- colData(rse) %>% as.data.frame()
+cat("Menopause status levels:\n")
+unique(temp_data$tcga.xml_menopause_status)[1:3]
+```
+
+**Original names are too verbose for analysis!**
+
+We need to shorten them for readability and modeling
+
+## Factor name abbreviations we'll use
+
+| Variable | Original | Shortened |
+|----------|----------|-----------|
+| **Menopause** | "Pre (<6 months since LMP...)" | "Pre" |
+| | "Post (prior Bilateral...)" | "Post" |
+| | "Peri (6-12 months...)" | "Peri" |
+| **ER status** | "Positive" | "Positive" |
+| | "Negative" | "Negative" |
+| **Sample type** | "Primary Tumor" | "Tumor" |
+| | "Solid Tissue Normal" | "Normal" |
+
+## Example: Building $\mathbf{X}$ from TCGA metadata
+
+```{r size="small"}
+clinical.data <-
+    colData(rse) %>%
+    as.data.frame() %>%
+    select(
+        sample.id = tcga.tcga_barcode,
+        sample.type = tcga.cgc_sample_sample_type,
+        age = tcga.gdc_cases.diagnoses.age_at_diagnosis,
+        menopause = tcga.xml_menopause_status,
+        tumor.stage = tcga.gdc_cases.diagnoses.tumor_stage,
+        ER.status = tcga.xml_breast_carcinoma_estrogen_receptor_status,
+        PR.status = tcga.xml_breast_carcinoma_progesterone_receptor_status,
+        HER2.status = tcga.xml_lab_proc_her2_neu_immunohistochemistry_receptor_status
+    ) %>%
+    mutate(
+        # Shorten menopause status
+        menopause = case_when(
+            grepl("Pre", menopause) ~ "Pre",
+            grepl("Post", menopause) ~ "Post",
+            grepl("Peri", menopause) ~ "Peri",
+            TRUE ~ menopause
+        ),
+        # Shorten sample type
+        sample.type = case_when(
+            grepl("Primary", sample.type) ~ "Tumor",
+            grepl("Normal", sample.type) ~ "Normal",
+            TRUE ~ sample.type
+        )
+    ) %>%
+    as.data.table()
+```
+
+## Header lines of sample/clinical data
+
+```{r size="tiny"}
+head(clinical.data, 5)
+```
+
+## A handy function to build a design matrix
+
+```{r}
+X <- model.matrix(~ age + menopause + ER.status,
+                  data = clinical.data)
+head(X, 3)
+```
+
+## Let's write down this linear model in a matrix form
+
+\large
+
+$$\mathbf{y}_g = \mathbf{X} \boldsymbol{\beta}_g + \boldsymbol{\epsilon}_g$$
+
+\normalsize
+
+where:
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\small
+
+* $\mathbf{y}_g = \begin{pmatrix} Y_{g1} \\ Y_{g2} \\ \vdots \\ Y_{gn} \end{pmatrix}$ expression values
+
+* $\mathbf{X} = \begin{pmatrix} 1 & X_{11} & X_{12} & X_{13} \\ 1 & X_{21} & X_{22} & X_{23} \\ \vdots & \vdots & \vdots & \vdots \\ 1 & X_{n1} & X_{n2} & X_{n3} \end{pmatrix}$
+
+\normalsize
+
+:::
+::: {.column width=.48}
+
+\small
+
+* $\boldsymbol{\beta}_g = \begin{pmatrix} \beta_{0g} \\ \beta_{1g} \\ \beta_{2g} \\ \beta_{3g} \end{pmatrix}$ coefficients
+
+* $\boldsymbol{\epsilon}_g = \begin{pmatrix} \epsilon_{1g} \\ \epsilon_{2g} \\ \vdots \\ \epsilon_{ng} \end{pmatrix}$ errors
+
+\normalsize
+
+:::
+::::::
+
+## Recap of `lect02` matrix algebra...
+
+\large
+
+Why is it useful to write them down in matrix?
+
+\normalsize
+
+## A design matrix = a column space view
+
+We can rewrite the linear model as:
+
+$$\mathbf{y}_g = \beta_{0g} \mathbf{x}_0 + \beta_{1g} \mathbf{x}_1 + \beta_{2g} \mathbf{x}_2 + \beta_{3g} \mathbf{x}_3 + \boldsymbol{\epsilon}_g$$
+
+where $\mathbf{x}_j$ is the $j$-th column of $\mathbf{X}$
+
+\onslide<2>{
+
+\textbf{\color{teal} What is a linear regression?}
+
+Finding the "best" \textbf{\color{teal} linear combination} of {\color{magenta} column vectors} to approximate $\mathbf{y}_g$
+
+* Each column $\mathbf{x}_j$ represents a covariate pattern across all samples
+* The coefficients $\beta_{jg}$ tell us how much each pattern contributes
+* The fitted values $\hat{\mathbf{y}}_g = \mathbf{X}\hat{\boldsymbol{\beta}}_g$ lie in the \textbf{\color{magenta} column space} of $\mathbf{X}$
+
+}
+
+## Side: geometric intuition of column space (`lect09`)
+
+If the whole prediction space can be made up by a linear combination of two $n$ vectors $\mathbf{x}_{1}$ and $\mathbf{x}_{2}$...
+
+\begin{center}
+\begin{tikzpicture}[scale=1.]
+% Column space plane
+\fill[blue!10] (-2,-1) -- (2,-1) -- (2.5,2) -- (-1.5,2) -- cycle;
+\node at (5, 1.5) {\small Column space of $\mathbf{X} = [\mathbf{x}_{1}, \mathbf{x}_{2}]$};
+
+% Vectors
+\draw[->, thick, blue] (0,0) -- (1.5, 0.5) node[below right] {$\mathbf{x}_1$};
+\draw[->, thick, blue] (0,0) -- (0.2, 1.5) node[above left] {$\mathbf{x}_2$};
+\draw[->, thick, red] (0,0) -- (1.2, 1.8) node[right] {$\hat{\mathbf{y}}_g$};
+\draw[->, thick, black] (0,0) -- (0.8, 2.5) node[above] {$\mathbf{y}_g$};
+
+% Residual
+\draw[dashed, thick, gray] (0.8, 2.5) -- (1.2, 1.8);
+\node[right] at (1.0, 2.15) {$\boldsymbol{\epsilon}_g$};
+
+% Origin
+\fill (0,0) circle (0.05);
+\end{tikzpicture}
+\end{center}
+
+$\hat{\mathbf{y}}_g$ is the **projection** of $\mathbf{y}_g$ onto the column space of $\mathbf{X}$
+
+## What have we missed?
+
+\huge
+
+$$\mathbf{y}_g = \mathbf{X} \boldsymbol{\beta}_g + \boldsymbol{\epsilon}_g$$
+
+\onslide<2>{
+
+\normalsize
+
+We can assume/model:
+
+\huge
+
+$$\epsilon_{ig} \sim \mathcal{N}\!\left(0, \sigma^{2}\right)$$
+
+}
+
+\normalsize
+
+## How can we estimate the coefficients?
+
+Use standard linear regression (`lm`) to estimate $\boldsymbol{\beta}_g$:
+
+```{r}
+y_gene <- log1p(raw.counts[17709, ]) # Take expression from gene 17709
+
+fit <- lm(y_gene ~ age + menopause + ER.status, # Fit a linear model
+          data = clinical.data)
+
+summary(fit)$coefficients # View coefficients
+```
+
+## A better way to estimate: use `limma`
+
+:::::: {.columns}
+::: {.column width=.3}
+
+![](img/limma.png)
+
+:::
+::: {.column width=.6}
+	
+```{r eval=F, size="huge"}
+library(limma)
+```
+
+:::
+::::::
+
+## `limma` can estimate the parameters across all the genes
+
+```{r size="small"}
+complete_samples <- complete.cases(clinical.data)
+Y_filtered <- log1p(raw.counts[, complete_samples])
+design <- model.matrix(~ age + menopause + ER.status,
+                       data = clinical.data[complete_samples, ])
+
+fit_limma <- lmFit(Y_filtered, design) # Fit linear models for all genes
+
+fit_limma$coefficients[17709, ] # View coefficients for gene 17709
+```
+
+## Getting the top genes with `topTable`
+
+After fitting, use empirical Bayes moderation and extract top genes:
+
+```{r size="small"}
+fit_limma <- eBayes(fit_limma) # Empirical Bayes of standard errors
+
+top_genes <- topTable(fit_limma, coef = "ER.statusPositive",
+                      number = 10, sort.by = "P")
+top_genes[, c("logFC", "AveExpr", "t", "P.Value", "adj.P.Val")]
+```
+
+## `topTable` ranks genes by statistical significance with:
+
+* `logFC`: log fold change
+* `P.Value`: p-value
+* `adj.P.Val`: adjusted p-value (FDR correction)
+
+## What is `eBayes`?
+
+**Empirical Bayes (EB)** moderation of variance estimates
+
+\vspace{0.3cm}
+
+**The problem:** With small sample sizes, gene-specific variance estimates $\hat{\sigma}^2_g$ are unreliable
+
+* Some genes appear significant just by chance (unstable variance estimates)
+* Leads to false discoveries
+
+\vspace{0.3cm}
+
+**The solution:** Borrow information across genes
+
+* Assume all genes share similar variance structure
+* Shrink each gene's variance toward a common prior distribution
+* Results in more stable, moderated variance estimates
+
+## Empirical Bayes on what?
+
+`eBayes` moderates the **variance** (or standard error) estimates:
+
+$$\tilde{\sigma}^2_g = \text{shrink}\left(\hat{\sigma}^2_g \text{ toward prior}\right)$$
+
+\vspace{0.3cm}
+
+**Without eBayes:** Each gene uses only its own data
+
+* $\hat{\sigma}^2_g$ based on $n$ samples for gene $g$ alone
+* Unstable when $n$ is small
+
+**With eBayes:** Each gene borrows strength from all genes
+
+* Pools information across $G$ genes to estimate prior distribution
+* Shrinks extreme variance estimates toward the middle
+* More stable t-statistics and p-values
+
+## Why is eBayes useful for many genes?
+
+:::::: {.columns}
+::: {.column width=.48}
+
+**Traditional approach** (gene by gene):
+
+* Fit model separately for each gene
+* Each has independent $\hat{\sigma}^2_g$
+* High variance in estimates
+* Many false positives/negatives
+
+:::
+::: {.column width=.48}
+
+**Empirical Bayes** (sharing information):
+
+* Fit models for all genes
+* Moderate all $\hat{\sigma}^2_g$ together
+* Stable variance estimates
+* Better statistical power
+* Reduced false discoveries
+
+:::
+::::::
+
+\vspace{0.3cm}
+
+**Key insight:** With thousands of genes, we can learn a prior distribution from the data itself, then use it to improve individual gene estimates
+
+
+## Why use `limma` instead of regular `lm`?
+
+* **Borrows information** from all genes to get a better estimate of the variance (especially in smaller sample size settings)
+
+* Efficiently fits many regression models **without replicating unnecessary calculations**!
+
+* Arranges output in a convenient way to ease further analysis, visualization, and interpretation
+
+
+## Genome-wide OLS fits
+
+* Gene by gene:
+
+  * `lm(y ~ x, data = gene)` for each gene
+
+* All genes at once, using `limma`: 
+
+  * `lmFit(object, design)`
+  
+  * `object` matrix-like object with expression values for all genes
+  
+  * `design` is a specially formatted design matrix (more on this later)
+  
+  * Note that `object` can be a Bioconductor container, such as an [`ExpressionSet`](https://kasperdanielhansen.github.io/genbioconductor/html/ExpressionSet.html) object
+
+# Statistical inference for linear regression
+
+## Recall: Linear model in matrix form
+
+\Large
+
+$$\mathbf{y}_g = \mathbf{X} \boldsymbol{\beta}_g + \boldsymbol{\epsilon}_g$$
+
+\normalsize
+
+where:
+
+\large
+
+:::::: {.columns}
+::: {.column width=.48}
+
+
+* $\mathbf{y}_g \in \mathbb{R}^{n}$: expressions for gene $g$
+
+* $\mathbf{\color{magenta} X} \in \mathbb{R}^{n \times p}$: design matrix (the same for all the genes)
+
+:::
+::: {.column width=.48}
+
+* $\boldsymbol{\beta}_g \in \mathbb{R}^{p}$: coefficients for gene $g$
+
+* $\boldsymbol{\epsilon}_g \in \mathbb{R}^{n}$: error terms
+
+:::
+::::::
+
+\normalsize
+
+## Probabilistic model for each sample
+
+For each sample $i$ and gene $g$:
+
+$$Y_{ig} = \mathbf{x}_i \boldsymbol{\beta}_g + \epsilon_{ig}$$
+
+where $\mathbf{x}_i$ is the $i$-th row of $\mathbf{X}$
+
+**Assumption:** $\epsilon_{ig} \sim \mathcal{N}(0, \sigma^2_g)$ independently
+
+\vspace{0.5cm}
+
+\onslide<2->{
+
+$$Y_{ig} \sim \mathcal{N}(\mathbf{x}_i \boldsymbol{\beta}_g, \sigma^2_g)$$
+
+}
+
+## The probability density for each sample
+
+$$p(Y_{ig} \mid \boldsymbol{\beta}_g, \sigma^2_g) = \frac{1}{\sqrt{2\pi\sigma^2_g}} \exp\left(-\frac{(Y_{ig} - \mathbf{x}_i \boldsymbol{\beta}_g)^2}{2\sigma^2_g}\right)$$
+
+
+## Likelihood function
+
+For all $n$ samples (assuming independence):
+
+$$L(\boldsymbol{\beta}_g, \sigma^2_g \mid \mathbf{y}_g) = \prod_{i=1}^n p(Y_{ig} \mid \boldsymbol{\beta}_g, \sigma^2_g)$$
+
+\onslide<2->{
+
+\textbf{Log-likelihood:}
+
+\begin{align*}
+\ell(\boldsymbol{\beta}_g, \sigma^2_g) &= \sum_{i=1}^n \log p(Y_{ig} \mid \boldsymbol{\beta}_g, \sigma^2_g) \\
+&= -\frac{n}{2}\log(2\pi) - \frac{n}{2}\log(\sigma^2_g) - \frac{1}{2\sigma^2_g}\sum_{i=1}^n(Y_{ig} - \mathbf{x}_i \boldsymbol{\beta}_g)^2
+\end{align*}
+
+}
+
+## Maximum likelihood estimation
+
+To find $\hat{\boldsymbol{\beta}}_g$, maximize the log-likelihood:
+
+$$\hat{\boldsymbol{\beta}}_g = \arg\max_{\boldsymbol{\beta}_g} \ell(\boldsymbol{\beta}_g, \sigma^2_g)$$
+
+\onslide<2->{
+
+\textbf{Key observation:} Maximizing $\ell$ is equivalent to minimizing:
+
+$$\sum_{i=1}^n(Y_{ig} - \mathbf{x}_i \boldsymbol{\beta}_g)^2 = (\mathbf{y}_g - \mathbf{X}\boldsymbol{\beta}_g)^{\top}(\mathbf{y}_g - \mathbf{X}\boldsymbol{\beta}_g)$$
+
+}
+
+\onslide<3->{
+
+\begin{center}
+\colorbox{yellow}{\textbf{Maximum Likelihood = Ordinary Least Squares!}}
+\end{center}
+
+Under Gaussian errors, MLE and OLS give the same coefficient estimates
+
+}
+
+## Ordinary Least Squares solution
+
+Minimize $(\mathbf{y}_g - \mathbf{X}\boldsymbol{\beta}_g)^{\top}(\mathbf{y}_g - \mathbf{X}\boldsymbol{\beta}_g)$ with respect to $\boldsymbol{\beta}_g$
+
+\vspace{0.3cm}
+
+Take derivative and set to zero:
+
+\begin{align*}
+\frac{\partial}{\partial \boldsymbol{\beta}_g}\left[(\mathbf{y}_g - \mathbf{X}\boldsymbol{\beta}_g)^{\top}(\mathbf{y}_g - \mathbf{X}\boldsymbol{\beta}_g)\right] &= 0 \\
+-2\mathbf{X}^{\top}\mathbf{y}_g + 2\mathbf{X}^{\top}\mathbf{X}\boldsymbol{\beta}_g &= 0
+\end{align*}
+
+\vspace{0.3cm}
+
+**OLS estimator:**
+
+$$\boxed{\hat{\boldsymbol{\beta}}_g = (\mathbf{X}^{\top}\mathbf{X})^{-1}\mathbf{X}^{\top}\mathbf{y}_g}$$
+
+## Beyond point estimates: Uncertainty quantification
+
+So far we have $\hat{\boldsymbol{\beta}}_g$ as a **point estimate**
+
+\vspace{0.5cm}
+
+**But we also need:**
+
+* Standard errors for $\hat{\boldsymbol{\beta}}_g$
+* Confidence intervals
+* Hypothesis tests (p-values)
+
+\vspace{0.5cm}
+
+\onslide<2->{
+
+\textbf{Key question:} What is the distribution of $\hat{\boldsymbol{\beta}}_g$?
+
+Since $\hat{\boldsymbol{\beta}}_g$ depends on $\mathbf{y}_g$, and $\mathbf{y}_g$ is random, $\hat{\boldsymbol{\beta}}_g$ is also a random variable!
+
+}
+
+## Variance of the coefficient estimates
+
+<!-- Since $\hat{\boldsymbol{\beta}}_g = (\mathbf{X}^{\top}\mathbf{X})^{-1}\mathbf{X}^{\top}\mathbf{y}_g$ and $\mathbf{y}_g = \mathbf{X}\boldsymbol{\beta}_g + \boldsymbol{\epsilon}_g$: -->
+
+\begin{align*}
+\hat{\boldsymbol{\beta}}_g &= (\mathbf{X}^{\top}\mathbf{X})^{-1}\mathbf{X}^{\top}(\mathbf{X}\boldsymbol{\beta}_g + \boldsymbol{\epsilon}_g) \\
+&= \boldsymbol{\beta}_g + (\mathbf{X}^{\top}\mathbf{X})^{-1}\mathbf{X}^{\top}\boldsymbol{\epsilon}_g
+\end{align*}
+
+\vspace{0.3cm}
+
+\onslide<2->{
+
+\textbf{Variance:}
+
+$$\text{Var}(\hat{\boldsymbol{\beta}}_g) = \text{Var}[(\mathbf{X}^{\top}\mathbf{X})^{-1}\mathbf{X}^{\top}\boldsymbol{\epsilon}_g]$$
+
+Since $\text{Var}(\boldsymbol{\epsilon}_g) = \sigma^2_g \mathbf{I}$:
+
+$$\boxed{\text{Var}(\hat{\boldsymbol{\beta}}_g) = \sigma^2_g (\mathbf{X}^{\top}\mathbf{X})^{-1}}$$
+
+}
+
+## Inference for coefficients
+
+For the $j$-th coefficient of gene $g$:
+
+$$\hat{\beta}_{jg} \sim \mathcal{N}\left(\beta_{jg}, \sigma^2_g [(\mathbf{X}^{\top}\mathbf{X})^{-1}]_{jj}\right)$$
+
+Standard error: $\text{SE}(\hat{\beta}_{jg}) = \hat{\sigma}_g \sqrt{[(\mathbf{X}^{\top}\mathbf{X})^{-1}]_{jj}}$
+
+\vspace{0.3cm}
+
+**t-statistic for** $H_0: \beta_{jg} = 0$:
+
+$$t_{jg} = \frac{\hat{\beta}_{jg}}{\text{SE}(\hat{\beta}_{jg})} \sim t_{n-p}$$
+
+
+## Knowing the distribution each coefficient
+
+\large
+
+**t-statistic for** $H_0: \beta_{jg} = 0$:
+
+$$t_{jg} = \frac{\hat{\beta}_{jg}}{\text{SE}(\hat{\beta}_{jg})} \sim t_{n-p}$$
+
+This allows us to:
+
+* Test significance of individual coefficients
+
+* Construct confidence intervals
+
+\normalsize
+
+# Generalized linear models for RNA-seq
+
+## Limitation of Gaussian linear models for count data
+
+**Problem:** RNA-seq data are **counts**, not continuous values
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Gaussian assumption:**
+
+* $Y_{ig} \sim \mathcal{N}(\mu_{ig}, \sigma^2_g)$
+* Continuous values
+* Can be negative
+* Constant variance
+
+:::
+::: {.column width=.45}
+
+**RNA-seq reality:**
+
+* $Y_{ig} \in \{0, 1, 2, 3, \ldots\}$
+* Discrete counts
+* Non-negative integers
+* Variance increases with mean (overdispersion)
+
+:::
+::::::
+
+\vspace{0.5cm}
+
+**Solution:** Generalized Linear Models (GLM) with appropriate distribution
+
+## Negative Binomial for RNA-seq [@Anders2010-cf; @Robinson2008-pd]
+
+$$Y_{ig} \sim \text{NB}(\mu_{ig}, \phi_g)$$
+
+Where:
+
+* $\mu_{ig}$: mean expression for gene $g$ in sample $i$
+* $\phi_g$: dispersion parameter for gene $g$ (captures overdispersion)
+
+\vspace{0.3cm}
+
+**Key property:**
+
+$$\mathbb{E}[Y_{ig}] = \mu_{ig}, \qquad \text{Var}(Y_{ig}) = \mu_{ig} + \phi_g \mu_{ig}^2$$
+
+## Connecting covariates to the mean: log-link function
+
+**Linear model (what we've been doing):**
+
+$$\mu_{ig} = \mathbf{x}_i \boldsymbol{\beta}_g = \sum_{j} X_{ij} \beta_{jg}$$
+
+\onslide<2->{
+
+\vspace{0.5cm}
+
+\textbf{GLM solution:} Use a \textbf{link function} to ensure $\mu_{ig} > 0$
+
+$$\log(\mu_{ig}) = \mathbf{x}_i \boldsymbol{\beta}_g = \sum_{j} X_{ij} \beta_{jg}$$
+
+}
+
+\onslide<3->{
+
+$$\boxed{\mu_{ig} = \exp\left(\sum_{j} X_{ij} \beta_{jg}\right) = \exp(\mathbf{x}_i \boldsymbol{\beta}_g)}$$
+
+}
+
+## GLM for RNA-seq: putting it together
+
+\begin{center}
+\begin{tikzpicture}[scale=1.0]
+  % Parameters (to be estimated - open circles)
+  \node[draw, circle, minimum size=1cm, fill=white] (beta) at (2, 5) {$\boldsymbol{\beta}_g$};
+  \node[font=\small, above] at (2, 5.55) {coefficients};
+
+  \node[draw, circle, minimum size=1cm, fill=white] (phi) at (6, 5) {$\phi_g$};
+  \node[font=\small, above] at (6, 5.55) {dispersion};
+
+  % Covariates (observed - filled circle)
+  \node[draw, circle, minimum size=1cm, fill=green!20, thick] (X) at (0.5, 3.5) {$\mathbf{x}_i$};
+  \node[font=\small, left] at (0, 3.5) {covariates};
+
+  % Mean (derived)
+  \node[draw, circle, minimum size=1cm, fill=white] (mu) at (4, 3.5) {$\mu_{ig}$};
+  \node[font=\small, above right] at (4.6, 3.5) {mean};
+
+  % Lambda (latent)
+  \node[draw, circle, minimum size=1cm, fill=white, dashed, thick] (lambda) at (4, 1.8) {$\lambda_{ig}$};
+  \node[font=\small, right] at (4.6, 1.8) {latent};
+
+  % Y (observed)
+  \node[draw, circle, minimum size=1cm, fill=blue!20, thick] (Y) at (4, 0.2) {$Y_{ig}$};
+  \node[font=\small, below] at (4, -0.4) {count};
+
+  % Arrows
+  \draw[->, thick] (X) -- (mu);
+  \draw[->, thick] (beta) -- (mu);
+  \draw[->, thick, red] (2.7, 4.5) -- (3.2, 4.0) node[midway, above, font=\small] {log-link};
+  \draw[->, thick] (mu) -- (lambda);
+  \draw[->, thick] (phi) -- (lambda);
+  \draw[->, thick] (lambda) -- (Y);
+
+  % Equations
+  \node[font=\normalsize, align=left, anchor=west] at (7, 3) {$\log(\mu_{ig}) = \mathbf{x}_i \boldsymbol{\beta}_g$};
+  \node[font=\normalsize, align=left, anchor=west] at (7, 1.5) {$\lambda_{ig} \sim \text{Gamma}(\mu_{ig}, \phi_g)$};
+  \node[font=\normalsize, align=left, anchor=west] at (7, 0.0) {$Y_{ig} | \lambda_{ig} \sim \text{Poisson}(\lambda_{ig})$};
+
+  % Legend
+  \draw[rounded corners, gray] (9.5, 5.5) rectangle (13, 3.8);
+
+  \node[draw, circle, minimum size=0.45cm, fill=blue!20, thick] at (10, 5.2) {};
+  \node[font=\small, right] at (10.3, 5.2) {observed};
+
+  \node[draw, circle, minimum size=0.45cm, fill=white, dashed, thick] at (10, 4.7) {};
+  \node[font=\small, right] at (10.3, 4.7) {latent};
+
+  \node[draw, circle, minimum size=0.45cm, fill=white] at (10, 4.2) {};
+  \node[font=\small, right] at (10.3, 4.2) {to be estimated};
+
+\end{tikzpicture}
+\end{center}
+
+## Interpretation of coefficients in GLM
+
+In the log-link GLM:
+
+$$\log(\mu_{ig}) = \beta_{0g} + \beta_{1g} X_{i1} + \beta_{2g} X_{i2} + \cdots$$
+
+\vspace{0.3cm}
+
+**Interpretation of $\beta_{jg}$:**
+
+* $\beta_{jg}$: **log fold-change** in mean expression for a one-unit $\Delta$ in $X_{ij}$
+
+\onslide<2->{
+
+\vspace{0.3cm}
+
+\textbf{Example:} If $\beta_{1g} = 0.693$ (for a binary treatment variable):
+
+$$\mu_{ig}^{\text{treated}} = \mu_{ig}^{\text{control}} \times \exp(0.693) = \mu_{ig}^{\text{control}} \times 2$$
+
+Treatment doubles the mean expression (2-fold change)
+
+}
+
+## Comparing Gaussian LM vs. GLM for RNA-seq
+
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+& \textbf{Gaussian LM} & \textbf{NB GLM} \\
+\hline
+Distribution & $Y_{ig} \sim \mathcal{N}(\mu_{ig}, \sigma^2_g)$ & $Y_{ig} \sim \text{NB}(\mu_{ig}, \phi_g)$ \\
+Mean model & $\mu_{ig} = \mathbf{x}_i \boldsymbol{\beta}_g$ & $\log(\mu_{ig}) = \mathbf{x}_i \boldsymbol{\beta}_g$ \\
+Link function & Identity & Log \\
+$\beta_{jg}$ interpretation & Additive effect & Log fold-change \\
+Variance & Constant $\sigma^2_g$ & Increases with mean \\
+Data type & Continuous & Count \\
+\hline
+\end{tabular}
+\end{center}
+
+\vspace{0.5cm}
+
+**For RNA-seq:** GLM with negative binomial distribution is more appropriate!
+
+## `DESeq2` [@Love2014-dl] / `edgeR` [@Robinson2008-pd] directly model count data
+
+1. Use negative binomial GLM
+2. Estimate dispersion parameters
+3. Perform inference on $\boldsymbol{\beta}_g$
+
+## Example: `edgeR` for negative binomial GLM
+
+```{r size="tiny", message=FALSE, warning=FALSE}
+.file <- file.path(data.dir, "edgeR_results.rds")
+if.needed(.file, {
+    # Create DGEList object with count data
+    dge <- DGEList(counts = raw.counts[, complete_samples],
+                   samples = clinical.data[complete_samples, ])
+
+    # Normalize for library size differences
+    dge <- calcNormFactors(dge)
+
+    # Estimate dispersion (phi_g for each gene)
+    dge <- estimateDisp(dge, design)
+
+    # Fit negative binomial GLM
+    QLfit <- glmQLFit(dge, design = design)
+
+    # Test for ER status effect
+    QLtest_ER <- glmQLFTest(QLfit, coef = "ER.statusPositive")
+
+    saveRDS(QLtest_ER, .file)
+})
+QLtest_ER <- readRDS(.file)
+
+topTags(QLtest_ER)[1:3, c("logFC", "logCPM", "PValue", "FDR")]
+```
+
+## Example: `DESeq2` for negative binomial GLM
+
+```{r size="tiny", message=FALSE, warning=FALSE}
+.file <- file.path(data.dir, "deseq2_results.rds")
+if.needed(.file, {
+    # Create DESeqDataSet from count matrix
+    dds <- DESeqDataSetFromMatrix(
+        countData = raw.counts[, complete_samples],
+        colData = clinical.data[complete_samples, ],
+        design = ~ age + menopause + ER.status
+    )
+
+    # Run DESeq2 pipeline (normalization + dispersion + GLM)
+    dds <- DESeq(dds, quiet = TRUE)
+
+    # Extract results for ER status
+    res_ER <- results(dds, name = "ER.status_Positive_vs_Negative")
+
+    saveRDS(res_ER, .file)
+})
+res_ER <- readRDS(.file)
+
+res_ER[order(res_ER$padj), ][1:3, c("log2FoldChange", "pvalue", "padj")]
+```
+
+## How `DESeq2` estimates dispersion parameter $\phi$
+
+\large
+
+**The challenge:** Estimating $\phi_g$ from small samples is unreliable
+
+**DESeq2's solution:** Empirical Bayes shrinkage
+
+1. Fit gene-wise dispersions (MLE)
+2. Fit a trend: $\phi_g \sim f(\mu_g)$
+3. Shrink toward the trend
+
+## `DESeq2` dispersion estimates
+
+```{r deseq2-dispersion, fig.height=2.8, fig.width=4, message=FALSE, warning=FALSE}
+.file <- file.path(data.dir, "dds_full.rds")
+if.needed(.file, {
+    dds <- DESeqDataSetFromMatrix(
+        countData = raw.counts[, complete_samples],
+        colData = clinical.data[complete_samples, ],
+        design = ~ age + menopause + ER.status
+    )
+    dds <- DESeq(dds, quiet = TRUE)
+    saveRDS(dds, .file)
+})
+dds <- readRDS(.file)
+```
+
+```{r eval=F}
+plotDispEsts(dds, main = "DESeq2 Dispersion Estimates")
+```
+
+## 
+
+```{r deseq2-dispersion-plot, fig.height=3, fig.width=5, echo=F}
+plotDispEsts(dds, main = "DESeq2 Dispersion Estimates")
+```
+
+
+# The limma-voom approach
+
+## Two main approaches for RNA-seq differential expression
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\centering
+\includegraphics[height=1.8cm]{img/DESeq2.png}
+\hspace{0.3cm}
+\includegraphics[height=1.8cm]{img/edgeR.png}
+
+**Count-based GLM**
+
+* Model counts directly with NB
+* Estimate dispersion $\phi_g$
+* Use GLM framework
+
+:::
+::: {.column width=.48}
+
+\centering
+\includegraphics[height=2cm]{img/limma.png}
+
+**Transformation + Linear Model**
+
+* Transform counts to log-scale
+* Apply weighted linear models
+* Use **voom** for weights
+
+:::
+::::::
+
+\vspace{0.5cm}
+
+Both approaches give similar results in practice! But `DESeq2` is ...
+
+## Mean-variance relationship and heteroskedasticity
+
+:::::: {.columns}
+::: {.column width=.48}
+
+```{r mv-raw, fig.height=2.8, fig.width=2.8, echo=FALSE, message=FALSE, warning=FALSE}
+counts_sub <- raw.counts[, complete_samples]
+mean_expr <- rowMeans(counts_sub)
+var_expr <- rowVars(counts_sub)
+
+data.frame(mean = log10(mean_expr + 1),
+           var = log10(var_expr + 1)) %>%
+    filter(is.finite(mean) & is.finite(var)) %>%
+    ggplot(aes(x = mean, y = var)) +
+    ggrastr::rasterise(geom_point(alpha = 0.1, size = 0.5), dpi = 300) +
+    geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+    labs(x = "log10(mean + 1)", y = "log10(variance + 1)",
+         title = "Raw: Strong M-V trend") +
+    theme_minimal()
+```
+
+:::
+::: {.column width=.48}
+
+```{r mv-log, fig.height=2.8, fig.width=2.8, echo=FALSE, message=FALSE, warning=FALSE}
+log_counts <- log2(counts_sub + 1)
+mean_log <- rowMeans(log_counts)
+var_log <- rowVars(log_counts)
+
+data.frame(mean = mean_log,
+           var = sqrt(sqrt(var_log))) %>%
+    filter(is.finite(mean) & is.finite(var)) %>%
+    ggplot(aes(x = mean, y = var)) +
+    ggrastr::rasterise(geom_point(alpha = 0.1, size = 0.5), dpi = 300) +
+    geom_smooth(method = "loess", se = FALSE, color = "blue", span = 0.3) +
+    labs(x = "Mean log2(count + 1)", y = "sqrt(SD)",
+         title = "Log counts") +
+    theme_minimal()
+```
+
+:::
+::::::
+
+## Why does heteroskedasticity matter?
+
+**OLS assumes constant variance** (homoskedasticity)
+
+\vspace{0.3cm}
+
+:::::: {.columns}
+::: {.column width=.55}
+
+When variance depends on mean:
+
+* High-variance observations get **less weight** than they should
+* Standard errors are **incorrect**
+* t-statistics and **p-values are wrong**
+
+\vspace{0.3cm}
+
+For RNA-seq:
+
+* Low-count genes have high variance
+* They get inflated t-statistics
+* **More false positives!**
+
+:::
+::: {.column width=.4}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.8]
+% Axes
+\draw[->] (0,0) -- (5,0) node[right] {Mean};
+\draw[->] (0,0) -- (0,4) node[above] {Var};
+
+% Curve showing increasing variance
+\draw[thick, blue] (0.5,0.3) .. controls (2,1) and (3,2.5) .. (4.5,3.5);
+
+% Points with error bars
+\foreach \x/\y/\h in {1/0.5/0.3, 2/1.2/0.6, 3/2/1, 4/2.8/1.4} {
+    \fill[red] (\x, \y) circle (2pt);
+    \draw[red, thick] (\x, \y-\h*0.5) -- (\x, \y+\h*0.5);
+}
+
+\node[font=\small] at (2.5, -0.5) {Variance increases with mean};
+\end{tikzpicture}
+\end{center}
+
+:::
+::::::
+
+## The voom solution: Precision weights
+
+**Key idea:** Model the mean-variance relationship, use it to weight observations
+
+\vspace{0.3cm}
+
+$$w_{ig} = \frac{1}{\text{Var}(Y_{ig})}$$
+
+\vspace{0.3cm}
+
+* Observations with **high variance** get **low weight**
+* Observations with **low variance** get **high weight**
+* Weights are estimated from the **mean-variance trend**
+
+\vspace{0.3cm}
+
+This is called **Weighted Least Squares (WLS)**
+
+## Weighted Least Squares
+
+**OLS solution:**
+
+$$\hat{\boldsymbol{\beta}}_g = (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}_g$$
+
+\vspace{0.5cm}
+
+**WLS solution:**
+
+$$\hat{\boldsymbol{\beta}}_g = (\mathbf{X}^\top\mathbf{W}_g\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{W}_g\mathbf{y}_g$$
+
+where $\mathbf{W}_g = \text{diag}(w_{1g}, w_{2g}, \ldots, w_{ng})$
+
+\vspace{0.5cm}
+
+**Intuition:** In minimizing RSS, put less weight on imprecise observations
+
+$$\hat{\boldsymbol{\beta}}_g = \arg\min_{\boldsymbol{\beta}} \sum_{i=1}^n w_{ig}(Y_{ig} - \mathbf{x}_i\boldsymbol{\beta})^2$$
+
+## The voom algorithm: Step by step
+
+:::::: {.columns}
+::: {.column width=.55}
+
+**Step 1:** Fit linear model to $\log_2(\text{CPM} + 0.5)$
+
+**Step 2:** Extract residual standard deviations $s_g$
+
+**Step 3:** Fit lowess curve to mean vs $\sqrt{s_g}$ trend
+
+**Step 4:** Compute precision weights:
+$$w_{ig} = \frac{1}{\hat{f}(\hat{\mu}_{ig})^4}$$
+
+**Step 5:** Re-fit with weights using `lmFit`
+
+**Step 6:** Apply `eBayes` for moderated t-statistics
+
+:::
+::: {.column width=.4}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.65,
+    box/.style={rectangle, draw, rounded corners, minimum width=2.2cm, minimum height=0.7cm, font=\small}]
+
+\node[box, fill=blue!20] (fit1) at (0, 6) {Fit LM};
+\node[box, fill=green!20] (resid) at (0, 4.5) {Get residuals};
+\node[box, fill=yellow!20] (lowess) at (0, 3) {Fit M-V trend};
+\node[box, fill=orange!20] (weights) at (0, 1.5) {Calc weights};
+\node[box, fill=red!20] (fit2) at (0, 0) {WLS + eBayes};
+
+\draw[->, thick] (fit1) -- (resid);
+\draw[->, thick] (resid) -- (lowess);
+\draw[->, thick] (lowess) -- (weights);
+\draw[->, thick] (weights) -- (fit2);
+
+\end{tikzpicture}
+\end{center}
+
+:::
+::::::
+
+## voom in action: TCGA BRCA data
+
+```{r eval=F, size="normalsize"}
+## just like edgeR
+dge <- DGEList(counts = raw.counts[, complete_samples])
+dge <- calcNormFactors(dge)
+
+## VOOM transformation
+voom_result <- voom(dge, design = design, plot = TRUE)
+```
+
+## voom in action: TCGA BRCA data
+
+```{r voom-fit, fig.height=2.8, fig.width=5, fig.align='center', message=FALSE, warning=FALSE, echo=F}
+dge <- DGEList(counts = raw.counts[, complete_samples])
+dge <- calcNormFactors(dge)
+voom_result <- voom(dge, design = design, plot = TRUE) # VOOM!
+```
+
+## Understanding the voom plot
+
+:::::: {.columns}
+::: {.column width=.48}
+
+```{r voom-plot-explain, fig.height=2.8, fig.width=2.8, echo=FALSE, message=FALSE, warning=FALSE}
+voom_result <- voom(dge, design = design, plot = TRUE)
+```
+
+:::
+::: {.column width=.48}
+
+**X-axis:** Average log-expression (mean of $\log_2$ CPM)
+
+**Y-axis:** $\sqrt{\text{SD}}$ of residuals (quarter-root variance)
+
+**Red curve:** Lowess fit to the trend
+
+**Interpretation:**
+
+* Downward trend = heteroskedasticity
+* Low-expression genes have high variance
+* Weights correct for this
+
+:::
+::::::
+
+## Fitting the weighted linear model
+
+```{r voom-limma-fit, size="scriptsize", message=FALSE, warning=FALSE}
+# Fit linear model with voom weights
+fit_voom <- lmFit(voom_result, design)
+
+# Apply empirical Bayes moderation
+fit_voom <- eBayes(fit_voom)
+
+# Get top genes for ER status
+topTable(fit_voom, coef = "ER.statusPositive", number = 5)[,
+    c("logFC", "AveExpr", "t", "P.Value", "adj.P.Val")]
+```
+
+## What are the voom weights?
+
+```{r voom-weights, fig.height=2.8, fig.width=5.5, echo=FALSE, message=FALSE, warning=FALSE}
+# Show distribution of weights
+weights_df <- data.frame(
+    weight = as.vector(voom_result$weights),
+    mean_expr = rep(rowMeans(voom_result$E), ncol(voom_result$E))
+)
+
+p1 <- ggplot(weights_df, aes(x = weight)) +
+    geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+    labs(x = "Voom weight", y = "Count", title = "Distribution of weights") +
+    theme_minimal()
+
+p2 <- weights_df %>%
+    sample_n(10000) %>%
+    ggplot(aes(x = mean_expr, y = weight)) +
+    ggrastr::rasterise(geom_point(alpha = 0.1, size = 0.5), dpi = 300) +
+    geom_smooth(method = "loess", color = "red", se = FALSE) +
+    labs(x = "Mean log2 expression", y = "Weight",
+         title = "Weight vs Expression") +
+    theme_minimal()
+
+p1 + p2
+```
+
+Higher expression $\rightarrow$ higher weight (more precise)
+
+## limma-voom vs limma-trend
+
+:::::: {.columns}
+::: {.column width=.48}
+
+**limma-voom**
+
+* Weights at **observation** level
+* Each sample-gene gets its own weight
+* More flexible
+
+```{r eval=FALSE}
+voom_result <- voom(dge, design)
+fit <- lmFit(voom_result, design)
+fit <- eBayes(fit)
+```
+
+:::
+::: {.column width=.48}
+
+**limma-trend**
+
+* Shrinkage at **gene** level
+* Prior variance depends on mean expression
+* Simpler, often sufficient
+
+```{r eval=FALSE}
+fit <- lmFit(logCPM, design)
+fit <- eBayes(fit, trend = TRUE)
+```
+
+:::
+::::::
+
+\vspace{0.3cm}
+
+**When to use which?**
+
+* voom: When library sizes vary a lot
+* trend: When library sizes are similar
+
+## Comparing all three methods on TCGA BRCA
+
+```{r method-comparison, fig.height=2.8, fig.width=6, echo=FALSE, message=FALSE, warning=FALSE}
+# Get results from all methods
+# limma-voom
+pvals_voom <- topTable(fit_voom, coef = "ER.statusPositive",
+                        number = Inf, sort.by = "none")$P.Value
+
+# edgeR
+pvals_edger <- QLtest_ER$table$PValue
+
+# DESeq2
+pvals_deseq2 <- res_ER$pvalue[match(rownames(QLtest_ER$table),
+                                     rownames(res_ER))]
+
+# Combine results
+comparison_df <- data.frame(
+    voom = -log10(pvals_voom),
+    edgeR = -log10(pvals_edger[1:length(pvals_voom)]),
+    DESeq2 = -log10(pvals_deseq2[1:length(pvals_voom)])
+) %>%
+    filter(is.finite(voom) & is.finite(edgeR) & is.finite(DESeq2))
+
+p1 <- ggplot(comparison_df, aes(x = voom, y = edgeR)) +
+    ggrastr::rasterise(geom_point(alpha = 0.1, size = 0.5), dpi = 300) +
+    geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+    labs(x = "-log10(p) voom", y = "-log10(p) edgeR",
+         title = "voom vs edgeR") +
+    theme_minimal()
+
+p2 <- ggplot(comparison_df, aes(x = voom, y = DESeq2)) +
+    ggrastr::rasterise(geom_point(alpha = 0.1, size = 0.5), dpi = 300) +
+    geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+    labs(x = "-log10(p) voom", y = "-log10(p) DESeq2",
+         title = "voom vs DESeq2") +
+    theme_minimal()
+
+p3 <- ggplot(comparison_df, aes(x = edgeR, y = DESeq2)) +
+    ggrastr::rasterise(geom_point(alpha = 0.1, size = 0.5), dpi = 300) +
+    geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+    labs(x = "-log10(p) edgeR", y = "-log10(p) DESeq2",
+         title = "edgeR vs DESeq2") +
+    theme_minimal()
+
+p1 + p2 + p3
+```
+
+**Methods agree well!** Especially for top-ranked genes
+
+## Summary: When to use which method?
+
+\begin{center}
+\begin{tabular}{lccc}
+\hline
+& \textbf{limma-voom} & \textbf{DESeq2} & \textbf{edgeR} \\
+\hline
+Data type & Counts & Counts & Counts \\
+Model & Weighted LM & NB GLM & NB GLM \\
+M-V handling & voom weights & Dispersion & Dispersion \\
+Speed & Fast & Moderate & Fast \\
+Small samples & Good & Very good & Very good \\
+Large samples & Very good & Good & Good \\
+\hline
+\end{tabular}
+\end{center}
+
+\vspace{0.5cm}
+
+**Practical advice:**
+
+* All three methods are valid and well-tested
+* For most datasets, results will be similar
+* Use DESeq2/edgeR for small samples ($n < 10$ per group)
+* Use limma-voom for large samples or when library sizes vary
+
+## Key takeaways
+
+1. **RNA-seq counts** have mean-variance relationship (heteroskedasticity)
+
+2. **voom** estimates precision weights from M-V trend
+
+3. **Weighted least squares** gives more accurate inference
+
+4. **DESeq2/edgeR** model counts directly with negative binomial
+
+5. **All methods** borrow information across genes (empirical Bayes)
+
+6. **Results are similar** for well-powered studies
+
+## Actual key takeaway
+
+\large
+
+Analysis Assignment
+
+\normalsize
+
+## Reference {.allowframebreaks}
