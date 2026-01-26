@@ -1,0 +1,2278 @@
+---
+title: "Causality and Study Design"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: rna-seq.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{positioning,fit}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+source("Setup.R")
+fig.dir <- "../Fig/causality/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(recount3)
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(ggpubr)
+library(ggrepel)
+library(limma)
+library(edgeR)
+library(ggrastr)
+library(RUVSeq)
+
+theme_set(theme_classic())
+```
+
+## Course logistics: project proposal
+
+\large
+
+- Project proposal (Thursday)
+
+- Written proposal (February 20)
+
+\normalsize
+
+## Roadmap of STAT/BIOF/GSAT540 2026
+
+_data generation_ followed by _inference_ or validation
+
+\vfill
+
+\large
+
+:::::: {.columns}
+::: {.column width=.45}
+
+3. Formulating biological questions
+
+4. Hypothesis testing
+
+5. RNA-seq data
+
+6. Inference focusing on RNA-seq
+
+7. \textbf{\color{magenta}Experimental design} (Today)
+
+:::
+::: {.column width=.45}
+
+8. Single-cell genomics
+
+9. Matrix factorization
+
+10. Genome-wide association studies
+
+11. Multiple hypothesis testing
+
+:::
+::::::
+
+\normalsize
+
+## Learning objectives: Study (analysis) design 
+
+\large
+
+* It would be great if we could design experiments
+
+* In reality, many studies are already set up
+
+* We need to do study design for our analysis
+
+\normalsize
+
+# Introduction to causal inference
+
+## Background: What is causal inference?
+
+```{r out.width=".9\\textwidth", results="asis", echo=FALSE}
+knitr::include_graphics("img/causal_inference_two.pdf")
+```
+
+## The Nobel Prize 2021 in Economic Sciences
+
+```{r out.width=".4\\linewidth", results="asis", echo=FALSE}
+knitr::include_graphics("img/nobelprize_card_angrist_imbens-3_2-992x656.jpg")
+```
+
+$$
+\textsf{David Card}, \underbrace{\textsf{\color{blue} Joshua Angrist}}_{\textsf{instrumental variable}}, \underbrace{\textsf{\color{blue} Guido Imbens}}_{\textsf{matching, propensity}}
+$$
+
+> "For the methodological contributions to the analysis of causal relationships"
+
+\tiny
+`https://www.nobelprize.org/prizes/economic-sciences/2021`
+
+
+
+## The goal of causal effect inference
+
+\large
+
+\begin{enumerate}
+\item<1-> Instead of \textbf{\color{teal} "seeing"} what happened (data analysis), we want to measure \textbf{\color{magenta} the effect of "doing"} an experiment (intervention).
+\item<2-> Because correlation is not causation.
+\item<3> If it is not causation, then what is it?
+\end{enumerate}
+
+## Common misconception - correlation implies causation
+
+:::::: {.columns}
+::: {.column width=.8}
+
+\Large
+
+Henry Niles also wrote, *"To contrast 'causation' and 'correlation' is unwarranted \textbf{\color{magenta} because causation is simply perfect correlation}"*
+
+:::
+::: {.column width=.2}
+
+```{r out.width="\\linewidth", results="asis", echo=FALSE}
+knitr::include_graphics("img/munch_the_scream.jpg")
+```
+
+:::
+::::::
+
+\vfill
+
+\small
+Pearl, *The Book of Why*, p.78
+
+- How do we measure causal effects? Will any experiment do?
+
+## A working example: Why correlation is not causation
+
+\large
+
+* $U_{i}$: The age at which a person $i$ enrolled in this study.
+
+* $X_{i}$: An indicator variable for whether a physician decided to administer this new preventative drug ($X_{i}=1$) or not ($X_{i}=0$).
+
+* $Y_{i}$: Biomarker protein concentration (e.g., Amyloid-beta protein disrupts normal brain functions).
+
+\normalsize
+
+## A hypothetical data generating scheme
+
+\large
+
+* A person $i$'s age $U_{i}$.
+
+\large
+
+1. Prescribe the preventative drug based on the subject's age $U_{i}$ (as they might need one):
+
+$$
+P(X_{i}=1|U_{i}) = \sigma \left( U_{i} \delta \right)
+$$
+
+2. A biomarker protein concentration:
+
+$$\mathbb{E}\!\left[ Y_{i}\middle| X, U \right] =  X_{i} \tau + U_{i} \beta$$
+
+
+## **Recap**: Directed Acyclic Graph
+
+```{r out.width=".4\\textwidth", results="asis", echo=FALSE}
+knitr::include_graphics("img/causalDAG/DAG_x_to_z_to_y.pdf")
+```
+
+$$p(X,Y,Z) =
+\underset{\textsf{\color{blue}first edge}}{p(Y|X)}\quad
+\underset{\textsf{\color{magenta}second edge}}{p(Z|Y)}\quad
+\underset{\textsf{\color{teal}first node}}{p(X)}$$
+
+## DAG: Causal path/trail and reachability
+
+```{r out.width=".4\\textwidth", results="asis", echo=FALSE}
+knitr::include_graphics("img/causalDAG/DAG_x_to_z_to_y.pdf")
+```
+
+* There is a path between $X$ and $Y$
+
+* Also between $Y$ and $Z$
+
+* Also from $X$ to $Z$
+
+## DAG: Conditioning (and/or adjustment)
+
+```{r out.width=".4\\textwidth", results="asis", echo=FALSE}
+knitr::include_graphics("img/causalDAG/DAG_x_to_z_to_y_cond.pdf")
+```
+
+* A shaded node = conditioning like $P(Z|Y=y^\star)$ and $P(Y=y^\star|X)$
+
+* There is a path between $X$ and $Y$
+
+* Also between $Y$ and $Z$
+
+* **But** no path from $X$ to $Z$
+
+## d-separation: testing conditional independence (flow vs. no flow)
+
+\normalsize
+
+:::::: {.columns}
+::: {.column width=.3}
+
+```{r include=FALSE, echo=FALSE}
+.add.fig <- function(x) {
+    knitr::include_graphics("img/backdoor_exercise/" %&% x %&% ".pdf")
+}
+```
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="1-", echo=FALSE}
+.add.fig("dag_x_y_z_1")
+```
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="4-", echo=FALSE}
+.add.fig("dag_x_y_z_1_block")
+```
+
+\vfill
+
+\only<1-3>{
+\textbf{\color{teal} Flow}: The outcome of $Z$ depends on the effect of X
+}
+\only<4->{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ solely depends on $Y=y^*$, not $X$
+}
+
+:::
+::: {.column width=.3}
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="2-", echo=FALSE}
+## X <- Y -> Z
+.add.fig("dag_x_y_z_2")
+```
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="5-", echo=FALSE}
+## X <- Y -> Z
+.add.fig("dag_x_y_z_2_block")
+```
+
+\vfill
+
+\only<2-3>{
+\textbf{\color{teal} Flow}: The outcome of $Z$ depends on the effect of $Y$; so does the outcome of $X$ on that of $Y$
+}
+\only<5->{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ solely depends on $Y=y^*$, not $X$
+}
+
+:::
+::: {.column width=.3}
+
+```{r out.width=".8\\linewidth", results="asis", onslide.plot="3-", echo=FALSE}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3")
+```
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="6", echo=FALSE}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3_block")
+```
+
+\only<7>{
+\textbf{\color{teal} Flow}: deeper v-structure
+}
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="7", echo=FALSE}
+## X -> Y <- Z
+.add.fig("dag_x_y_z_3_deep")
+```
+
+\vfill
+
+\only<3>{
+\textbf{\color{orange} No} \textbf{\color{teal} Flow}: The outcome of $Z$ only affects $Y$; so does $X$
+}
+\only<6>{
+\textbf{\color{teal} Flow}: The observed outcome $Y=y^*$ could stem from $X$ or/and $Z$
+}
+
+:::
+::::::
+
+
+## Going back to the same working example
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r}
+set.seed(1)
+```
+
+```{r sim_1, echo = T, echo=FALSE}
+## Simulation parameters
+n = 200; .delta = 2; .tau = -1; .beta = 2; .eps = .3
+sgm <- function(x) 1/(1+ exp(-x))
+
+## A generative scheme
+uu <- rnorm(n) # standardised age
+xx <- rbinom(n=n, size=1, prob=sgm(uu * .delta))
+yy <- xx * .tau + uu * .beta + rnorm(n) * .eps
+```
+
+${}$
+
+**If there were** no confounding:
+
+```{r echo=T}
+yy.unc <- xx * .tau + rnorm(n) * .eps
+```
+
+:::
+::: {.column width=.55}
+
+$${}$$
+
+* The variable $U$ confounds $X$ and $Y$.
+
+* How can we represent it graphically?
+
+
+```{r out.width=".4\\linewidth", results="asis", only.plot="3-4", echo=FALSE}
+knitr::include_graphics("img/DAG_confounded.pdf")
+```
+
+```{r out.width=".4\\linewidth", results="asis", only.plot="5", echo=FALSE}
+knitr::include_graphics("img/DAG_confounded_backdoor.pdf")
+```
+
+\begin{enumerate}
+\item<3-> How can we identify the causal effect, $X{\to}Y$?
+\item<4-> Why can't we just report the correlation/association between $X$ and $Y$?
+\end{enumerate}
+
+:::
+::::::
+
+## Differential biomarker analysis suggests that our drug can exacerbate AD
+
+<!-- $$ -->
+<!-- P(X_{i} | U_{i}) = \frac{1}{1 + \exp\left( U_{i} \beta \right)} -->
+<!-- $$ -->
+
+```{r echo=F}
+## Propensity scores
+## estimated by
+## a logistic
+## regression model
+e.hat <-
+  glm(xx~uu,
+      family="binomial") %>%
+  predict %>%
+  sgm
+```
+
+```{r echo = F}
+## Treatment assignment variable
+x.f <- factor(xx, c(0,1), c("untreated", "treated"))
+
+.df <- tibble(x = x.f,
+              u = uu,
+              y = yy,
+              y.unc = yy.unc,
+              e = e.hat)
+```
+
+```{r echo = FALSE, fig.width=3, fig.height=2.5, echo=FALSE}
+ggplot(.df, aes(x, y))+
+  geom_violin(fill = "gray") +
+  geom_boxplot(width = .25) +
+  ylab("Amyloid beta (Y)") +
+  xlab("Drug treated (X)")
+```
+
+
+## It happened because
+
+\large
+
+**Question:** Which nodes should be "conditioned" and/or "adjusted" to block a reverse path from $Y$ to $X$?
+
+```{r out.height=".5\\textheight", results="asis", only.plot="1", echo=FALSE}
+knitr::include_graphics("img/backdoor_exercise/bd_concept_1.pdf")
+```
+
+```{r out.height=".5\\textheight", results="asis", only.plot="2", echo=FALSE}
+knitr::include_graphics("img/backdoor_exercise/bd_concept_2.pdf")
+```
+
+
+## Prevalence of AD increases with age
+
+:::::: {.columns}
+::: {.column width=.7}
+
+
+```{r echo = FALSE, fig.width=4, fig.height=2.5, only.plot="1", echo=FALSE}
+ggplot(.df, aes(u, y))+
+  geom_point() +
+  xlab("Standardised age (U)") +
+  ylab("biomarker--Amyloid beta (Y)")
+```
+
+```{r fig.width=4, fig.height = 2.5, only.plot="2", echo=FALSE}
+ggplot(.df, aes(u, y, colour=x))+
+  geom_point() +
+  theme(legend.title = element_blank(),
+        legend.position = c(0.15, 0.9)) +
+  scale_colour_brewer(palette="Paired") +
+  xlab("Standardised age (U)") +
+  ylab("biomarker--Amyloid beta (Y)")
+```
+
+:::
+::: {.column width=.3}
+
+> Doctors could have prescribed our drug more frequently to older people because the prevalence of AD tends to increase with age.
+
+:::
+::::::
+
+
+## Only if we could observe the unconfounded data
+
+```{r show_sim_data_1_y, echo=FALSE, fig.width=5, fig.height=2.3}
+p1 <-
+    ggplot(.df, aes(x, y))+
+    ylab("Confounded Y") +
+    xlab("X") +
+    scale_fill_brewer(guide=FALSE) +
+    geom_violin(aes(fill=x)) +
+    geom_boxplot(width=.2, outlier.size=0, outlier.stroke=0) +
+    ggtitle("observed...")
+
+p2 <- ggplot(.df, aes(x, y.unc))+
+    ylab("Unconfounded Y") +
+    xlab("X") +
+    scale_fill_brewer(guide=FALSE) +
+    geom_violin(aes(fill=x)) +
+    geom_boxplot(width=.2, outlier.size=0, outlier.stroke=0) +
+    ggtitle("an ideal (unconfounded)")
+
+p1 | p2
+```
+
+## What could have been an ideal experimental design?
+
+\large
+
+:::::: {.columns}
+::: {.column width=.6}
+
+> There is no "backdoor" between a putative cause variable ($X$) and outcome variable ($Y$).
+
+:::
+::: {.column width=.4}
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="1", echo=FALSE}
+knitr::include_graphics("img/DAG_confounded_ideal.pdf")
+```
+
+\only<2>{
+At least...
+}
+```{r out.width=".8\\linewidth", results="asis", only.plot="2", echo=FALSE}
+knitr::include_graphics("img/DAG_confounded_backdoor_controlled.pdf")
+```
+
+:::
+::::::
+
+
+## RCT: an ideal experiment (feat. RA Fisher)
+
+```{r out.height=".7\\textheight", results="asis", only.plot="1", echo=FALSE}
+knitr::include_graphics("img/RCT_Fisher_1.pdf")
+```
+
+\only<1>{
+\vfill
+\tiny
+Image source: `www.adelaide.edu.au`
+}
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\only<2-4>{
+
+\centerline{\textbf{Crops grown in the plots}}
+
+${}$}
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="2-4", echo=FALSE}
+knitr::include_graphics("img/RCT_Fisher_1.pdf")
+```
+
+\only<5>{
+\centerline{\textbf{Randomised Control Trial} $\implies$ \textbf{\color{magenta} "doing"}}
+}
+
+$${}$$
+
+```{r out.height=".5\\textheight", results="asis", onslide.plot="5", echo=FALSE}
+knitr::include_graphics("img/RCT_DAG.pdf")
+```
+
+:::
+::: {.column width=.48}
+
+\only<2>{
+\centerline{\textbf{Experimental design}}
+
+${}$}
+
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="2", echo=FALSE}
+knitr::include_graphics("img/RCT_Fisher_2.pdf")
+```
+
+\only<3>{
+\centerline{\textbf{Random assignment of fertilizer}}
+
+${}$}
+
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="3", echo=FALSE}
+knitr::include_graphics("img/RCT_Fisher_3.pdf")
+```
+
+\only<4-5>{
+\centerline{\textbf{The treated vs. untreated}}
+
+${}$}
+
+
+```{r out.width=".9\\linewidth", results="asis", only.plot="4-5", echo=FALSE}
+knitr::include_graphics("img/RCT_Fisher_4.pdf")
+```
+
+:::
+::::::
+
+## Back to the AD example: Can we save the study?
+
+If there is any systematic bias, we should adjust for it.
+
+```{r show_sim_data_1_w, echo=FALSE, fig.width=5.5, fig.height=2}
+p1 <-
+  ggplot(.df, aes(u, x))+
+  geom_jitter(height=.1) +
+  xlab("U (standardised age)") +
+  ylab("X (treatment assignment)")
+
+p2 <-
+  ggplot(.df, aes(u, e))+
+  geom_point() +
+  geom_smooth(se=FALSE, colour="red", formula="y ~ x", method="loess") +
+  xlab("U (standardised age)") +
+  ylab("Propensity: P(X=1|U)")
+
+wrap_plots(p1, p2, nrow = 1, widths=c(3,4))
+```
+
+## Inverse Propensity Weighting reverses confounding
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r out.width=".8\\linewidth", results="asis", only.plot="1", echo=FALSE}
+knitr::include_graphics("img/DAG_confounded_backdoor_controlled.pdf")
+```
+
+\only<2->{
+$$\hat{Y}_{i}^{(1)} = \frac{X_{i} Y_{i}}{\hat{p}(X_{i}=1|U_{i})}$$
+
+$$\hat{Y}_{i}^{(0)} = \frac{(1-X_{i}) Y_{i}}{1 - \hat{p}(X_{i}=1|U_{i})}$$
+}
+
+\only<3>{
+equivalently give weights for $\forall$ i
+$$
+W_{i} \propto \left\{ \begin{array}{l l}
+1/\hat{p}(X_{i}=1|U_{i}) & X_{i} = 1\\
+1/\hat{p}(X_{i}=0|U_{i}) & X_{i} = 0\\
+\end{array}
+\right.
+$$
+}
+
+:::
+::: {.column width=.5}
+
+```{r echo = F}
+sigmoid <- function(x) 1/(1+exp(-x))
+clamp <- function(x, lb = .1, ub = .9)
+    pmin(pmax(x, lb), ub)
+```
+
+```{r echo = F}
+x <- as.integer(.df$x == "treated")
+y <- .df$y
+u <- .df$u
+```
+
+```{r echo=TRUE}
+p.xu <-
+    glm(x~u, family="binomial") %>%
+    predict() %>%
+    sigmoid() %>%
+    clamp() # avoid strict 0/1
+
+ww <- x / p.xu + (1-x) / (1-p.xu)
+```
+
+${}$
+
+**Propensity**: Pr. of assignment $X=1$:
+
+$$\log\frac{\bf\color{magenta} p(X|U)}{1-{\bf\color{magenta} p(X|U)}} \approx \beta_{0} + \beta_{1} U$$
+
+:::
+::::::
+
+
+## Take samples inversely proportional to propensity
+
+```{r include = F}
+.df$w <- ww
+```
+
+:::::: {.columns}
+::: {.column width=.4}
+
+```{r fig.width=2.5, fig.height=2.5, onslide.plot="1-", echo=FALSE}
+ggplot(.df, aes(x,y))+
+    geom_jitter(height=0, width=.1, colour="gray40") +
+    ggtitle("observed")
+```
+
+:::
+::: {.column width=.6}
+
+```{r fig.width=3.5, fig.height=2.5, onslide.plot="2", echo=FALSE}
+ggplot(.df, aes(x,y,size=w))+
+    geom_jitter(height=0, width=.1, alpha=.5) +
+    scale_size_continuous("W", range=c(0,5)) +
+    ggtitle("sample ~ 1/propensity")
+```
+
+:::
+::::::
+
+## If we bootstrap (sample with replacement)...
+
+```{r fig.width=5, fig.height=2.5, echo=FALSE}
+set.seed(1)
+.idx <- sample(1:nrow(.df), 500, replace=TRUE)
+.df.0 <- .df[.idx, ]
+.idx <- sample(1:nrow(.df), 500, replace=TRUE, prob = .df$w)
+.df.bootstrap <- .df[.idx, ]
+
+p1 <-
+    ggplot(.df, aes(x,y,fill=x,group=x))+
+    theme(legend.position = "none") +
+    geom_violin(alpha=.5, linewidth=0) +
+    geom_boxplot(width = .3, outlier.size=0, outlier.stroke=0, fill="white") +
+    ylab("observed outcome") + xlab("treatment") +
+    ggpubr::stat_compare_means(vjust=1, hjust=0, size=3)
+p2 <-
+    ggplot(.df.bootstrap, aes(x,y,fill=x,group=x))+
+    theme(legend.position = "none") +
+    geom_violin(alpha=.5, linewidth=0) +
+    geom_boxplot(width = .3, outlier.size=0, outlier.stroke=0, fill="white") +
+    ylab("resampled by IPW") + xlab("treatment") +
+    ggpubr::stat_compare_means(vjust=1, hjust=0, size=3)
+p1 | p2
+```
+
+
+# How to incorporate causal inference in RNA-seq
+
+## TCGA BRCA example: three axes of variation
+
+\begin{center}
+\begin{tikzpicture}[
+    woman/.style={scale=0.4},
+    axis/.style={->, thick, >=stealth},
+    label/.style={font=\small}
+]
+
+% Age axis
+\node[label, anchor=east] at (-5, 1.5) {\textbf{Age}};
+\draw[axis] (-4, 1.5) -- (4, 1.5);
+\node[label] at (-3.5, 1.1) {Young};
+\node[label] at (3.5, 1.1) {Old};
+\foreach \x in {-3, -1.5, 0, 1.5, 3} {
+    \fill[black] (\x, 2.3) circle (0.1);
+    \draw[black, thick] (\x, 2.2) -- (\x, 1.9);
+    \draw[black, thick] (\x, 2.1) -- ++(-0.15, -0.2);
+    \draw[black, thick] (\x, 2.1) -- ++(0.15, -0.2);
+    \draw[black, thick] (\x, 1.9) -- ++(-0.12, -0.35);
+    \draw[black, thick] (\x, 1.9) -- ++(0.12, -0.35);
+}
+
+% Menopause axis
+\node[label, anchor=east] at (-5, -0.5) {\textbf{Menopause}};
+\draw[axis] (-4, -0.5) -- (4, -0.5);
+\node[label] at (-2.5, -0.9) {Pre};
+\node[label] at (2.5, -0.9) {Post};
+\foreach \x in {-3, -1.5} {
+    \fill[black!40] (\x, 0.3) circle (0.1);
+    \draw[black!40, thick] (\x, 0.2) -- (\x, -0.1);
+    \draw[black!40, thick] (\x, 0.1) -- ++(-0.15, -0.2);
+    \draw[black!40, thick] (\x, 0.1) -- ++(0.15, -0.2);
+    \draw[black!40, thick] (\x, -0.1) -- ++(-0.12, -0.35);
+    \draw[black!40, thick] (\x, -0.1) -- ++(0.12, -0.35);
+}
+\foreach \x in {1.5, 3} {
+    \fill[black] (\x, 0.3) circle (0.1);
+    \draw[black, thick] (\x, 0.2) -- (\x, -0.1);
+    \draw[black, thick] (\x, 0.1) -- ++(-0.15, -0.2);
+    \draw[black, thick] (\x, 0.1) -- ++(0.15, -0.2);
+    \draw[black, thick] (\x, -0.1) -- ++(-0.12, -0.35);
+    \draw[black, thick] (\x, -0.1) -- ++(0.12, -0.35);
+}
+
+% ER status axis
+\node[label, anchor=east] at (-5, -2.5) {\textbf{ER status}};
+\draw[axis] (-4, -2.5) -- (4, -2.5);
+\node[label] at (-2.5, -2.9) {ER+};
+\node[label] at (2.5, -2.9) {ER--};
+\foreach \x in {-3, -1.5} {
+    \fill[blue!70] (\x, -1.7) circle (0.1);
+    \draw[blue!70, thick] (\x, -1.8) -- (\x, -2.1);
+    \draw[blue!70, thick] (\x, -1.9) -- ++(-0.15, -0.2);
+    \draw[blue!70, thick] (\x, -1.9) -- ++(0.15, -0.2);
+    \draw[blue!70, thick] (\x, -2.1) -- ++(-0.12, -0.35);
+    \draw[blue!70, thick] (\x, -2.1) -- ++(0.12, -0.35);
+}
+\foreach \x in {1.5, 3} {
+    \fill[red!70] (\x, -1.7) circle (0.1);
+    \draw[red!70, thick] (\x, -1.8) -- (\x, -2.1);
+    \draw[red!70, thick] (\x, -1.9) -- ++(-0.15, -0.2);
+    \draw[red!70, thick] (\x, -1.9) -- ++(0.15, -0.2);
+    \draw[red!70, thick] (\x, -2.1) -- ++(-0.12, -0.35);
+    \draw[red!70, thick] (\x, -2.1) -- ++(0.12, -0.35);
+}
+
+\end{tikzpicture}
+\end{center}
+
+## Key question: multiple sources of variation
+
+- Can we identify multiple independent disease mechanisms?
+
+- How do they manifest in observed transcriptional profiles?
+
+\vspace{0.3cm}
+
+1. **ER status**: Tumour-intrinsic differences (ER+ vs ER-)
+2. **Age**: age effects in general population
+3. **Menopause**: pre- vs. post-menopause
+
+\vspace{0.3cm}
+
+They are all correlated... but not necessarily the same
+
+* Post-menopausal but young (e.g., surgical menopause)
+* Pre-menopausal but older (late menopause)
+
+## TCGA BRCA data from `recount3`
+
+We will use The Cancer Genome Atlas (TCGA) breast cancer data
+
+```{r download-data}
+data.dir <- "../data/recount3"
+dir.create(data.dir, recursive = TRUE, showWarnings = FALSE)
+.file <- file.path(data.dir, "tcga_brca_rse.rds")
+
+if.needed(.file, {
+    tcga.proj <- subset(available_projects(),
+                        file_source == "tcga")
+    brca.info <- tcga.proj[tcga.proj$project == "BRCA", ]
+    rse.brca <- create_rse(brca.info)
+    saveRDS(rse.brca, .file)
+})
+rse <- readRDS(.file)
+```
+
+## After alignment: `SummarizedExperiment`
+
+```
+                        samples (columns)
+                     +---------------------+
+                     |  S1   S2   S3  ...  |
+               +-----|---------------------+
+     genes     | G1  |  10   25   18  ...  |  <- assays (counts)
+     (rows)    | G2  |   5   12    8  ...  |
+               | ... | ...  ...  ...  ...  |
+               +-----+---------------------+
+
+  rowData: genomic coordinates (chr, start, end, strand)
+  colData: sample metadata (tumour/normal, clinical info)
+```
+
+## Here is gene expression count
+
+```{r size = "tiny"}
+raw.counts <- assay(rse, "raw_counts")
+raw.counts[1:3, 1:3]
+```
+
+## Gene/row annotations
+
+```{r size="tiny"}
+rowData(rse) %>% head(3)
+```
+
+## Sample/column annotations
+
+```{r size="tiny"}
+colData(rse) %>% as.data.frame() %>% select(1:3) %>% head(3)
+```
+
+## A probabilistic model on gene expression $Y$
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1.3cm}
+]
+\node[observed] (age) {Age};
+\node[observed, below=1.5cm of age] (meno) {Meno};
+\node[observed, below=1.5cm of meno] (er) {ER};
+\node[observed, right=2.5cm of meno] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- node[above] {$\beta_1$} (expr);
+\draw[->, thick] (meno) -- node[above] {$\beta_2$} (expr);
+\draw[->, thick] (er) -- node[below] {$\beta_3$} (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.55}
+
+**Linear model for gene $g$:**
+
+$$Y_{ig} = \beta_{1g} \cdot X_{i1} + \beta_{2g} \cdot X_{i2} + \beta_{3g} \cdot X_{i3} + \epsilon_{ig}$$
+
+where $\epsilon_{ig} \sim N(0, \sigma^2_g)$
+
+\vspace{0.3cm}
+
+* $X_{i1}$: Age for individual $i$
+* $X_{i2}$: Menopause status for individual $i$
+* $X_{i3}$: ER status for individual $i$
+* $\beta_{1g}, \beta_{2g}, \beta_{3g}$: Coefficients for gene $g$
+
+:::
+::::::
+
+## What if Age and Menopause are unobserved?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1.3cm},
+    unobserved/.style={circle, draw, minimum size=1.3cm}
+]
+\node[unobserved] (meno) {Meno};
+\node[unobserved, right=2cm of meno] (age) {Age};
+\node[observed, below=1.5cm of meno] (er) {ER};
+\node[observed, right=2cm of er] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- (er);
+\draw[->, thick] (meno) -- (er);
+\draw[->, thick] (age) -- (expr);
+\draw[->, thick] (meno) -- (expr);
+\draw[->, thick] (er) -- (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.55}
+
+**Goal:** Estimate the causal effect of ER on $Y$
+
+\vspace{0.5cm}
+
+**Question:** What could go wrong?
+
+:::
+::::::
+
+
+## Overall graphical model
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm}
+]
+\node[observed] (age) {Age};
+\node[observed, right=2.5cm of age] (meno) {Meno};
+\node[observed, below=2cm of age] (er) {ER};
+\node[observed, below=2cm of meno] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- (meno);
+\draw[->, thick] (age) -- (er);
+\draw[->, thick] (meno) to[bend right=20] (er);
+\draw[->, thick] (meno) -- (expr);
+\draw[->, thick] (er) -- (expr);
+\draw[->, thick] (age) to[bend right=20] (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.45}
+
+**Observed** variables:
+
+* Age, Menopause, ER status
+
+* Gene expression $Y_{g}$
+
+:::
+::::::
+
+```{r clinical-data, echo=FALSE}
+clinical <-
+    colData(rse) %>%
+    as.data.frame() %>%
+    select(
+        age = tcga.gdc_cases.diagnoses.age_at_diagnosis,
+        menopause = tcga.xml_menopause_status,
+        ER.status = tcga.xml_breast_carcinoma_estrogen_receptor_status
+    ) %>%
+    mutate(age = age / 365.25,
+           menopause = case_when(
+               grepl("^Pre", menopause) ~ "Pre",
+               grepl("^Peri", menopause) ~ "Peri",
+               grepl("^Post", menopause) ~ "Post",
+               TRUE ~ NA_character_
+           ))
+```
+
+## Age distribution by menopause status
+
+```{r age-by-menopause, echo=FALSE, fig.width=5, fig.height=2.9}
+clinical %>%
+    filter(!is.na(menopause)) %>%
+    mutate(menopause = factor(menopause, levels = c("Pre", "Peri", "Post"))) %>%
+    ggplot(aes(x = menopause, y = age, fill = menopause))+
+    geom_violin() +
+    geom_boxplot(width = 0.2, fill = "white") +
+    stat_compare_means(comparisons = list(c("Pre", "Post")),
+                       method = "t.test", label = "p.format", size = 3) +
+    labs(x = "Menopause Status", y = "Age at Diagnosis (years)") +
+    theme(legend.position = "none")
+```
+
+## Age distribution by ER status
+
+```{r age-by-er, echo=FALSE, fig.width=4, fig.height=2.9}
+clinical %>%
+    filter(ER.status %in% c("Positive", "Negative")) %>%
+    ggplot(aes(x = ER.status, y = age, fill = ER.status))+
+    geom_violin() +
+    geom_boxplot(width = 0.2, fill = "white") +
+    stat_compare_means(comparisons = list(c("Positive", "Negative")),
+                       method = "t.test", label = "p.format", size = 3) +
+    labs(x = "ER Status", y = "Age at Diagnosis (years)") +
+    theme(legend.position = "none")
+```
+
+```{r confounding-data, include=FALSE}
+.file <- file.path(data.dir, "lect07_er_stage_adjusted_vs_unadjusted.rds")
+
+if.needed(.file, {
+    # Prepare clinical data with sample IDs
+    clinical_full <- colData(rse) %>%
+        as.data.frame() %>%
+        mutate(
+            sample_id = rownames(.),
+            age = tcga.gdc_cases.diagnoses.age_at_diagnosis / 365.25,
+            menopause = case_when(
+                grepl("^Pre", tcga.xml_menopause_status) ~ "Pre",
+                grepl("^Peri", tcga.xml_menopause_status) ~ "Peri",
+                grepl("^Post", tcga.xml_menopause_status) ~ "Post",
+                TRUE ~ NA_character_
+            ),
+            tumour.stage = case_when(
+                grepl("stage i$|stage ia|stage ib", tcga.gdc_cases.diagnoses.tumor_stage) ~ 1,
+                grepl("stage ii", tcga.gdc_cases.diagnoses.tumor_stage) ~ 2,
+                grepl("stage iii", tcga.gdc_cases.diagnoses.tumor_stage) ~ 3,
+                grepl("stage iv", tcga.gdc_cases.diagnoses.tumor_stage) ~ 4,
+                TRUE ~ NA_real_
+            ),
+            ER.status = tcga.xml_breast_carcinoma_estrogen_receptor_status
+        ) %>%
+        filter(!is.na(menopause) & !is.na(age) & !is.na(tumour.stage) &
+               ER.status %in% c("Positive", "Negative"))
+
+    counts_subset <- assay(rse, "raw_counts")[, clinical_full$sample_id]
+    dge <- DGEList(counts = counts_subset)
+    keep <- filterByExpr(dge)
+    dge <- dge[keep, , keep.lib.sizes = FALSE]
+    dge <- calcNormFactors(dge)
+
+    # Gene symbol lookup
+    gene_symbols <- rowData(rse)$gene_name[match(rownames(dge), rownames(rse))]
+
+    # ER models
+    design_er1 <- model.matrix(~ ER.status, data = clinical_full)
+    design_er2 <- model.matrix(~ ER.status + age + menopause, data = clinical_full)
+    fit_er1 <- eBayes(lmFit(voom(dge, design_er1, plot=FALSE), design_er1))
+    fit_er2 <- eBayes(lmFit(voom(dge, design_er2, plot=FALSE), design_er2))
+
+    # Extract ER results with adjusted p-values
+    tt_er1 <- topTable(fit_er1, coef = "ER.statusPositive", number = Inf, sort.by = "none")
+    tt_er2 <- topTable(fit_er2, coef = "ER.statusPositive", number = Inf, sort.by = "none")
+
+    # Stage models
+    design_st1 <- model.matrix(~ tumour.stage, data = clinical_full)
+    design_st2 <- model.matrix(~ tumour.stage + age + menopause + ER.status, data = clinical_full)
+    fit_st1 <- eBayes(lmFit(voom(dge, design_st1, plot=FALSE), design_st1))
+    fit_st2 <- eBayes(lmFit(voom(dge, design_st2, plot=FALSE), design_st2))
+
+    # Extract stage results with adjusted p-values
+    tt_st1 <- topTable(fit_st1, coef = "tumour.stage", number = Inf, sort.by = "none")
+    tt_st2 <- topTable(fit_st2, coef = "tumour.stage", number = Inf, sort.by = "none")
+
+    results <- list(
+        er = data.frame(
+            gene = rownames(fit_er1$coefficients),
+            symbol = gene_symbols,
+            unadj = fit_er1$coefficients[, "ER.statusPositive"],
+            adj = fit_er2$coefficients[, "ER.statusPositive"],
+            t_unadj = fit_er1$t[, "ER.statusPositive"],
+            t_adj = fit_er2$t[, "ER.statusPositive"],
+            pval_unadj = tt_er1$P.Value,
+            pval_adj = tt_er2$P.Value,
+            padj_unadj = tt_er1$adj.P.Val,
+            padj_adj = tt_er2$adj.P.Val
+        ),
+        stage = data.frame(
+            gene = rownames(fit_st1$coefficients),
+            symbol = gene_symbols,
+            unadj = fit_st1$coefficients[, "tumour.stage"],
+            adj = fit_st2$coefficients[, "tumour.stage"],
+            t_unadj = fit_st1$t[, "tumour.stage"],
+            t_adj = fit_st2$t[, "tumour.stage"],
+            pval_unadj = tt_st1$P.Value,
+            pval_adj = tt_st2$P.Value,
+            padj_unadj = tt_st1$adj.P.Val,
+            padj_adj = tt_st2$adj.P.Val
+        ),
+        clinical_full = clinical_full,
+        dge = dge,
+        gene_symbols = gene_symbols
+    )
+    saveRDS(results, .file)
+})
+
+results <- readRDS(.file)
+```
+
+## ER effect: with vs. without adjustment
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Unadjusted:**
+$$Y_g \sim \text{ER}$$
+
+**Adjusted:**
+$$Y_g \sim \text{ER} + \text{Age} + \text{Meno}$$
+
+:::
+::: {.column width=.5}
+
+```{r er-plot-effect, echo=FALSE, fig.width=3, fig.height=2.9, only.plot="1"}
+ggplot(results$er, aes(x = unadj, y = adj)) +
+    geom_point(alpha = 0.3, size = 0.5) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "logFC (unadjusted)", y = "logFC (adjusted)") +
+    coord_fixed()
+```
+
+```{r er-plot-pval, echo=FALSE, fig.width=3, fig.height=2.9, only.plot="2"}
+ggplot(results$er, aes(x = -log10(padj_unadj), y = -log10(padj_adj)))+
+    geom_point(alpha = 0.3, size = 0.5) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "-log10 padj (unadjusted)", y = "-log10 padj (adjusted)") +
+    coord_fixed()
+```
+
+:::
+::::::
+
+## ER effect: t-statistic comparison
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r er-plot-tstat, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="1-"}
+## Crop t-statistics to [-10, 10]
+results$er <- results$er %>%
+    mutate(t_unadj_crop = pmax(-10, pmin(10, t_unadj)),
+           t_adj_crop = pmax(-10, pmin(10, t_adj)))
+
+ggplot(results$er, aes(x = t_unadj_crop, y = t_adj_crop))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "t-statistic (unadjusted)", y = "t-statistic (adjusted)") +
+    coord_fixed()
+```
+
+:::
+::: {.column width=.5}
+
+
+```{r er-volcano, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="2"}
+ggplot(results$er, aes(x = adj, y = -log10(padj_adj)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", colour = "red") +
+    labs(x = "logFC (adjusted)", y = "-log10(padj)")
+```
+
+:::
+::::::
+
+## Confounders of the tumour stage effect
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm, font=\small}
+]
+\node[observed] (age) {Age};
+\node[observed, right=1cm of age] (meno) {Meno};
+\node[observed, right=1cm of meno] (er) {ER};
+\node[observed, below=1.5cm of age] (stage) {Stage};
+\node[observed, below=1.5cm of er] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- (stage);
+\draw[->, thick] (meno) -- (stage);
+\draw[->, thick] (er) -- (stage);
+\draw[->, thick] (age) -- (expr);
+\draw[->, thick] (meno) -- (expr);
+\draw[->, thick] (er) -- (expr);
+\draw[->, thick, magenta] (stage) -- (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.5}
+
+**Goal:** Estimate the causal effect of tumour stage on $Y$
+
+\vspace{0.3cm}
+
+**Confounders:** Age, Meno, ER
+
+* Affect tumour stage at diagnosis
+* Also affect gene expression
+
+:::
+::::::
+
+## Tumour stage effect: with vs. without adjustment
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Unadjusted:**
+$$Y_g \sim \text{Stage}$$
+
+**Adjusted:**
+$$Y_g \sim \text{Stage} + \text{Age} + \text{Meno} + \text{ER}$$
+
+:::
+::: {.column width=.5}
+
+```{r stage-prep, echo=FALSE, include=FALSE}
+# Identify genes that gained significance after adjustment
+# (not significant before, significant after)
+results$stage <- results$stage %>%
+    mutate(
+        effect_change = abs(adj - unadj),
+        gained_sig = (padj_unadj >= 0.05) & (padj_adj < 0.05)
+    )
+
+# Top 3 genes that gained significance, sorted by effect change
+gained_genes <- results$stage %>%
+    filter(gained_sig) %>%
+    arrange(desc(effect_change)) %>%
+    head(3) %>%
+    pull(gene)
+
+# Top 3 most significant genes after adjustment
+top_sig_genes <- results$stage %>%
+    arrange(padj_adj) %>%
+    head(3) %>%
+    pull(gene)
+
+results$stage <- results$stage %>%
+    mutate(
+        highlight_gained = gene %in% gained_genes,
+        highlight_top = gene %in% top_sig_genes
+    )
+```
+
+```{r stage-plot-effect, echo=FALSE, fig.width=3, fig.height=2.9, only.plot="1"}
+ggplot(results$stage, aes(x = unadj, y = adj))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results$stage, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results$stage, highlight_top),
+               colour = "blue", size = 2) +
+    geom_text_repel(data = filter(results$stage, highlight_gained),
+                    aes(label = symbol), size = 3, colour = "black",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results$stage, highlight_top),
+                    aes(label = symbol), size = 3, colour = "blue",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "logFC (unadjusted)", y = "logFC (adjusted)") +
+    coord_fixed()
+```
+
+```{r stage-plot-pval, echo=FALSE, fig.width=3, fig.height=2.9, only.plot="2"}
+ggplot(results$stage, aes(x = -log10(padj_unadj), y = -log10(padj_adj)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results$stage, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results$stage, highlight_top),
+               colour = "blue", size = 2) +
+    geom_text_repel(data = filter(results$stage, highlight_gained),
+                    aes(label = symbol), size = 3, colour = "black",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results$stage, highlight_top),
+                    aes(label = symbol), size = 3, colour = "blue",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "-log10 padj (unadjusted)", y = "-log10 padj (adjusted)") +
+    coord_fixed()
+```
+
+:::
+::::::
+
+## Confounders: observed and unobserved
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm, font=\small},
+    latent/.style={circle, draw, dashed, minimum size=1cm, font=\small}
+]
+\node[observed] (age) {Age};
+\node[observed, right=1cm of age] (meno) {Meno};
+\node[observed, right=1cm of meno] (er) {ER};
+\node[latent, right=1cm of er] (u) {$U$};
+\node[observed, below=1.5cm of meno] (stage) {Stage};
+\node[observed, below=1.5cm of er] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- (stage);
+\draw[->, thick] (meno) -- (stage);
+\draw[->, thick] (er) -- (stage);
+\draw[->, thick] (age) -- (expr);
+\draw[->, thick] (meno) -- (expr);
+\draw[->, thick] (er) -- (expr);
+\draw[->, thick, dashed] (u) -- (stage);
+\draw[->, thick, dashed] (u) -- (expr);
+\draw[->, thick, magenta] (stage) -- (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.5}
+
+**Observed confounders:** Age, Meno, ER
+
+* Can be measured and adjusted
+
+\vspace{0.3cm}
+
+**Unobserved confounders:** $U$
+
+* Batch effects, sample quality
+* Stromal/immune cell contamination
+* Technical artifacts
+* Cannot directly measure $\rightarrow$ estimate via PCA/RUV
+
+:::
+::::::
+
+## Tumour effects markedly change with PC adjustment
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r stage-volcano-unadj, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="1-"}
+ggplot(results$stage, aes(x = unadj, y = -log10(padj_unadj)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results$stage, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results$stage, highlight_top),
+               colour = "blue", size = 2) +
+    geom_text_repel(data = filter(results$stage, highlight_gained),
+                    aes(label = symbol), size = 2.5, colour = "black",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_text_repel(data = filter(results$stage, highlight_top),
+                    aes(label = symbol), size = 2.5, colour = "blue",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", colour = "red") +
+    labs(x = "logFC (unadjusted)", y = "-log10(padj)", title = "Unadjusted") +
+    theme(plot.title = element_text(size = 10))
+```
+
+:::
+::: {.column width=.5}
+
+```{r stage-volcano-adj, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="2-"}
+ggplot(results$stage, aes(x = adj, y = -log10(padj_adj)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results$stage, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results$stage, highlight_top),
+               colour = "blue", size = 2) +
+    geom_text_repel(data = filter(results$stage, highlight_gained),
+                    aes(label = symbol), size = 2.5, colour = "black",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_text_repel(data = filter(results$stage, highlight_top),
+                    aes(label = symbol), size = 2.5, colour = "blue",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", colour = "red") +
+    labs(x = "logFC (adjusted)", y = "-log10(padj)", title = "Adjusted") +
+    theme(plot.title = element_text(size = 10))
+```
+
+:::
+::::::
+
+## SBSN promotes tumour endothelial migration and therapy resistance
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Expression in Breast Cancer:**
+
+* Upregulated in tumour endothelial cells (TEC) vs. normal endothelial cells [@Alam2014-ic]
+
+* Induced by radio- or chemotherapy in breast cancer cell lines
+
+* Elevated in cancer stem-like cells with low-adhesive phenotype
+
+:::
+::: {.column width=.5}
+
+**Function:**
+
+* Promotes migration and tube formation in TEC
+
+* Activates AKT signaling pathway
+
+* Involved in therapy resistance and anoikis resistance
+
+* Associated with poor prognosis in multiple cancers [@Tan2022-ta]
+
+:::
+::::::
+
+## COL19A1 loss marks basement membrane invasion
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Loss during invasion:**
+
+* Completely absent in invasive breast carcinomas [@Amenta2003-pe]
+
+* Loss precedes basement membrane invasion
+
+* Occurs earlier than type IV collagen and laminin loss
+
+* Signals ECM remodelling to promote tumour infiltration
+
+:::
+::: {.column width=.5}
+
+**Anti-tumour NC1 domain:**
+
+* NC1 domain inhibits tumour cell migration and invasion [@Oudart2016-mi]
+
+* Works through integrin αvβ3 receptor
+
+* Inhibits FAK/PI3K/Akt/mTOR pathway
+
+* Anti-angiogenic properties
+
+* Plasmin cleavage releases protective fragments
+
+:::
+::::::
+
+## Did we capture all the confounding effects?
+
+\large
+
+What if we have unmeasured confounding variables?
+
+* **A solution** (`lect09`): \textbf{\color{teal} Principal Component Analysis} [@Hotelling1933-yr; @Jolliffe1986-ik]
+
+\vfill
+
+* PCA decomposes total variance of a matrix into independent components.
+
+\normalsize
+
+```{r pc-compute, echo=FALSE, include=FALSE}
+.file <- file.path(data.dir, "pc_analysis_results.rds")
+
+if.needed(.file, {
+    ## Get the same clinical data and DGE from confounding-data chunk
+    ## by loading the saved results which contains dge, clinical_full, gene_symbols
+    conf_results <- readRDS(file.path(data.dir, "lect07_er_stage_adjusted_vs_unadjusted.rds"))
+
+    clinical_full <- conf_results$clinical_full
+    dge <- conf_results$dge
+    gene_symbols <- conf_results$gene_symbols
+
+    ## Compute log-CPM for PCA
+    logcpm <- cpm(dge, log = TRUE)
+
+    ## Perform PCA on genes (rows) - transpose so samples are rows
+    ## Scale to give all genes equal variance
+    pca_res <- prcomp(t(logcpm), scale. = TRUE, center = TRUE)
+
+    ## Extract top 5 PCs
+    top_pcs <- pca_res$x[, 1:5]
+    colnames(top_pcs) <- c("PC1", "PC2", "PC3", "PC4", "PC5")
+
+    ## Get additional clinical covariates from original rse
+    clinical_extra <- colData(rse)[clinical_full$sample_id, ] %>%
+        as.data.frame() %>%
+        select(PR = tcga.xml_breast_carcinoma_progesterone_receptor_status,
+               HER2 = tcga.xml_her2_immunohistochemistry_level_result,
+               Grade = tcga.xml_neoplasm_histologic_grade)
+
+    ## Add PCs to clinical data
+    clinical_pc <- clinical_full %>%
+        bind_cols(clinical_extra) %>%
+        mutate(PC1 = top_pcs[, "PC1"],
+               PC2 = top_pcs[, "PC2"],
+               PC3 = top_pcs[, "PC3"],
+               PC4 = top_pcs[, "PC4"],
+               PC5 = top_pcs[, "PC5"])
+
+    ## Compute variance explained
+    var_explained <- summary(pca_res)$importance[2, 1:5] * 100
+
+    ## Store results
+    pc_data <- list(
+        pcs = top_pcs,
+        clinical_pc = clinical_pc,
+        var_explained = var_explained,
+        dge = dge,
+        gene_symbols = gene_symbols
+    )
+    saveRDS(pc_data, .file)
+})
+
+pc_data <- readRDS(.file)
+```
+
+## PCA: variance explained by top components
+
+```{r pc-variance, echo=FALSE, fig.width=5.5, fig.height=2.8}
+var_df <- data.frame(
+    PC = paste0("PC", 1:5),
+    Variance = pc_data$var_explained,
+    Cumulative = cumsum(pc_data$var_explained)
+)
+var_df$PC <- factor(var_df$PC, levels = var_df$PC)
+
+## Calculate scaling factor for secondary axis
+scale_factor <- max(var_df$Cumulative) / max(var_df$Variance)
+
+ggplot(var_df, aes(x = PC))+
+    geom_bar(aes(y = Variance), stat = "identity", fill = "steelblue", alpha = 0.7) +
+    geom_line(aes(y = Cumulative / scale_factor, group = 1),
+              colour = "red", linewidth = 1) +
+    geom_point(aes(y = Cumulative / scale_factor),
+               colour = "red", size = 2) +
+    scale_y_continuous(
+        name = "Variance Explained (%)",
+        sec.axis = sec_axis(~ . * scale_factor, name = "Cumulative Variance (%)")
+    ) +
+    labs(x = "Principal Component") +
+    theme(axis.text = element_text(size = 9),
+          axis.title.y.right = element_text(colour = "red"),
+          axis.text.y.right = element_text(colour = "red"))
+```
+
+## PCs vs. clinical covariates: correlation heatmap
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r pc-correlation, echo=FALSE, fig.width=5, fig.height=2.9}
+## Prepare data for correlation (PR, HER2 already in clinical_pc)
+clinical_num <- pc_data$clinical_pc %>%
+    mutate(
+        Age = age,
+        Meno = as.numeric(menopause == "Post"),
+        ER = as.numeric(ER.status == "Positive"),
+        PR_pos = as.numeric(grepl("Positive", PR, ignore.case = TRUE)),
+        HER2_pos = as.numeric(grepl("3\\+", HER2)),
+        Stage = tumour.stage
+    ) %>%
+    select(PC1, PC2, PC3, PC4, PC5, Age, Meno, ER, PR_pos, HER2_pos, Stage)
+
+## Compute correlation matrix (use pairwise complete observations)
+cor_mat <- cor(clinical_num, use = "pairwise.complete.obs")
+
+## Extract PC correlations with covariates
+pc_cor <- cor_mat[1:5, 6:ncol(cor_mat)]
+
+## Rename columns for cleaner display
+colnames(pc_cor) <- c("Age", "Meno", "ER", "PR", "HER2", "Stage")
+
+## Convert to long format for ggplot
+cor_long <- as.data.frame(pc_cor) %>%
+    rownames_to_column("PC") %>%
+    pivot_longer(-PC, names_to = "Covariate", values_to = "Correlation")
+
+## Order covariates for display
+cor_long$Covariate <- factor(cor_long$Covariate,
+                             levels = c("Age", "Meno", "ER", "PR", "HER2", "Stage"))
+
+ggplot(cor_long, aes(x = Covariate, y = PC, fill = Correlation))+
+    geom_tile() +
+    geom_text(aes(label = sprintf("%.2f", Correlation)), size = 2.5) +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red",
+                        midpoint = 0, limits = c(-1, 1)) +
+    labs(x = "", y = "") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+:::
+::: {.column width=.5}
+
+:::
+::::::
+
+## Tumour stage effect: with vs. without PC adjustment
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Model 1 (with known covariates):**
+$$Y_g \sim \text{Stage} + \text{Age} + \text{Meno} + \text{ER}$$
+
+**Model 2 (with PCs added):**
+$$Y_g \sim \text{Stage} + \text{Age} + \text{Meno} + \text{ER} + \text{PC1-5}$$
+
+:::
+::: {.column width=.5}
+
+```{r pc-analysis, echo=FALSE, include=FALSE}
+.file <- file.path(data.dir, "pc_limma_results.rds")
+if.needed(.file, {
+    dge <- pc_data$dge
+    clinical_pc <- pc_data$clinical_pc
+    gene_symbols <- pc_data$gene_symbols
+
+    ## Model without PCs (same as before)
+    design_st_base <- model.matrix(~ tumour.stage + age + menopause + ER.status,
+                                   data = clinical_pc)
+
+    ## Model with PCs
+    design_st_pc <- model.matrix(~ tumour.stage + age + menopause + ER.status +
+                                   PC1 + PC2 + PC3 + PC4 + PC5,
+                                 data = clinical_pc)
+
+    ## Fit models
+    fit_st_base <- eBayes(lmFit(voom(dge, design_st_base, plot=FALSE), design_st_base))
+    fit_st_pc <- eBayes(lmFit(voom(dge, design_st_pc, plot=FALSE), design_st_pc))
+
+    ## Extract results
+    tt_st_base <- topTable(fit_st_base, coef = "tumour.stage", number = Inf, sort.by = "none")
+    tt_st_pc <- topTable(fit_st_pc, coef = "tumour.stage", number = Inf, sort.by = "none")
+
+    results_pc <- data.frame(
+        gene = rownames(fit_st_base$coefficients),
+        symbol = gene_symbols,
+        base = fit_st_base$coefficients[, "tumour.stage"],
+        with_pc = fit_st_pc$coefficients[, "tumour.stage"],
+        t_base = fit_st_base$t[, "tumour.stage"],
+        t_pc = fit_st_pc$t[, "tumour.stage"],
+        pval_base = tt_st_base$P.Value,
+        pval_pc = tt_st_pc$P.Value,
+        padj_base = tt_st_base$adj.P.Val,
+        padj_pc = tt_st_pc$adj.P.Val
+    )
+    saveRDS(results_pc, .file)
+})
+results_pc <- readRDS(.file)
+```
+
+```{r pc-prep, echo=FALSE, include=FALSE}
+## Identify genes that changed after PC adjustment
+results_pc <- results_pc %>%
+    mutate(
+        effect_change = abs(with_pc - base),
+        gained_sig = (padj_base >= 0.05) & (padj_pc < 0.05),
+        lost_sig = (padj_base < 0.05) & (padj_pc >= 0.05)
+    )
+
+## Top genes that gained significance
+gained_pc_genes <- results_pc %>%
+    filter(gained_sig) %>%
+    arrange(desc(effect_change)) %>%
+    head(3) %>%
+    pull(gene)
+
+## Top genes that lost significance
+lost_pc_genes <- results_pc %>%
+    filter(lost_sig) %>%
+    arrange(desc(effect_change)) %>%
+    head(3) %>%
+    pull(gene)
+
+results_pc <- results_pc %>%
+    mutate(
+        highlight_gained = gene %in% gained_pc_genes,
+        highlight_lost = gene %in% lost_pc_genes
+    )
+```
+
+```{r pc-plot-effect, echo=FALSE, fig.width=3, fig.height=2.9, only.plot="1"}
+ggplot(results_pc, aes(x = base, y = with_pc))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results_pc, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results_pc, highlight_lost),
+               colour = "orange", size = 2) +
+    geom_text_repel(data = filter(results_pc, highlight_gained),
+                    aes(label = symbol), size = 3, colour = "magenta",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_pc, highlight_lost),
+                    aes(label = symbol), size = 3, colour = "orange",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "logFC (base model)", y = "logFC (with PCs)") +
+    coord_fixed()
+```
+
+```{r pc-plot-pval, echo=FALSE, fig.width=3, fig.height=2.9, only.plot="2"}
+ggplot(results_pc, aes(x = -log10(padj_base), y = -log10(padj_pc)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results_pc, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results_pc, highlight_lost),
+               colour = "orange", size = 2) +
+    geom_text_repel(data = filter(results_pc, highlight_gained),
+                    aes(label = symbol), size = 3, colour = "magenta",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_pc, highlight_lost),
+                    aes(label = symbol), size = 3, colour = "orange",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "-log10 padj (base)", y = "-log10 padj (with PCs)") +
+    coord_fixed()
+```
+
+:::
+::::::
+
+## Tumour stage: t-statistic comparison
+
+
+```{r pc-plot-tstat, echo=FALSE, fig.width=3, fig.height=2.9, only.plot="1"}
+## Crop t-statistics to [-10, 10]
+results_pc <- results_pc %>%
+    mutate(t_base_crop = pmax(-10, pmin(10, t_base)),
+           t_pc_crop = pmax(-10, pmin(10, t_pc)))
+
+ggplot(results_pc, aes(x = t_base_crop, y = t_pc_crop))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results_pc, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results_pc, highlight_lost),
+               colour = "orange", size = 2) +
+    geom_text_repel(data = filter(results_pc, highlight_gained),
+                    aes(label = symbol), size = 2.5, colour = "magenta",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_text_repel(data = filter(results_pc, highlight_lost),
+                    aes(label = symbol), size = 2.5, colour = "orange",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+    labs(x = "t-statistic (base)", y = "t-statistic (with PCs)") +
+    coord_fixed()
+```
+
+## Found 6 new genes and invalidate 1,772 genes
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r pc-volcano-base, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="1-"}
+ggplot(results_pc, aes(x = base, y = -log10(padj_base)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results_pc, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results_pc, highlight_lost),
+               colour = "orange", size = 2) +
+    geom_text_repel(data = filter(results_pc, highlight_gained),
+                    aes(label = symbol), size = 2.5, colour = "magenta",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_text_repel(data = filter(results_pc, highlight_lost),
+                    aes(label = symbol), size = 2.5, colour = "orange",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", colour = "red") +
+    labs(x = "logFC (base)", y = "-log10(padj)", title = "Without PCs") +
+    theme(plot.title = element_text(size = 10))
+```
+
+:::
+::: {.column width=.5}
+
+```{r pc-volcano-with, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="2-"}
+ggplot(results_pc, aes(x = with_pc, y = -log10(padj_pc)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results_pc, highlight_gained),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results_pc, highlight_lost),
+               colour = "orange", size = 2) +
+    geom_text_repel(data = filter(results_pc, highlight_gained),
+                    aes(label = symbol), size = 2.5, colour = "magenta",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_text_repel(data = filter(results_pc, highlight_lost),
+                    aes(label = symbol), size = 2.5, colour = "orange",
+                    fontface = "bold", max.overlaps = 10) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", colour = "red") +
+    labs(x = "logFC (with PCs)", y = "-log10(padj)", title = "With PCs") +
+    theme(plot.title = element_text(size = 10))
+```
+
+:::
+::::::
+
+<!-- ## Summary: effect of PC adjustment -->
+
+<!-- :::::: {.columns} -->
+<!-- ::: {.column width=.5} -->
+
+<!-- **Effect size changes:** -->
+
+<!-- ```{r pc-summary-effect, echo=FALSE} -->
+<!-- n_gained <- sum(results_pc$gained_sig, na.rm = TRUE) -->
+<!-- n_lost <- sum(results_pc$lost_sig, na.rm = TRUE) -->
+<!-- cor_effect <- cor(results_pc$base, results_pc$with_pc) -->
+
+<!-- cat(sprintf("Genes gained significance: %d\n", n_gained)) -->
+<!-- cat(sprintf("Genes lost significance: %d\n", n_lost)) -->
+<!-- cat(sprintf("Correlation of effects: %.3f\n", cor_effect)) -->
+<!-- ``` -->
+
+<!-- ::: -->
+<!-- ::: {.column width=.5} -->
+
+<!-- ::: -->
+<!-- :::::: -->
+
+
+
+## GLYAT: potential confounding via stromal contamination
+
+* Liver and kidney-specific metabolic enzyme [@Matsuo2012-xs]
+
+* Predominantly expressed in stromal cells, not tumour cells [@Xia2024-ap]
+
+* Downregulated in liver and renal cancers
+
+## ADH4: potential confounding via hormonal regulation
+
+* Class II alcohol dehydrogenase, primarily liver-expressed [@Jelski2006-zb]
+
+* Regulated by steroid hormones (estrogen) [@Qulali1992-xg]
+
+* Class I ADH dramatically reduced in invasive breast cancer [@Triano2003-bq]
+
+## PGM5 regulates cancer cell proliferation and invasion
+
+* Phosphoglucomutase catalyzes interconversion of glucose-1-phosphate and glucose-6-phosphate
+
+* Key enzyme in glucose metabolism pathway
+
+* Downregulated in colorectal cancer tissues [@Sun2019-vr]
+
+* Low PGM5 expression associated with poor overall survival
+
+* Overexpression inhibits proliferation, invasion and migration
+
+* Independent prognostic factor for overall survival
+
+## ADGRA2 linked to chemotherapy resistance
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Breast Cancer Evidence:**
+
+* Amplified at 8p11.23 in NAC non-responsive tumours [@Yin2024-zv]
+
+* Novel biomarker for chemotherapy resistance
+
+* Associated with poor prognosis
+
+* Overexpressed in breast cancer stem cells
+
+:::
+::: {.column width=.5}
+
+**General Cancer Role:**
+
+* Originally identified as tumour endothelial marker 5 (TEM5)
+
+* Implicated in migration, proliferation, survival
+
+* Involved in angiogenesis, invasion, metastasis
+
+* Linked to gefitinib resistance in lung cancer
+
+:::
+::::::
+
+## Discussion: How should we learn $U$?
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm, font=\small},
+    latent/.style={circle, draw, dashed, minimum size=1cm, font=\small}
+]
+\node[observed] (age) {Age};
+\node[observed, right=1cm of age] (meno) {Meno};
+\node[observed, right=1cm of meno] (er) {ER};
+\node[latent, right=1cm of er] (u) {$U$};
+\node[observed, below=1.5cm of meno] (stage) {Stage};
+\node[observed, below=1.5cm of er] (expr) {$Y_{g}$};
+
+\draw[->, very thick] (age) -- (stage);
+\draw[->, very thick] (meno) -- (stage);
+\draw[->, very thick] (er) -- (stage);
+\draw[->, very thick] (age) -- (expr);
+\draw[->, very thick] (meno) -- (expr);
+\draw[->, very thick] (er) -- (expr);
+\draw[->, very thick, dashed] (u) -- (stage);
+\draw[->, very thick, dashed] (u) -- (expr);
+\draw[->, very thick, magenta] (stage) -- (expr);
+\end{tikzpicture}
+\end{center}
+
+
+# Removing Unwanted Variation in RNA-seq
+
+## Remove Unwanted Variation [@Risso2014-sa]
+
+:::::: {.columns}
+::: {.column width=.7}
+
+\large
+
+* RUV uses factorization to estimate unwanted variation
+
+* Control genes or negative control samples
+
+* `RUVSeq` Bioconductor package:
+  - RUVg: uses negative control genes
+  - RUVs: uses replicate/negative control samples
+  - RUVr: uses residuals from first-pass GLM
+
+\normalsize
+
+:::
+::: {.column width=.3}
+
+\vspace{1cm}
+
+```{r ruvseq-logo, echo=FALSE, out.width="100%"}
+knitr::include_graphics("img/RUVSeq.png")
+```
+
+:::
+::::::
+
+## RUV: graphical model
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm, font=\small},
+    latent/.style={circle, draw, dashed, minimum size=1cm, font=\small}
+]
+\node[observed] (age) {Age};
+\node[observed, right=1cm of age] (meno) {Meno};
+\node[observed, right=1cm of meno] (er) {ER};
+\node[latent, right=1cm of er] (u) {$U$};
+\node[latent, right=1cm of u] (w) {$W$};
+\node[observed, below=1.5cm of meno] (stage) {Stage};
+\node[observed, below=1.5cm of er] (expr) {$Y_{g}$};
+
+\draw[->, very thick] (age) -- (stage);
+\draw[->, very thick] (meno) -- (stage);
+\draw[->, very thick] (er) -- (stage);
+\draw[->, very thick] (age) -- (expr);
+\draw[->, very thick] (meno) -- (expr);
+\draw[->, very thick] (er) -- (expr);
+\draw[->, very thick, dashed] (u) -- (stage);
+\draw[->, very thick, dashed] (u) -- (expr);
+\draw[->, very thick, dashed, blue] (w) -- (expr);
+\draw[->, very thick, magenta] (stage) -- (expr);
+\end{tikzpicture}
+\end{center}
+
+```{r ruv-analysis, echo=FALSE, include=FALSE}
+.file <- file.path(data.dir, "ruv_analysis_results.rds")
+
+if.needed(.file, {
+    ## Load PC analysis results to get the same data
+    pc_data <- readRDS(file.path(data.dir, "pc_analysis_results.rds"))
+
+    dge <- pc_data$dge
+    clinical_pc <- pc_data$clinical_pc
+
+    ## Get gene symbols from rse (properly named)
+    gene_info <- rowData(rse)[, "gene_name", drop = FALSE]
+    gene_symbols <- setNames(gene_info$gene_name, rownames(gene_info))
+
+    ## Get counts matrix
+    counts <- dge$counts
+
+    ## Create design matrix for tumor stage (base model)
+    design_base <- model.matrix(~ tumour.stage + age + menopause + ER.status,
+                                 data = clinical_pc)
+
+    ## Fit first-pass model to get residuals
+    y <- DGEList(counts = counts)
+    y <- calcNormFactors(y)
+    y <- estimateDisp(y, design_base)
+    fit_base <- glmFit(y, design_base)
+
+    ## Use RUVr: estimate unwanted variation from residuals
+    ## Use 5 factors to match PC analysis
+    set.seed(123)
+    ruv_result <- RUVr(counts, cIdx = 1:nrow(counts), k = 5,
+                       residuals = residuals(fit_base, type = "deviance"))
+
+    ## Extract RUV factors (W matrix)
+    ruv_factors <- ruv_result$W
+    colnames(ruv_factors) <- paste0("W", 1:5)
+
+    ## Add RUV factors to clinical data
+    clinical_ruv <- clinical_pc %>%
+        mutate(W1 = ruv_factors[, "W1"],
+               W2 = ruv_factors[, "W2"],
+               W3 = ruv_factors[, "W3"],
+               W4 = ruv_factors[, "W4"],
+               W5 = ruv_factors[, "W5"])
+
+    ## Fit model with RUV adjustment
+    design_ruv <- model.matrix(~ tumour.stage + age + menopause + ER.status +
+                                W1 + W2 + W3 + W4 + W5,
+                                data = clinical_ruv)
+
+    ## Run limma voom with RUV factors
+    v_ruv <- voom(y, design_ruv, plot = FALSE)
+    fit_ruv <- lmFit(v_ruv, design_ruv)
+    fit_ruv <- eBayes(fit_ruv)
+
+    ## Also run without RUV for comparison (same as base model from PC analysis)
+    v_base <- voom(y, design_base, plot = FALSE)
+    fit_base_limma <- lmFit(v_base, design_base)
+    fit_base_limma <- eBayes(fit_base_limma)
+
+    ## Extract results for tumor stage coefficient
+    results_ruv <- data.frame(
+        gene = rownames(fit_ruv),
+        symbol = gene_symbols[rownames(fit_ruv)],
+        base = fit_base_limma$coefficients[, "tumour.stage"],
+        with_ruv = fit_ruv$coefficients[, "tumour.stage"],
+        pval_base = fit_base_limma$p.value[, "tumour.stage"],
+        pval_ruv = fit_ruv$p.value[, "tumour.stage"],
+        t_base = fit_base_limma$t[, "tumour.stage"],
+        t_ruv = fit_ruv$t[, "tumour.stage"],
+        stringsAsFactors = FALSE
+    )
+
+    ## Adjust p-values
+    results_ruv$padj_base <- p.adjust(results_ruv$pval_base, method = "BH")
+    results_ruv$padj_ruv <- p.adjust(results_ruv$pval_ruv, method = "BH")
+
+    ## Identify genes that gained or lost significance
+    results_ruv <- results_ruv %>%
+        mutate(
+            gained_sig = (padj_base >= 0.05) & (padj_ruv < 0.05),
+            lost_sig = (padj_base < 0.05) & (padj_ruv >= 0.05)
+        )
+
+    ## Save results
+    ruv_data <- list(
+        results = results_ruv,
+        ruv_factors = ruv_factors,
+        clinical_ruv = clinical_ruv
+    )
+    saveRDS(ruv_data, .file)
+})
+
+ruv_data <- readRDS(.file)
+results_ruv <- na.omit(ruv_data$results)
+```
+
+## Tumour stage effect: RUV adjustment
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Base model:**
+$$Y_g \sim \text{Stage} + \text{Age} + \text{Meno} + \text{ER}$$
+
+**RUV-adjusted:**
+$$Y_g \sim \text{Stage} + \text{Age} + \text{Meno} + \text{ER} + W_1 + \cdots + W_5$$
+
+:::
+::: {.column width=.5}
+
+:::
+::::::
+
+
+```{r include=F}
+## Prepare highlighting
+## Keep top 3 genes found by PCA
+pca_genes <- results_ruv %>%
+    filter(gene %in% gained_pc_genes) %>%
+    head(3) %>%
+    pull(gene)
+
+## Find top 3 additional genes found by RUV (not in PCA genes)
+additional_ruv_genes <- results_ruv %>%
+    filter(gained_sig, !gene %in% gained_pc_genes) %>%
+    arrange(padj_ruv) %>%
+    head(3) %>%
+    pull(gene)
+
+## Combine PCA genes and additional RUV genes
+gained_genes_ruv <- c(pca_genes, additional_ruv_genes)
+
+lost_genes_ruv <- results_ruv %>%
+    filter(lost_sig) %>%
+    arrange(padj_base) %>%
+    head(3) %>%
+    pull(gene)
+
+## Literature examples (potentially confounded genes)
+literature_genes <- results_ruv %>%
+    filter(symbol %in% c("GLYAT", "ADH4")) %>%
+    pull(gene)
+
+results_ruv <- results_ruv %>%
+    mutate(
+        highlight_gained = gene %in% gained_genes_ruv,
+        highlight_lost = gene %in% lost_genes_ruv,
+        highlight_ruv_specific = gene %in% additional_ruv_genes,
+        highlight_literature = gene %in% literature_genes
+    )
+
+## ggplot(results_ruv, aes(x = base, y = with_ruv))+
+##     ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+##     geom_point(data = filter(results_ruv, highlight_gained & !highlight_ruv_specific),
+##                colour = "magenta", size = 2) +
+##     geom_point(data = filter(results_ruv, highlight_ruv_specific),
+##                colour = "blue", size = 2) +
+##     geom_point(data = filter(results_ruv, highlight_lost),
+##                colour = "orange", size = 2) +
+##     geom_point(data = filter(results_ruv, highlight_literature),
+##                colour = "darkgreen", size = 2) +
+##     geom_text_repel(data = filter(results_ruv, highlight_gained & !highlight_ruv_specific),
+##                     aes(label = symbol), size = 2.2, colour = "magenta",
+##                     fontface = "bold", max.overlaps = 20) +
+##     geom_text_repel(data = filter(results_ruv, highlight_ruv_specific),
+##                     aes(label = symbol), size = 2.2, colour = "blue",
+##                     fontface = "bold", max.overlaps = 20) +
+##     geom_text_repel(data = filter(results_ruv, highlight_lost),
+##                     aes(label = symbol), size = 2.2, colour = "orange",
+##                     fontface = "bold", max.overlaps = 20) +
+##     geom_text_repel(data = filter(results_ruv, highlight_literature),
+##                     aes(label = symbol), size = 2.2, colour = "darkgreen",
+##                     fontface = "bold", max.overlaps = 20) +
+##     geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+##     labs(x = "logFC (base)", y = "logFC (with RUV)") +
+##     coord_fixed()
+```
+
+## RUV adjustment: volcano plots
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r ruv-volcano-base, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="1-"}
+ggplot(results_ruv, aes(x = base, y = -log10(padj_base)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results_ruv, highlight_gained & !highlight_ruv_specific),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results_ruv, highlight_ruv_specific),
+               colour = "blue", size = 2) +
+    geom_point(data = filter(results_ruv, highlight_lost),
+               colour = "orange", size = 2) +
+    geom_point(data = filter(results_ruv, highlight_literature),
+               colour = "darkgreen", size = 2) +
+    geom_text_repel(data = filter(results_ruv, highlight_gained & !highlight_ruv_specific),
+                    aes(label = symbol), size = 2.2, colour = "magenta",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_ruv, highlight_ruv_specific),
+                    aes(label = symbol), size = 2.2, colour = "blue",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_ruv, highlight_lost),
+                    aes(label = symbol), size = 2.2, colour = "orange",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_ruv, highlight_literature),
+                    aes(label = symbol), size = 2.2, colour = "darkgreen",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", colour = "red") +
+    labs(x = "logFC (base)", y = "-log10(padj)", title = "Without RUV") +
+    theme(plot.title = element_text(size = 10))
+```
+
+:::
+::: {.column width=.5}
+
+```{r ruv-volcano-with, echo=FALSE, fig.width=3, fig.height=2.9, onslide.plot="2-"}
+ggplot(results_ruv, aes(x = with_ruv, y = -log10(padj_ruv)))+
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, colour = "gray50"), dpi = 300) +
+    geom_point(data = filter(results_ruv, highlight_gained & !highlight_ruv_specific),
+               colour = "magenta", size = 2) +
+    geom_point(data = filter(results_ruv, highlight_ruv_specific),
+               colour = "blue", size = 2) +
+    geom_point(data = filter(results_ruv, highlight_lost),
+               colour = "orange", size = 2) +
+    geom_point(data = filter(results_ruv, highlight_literature),
+               colour = "darkgreen", size = 2) +
+    geom_text_repel(data = filter(results_ruv, highlight_gained & !highlight_ruv_specific),
+                    aes(label = symbol), size = 2.2, colour = "magenta",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_ruv, highlight_ruv_specific),
+                    aes(label = symbol), size = 2.2, colour = "blue",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_ruv, highlight_lost),
+                    aes(label = symbol), size = 2.2, colour = "orange",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_text_repel(data = filter(results_ruv, highlight_literature),
+                    aes(label = symbol), size = 2.2, colour = "darkgreen",
+                    fontface = "bold", max.overlaps = 20) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", colour = "red") +
+    labs(x = "logFC (with RUV)", y = "-log10(padj)", title = "With RUV") +
+    theme(plot.title = element_text(size = 10))
+```
+
+:::
+::::::
+
+## Discussion: Can RUV handle confounding effects?
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.2cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1cm, font=\small},
+    latent/.style={circle, draw, dashed, minimum size=1cm, font=\small}
+]
+\node[observed] (age) {Age};
+\node[observed, right=1cm of age] (meno) {Meno};
+\node[observed, right=1cm of meno] (er) {ER};
+\node[latent, right=1cm of er] (u) {$U$};
+\node[latent, right=1cm of u] (w) {$W$};
+\node[observed, below=1.5cm of meno] (stage) {Stage};
+\node[observed, below=1.5cm of er] (expr) {$Y_{g}$};
+
+\draw[->, very thick] (age) -- (stage);
+\draw[->, very thick] (meno) -- (stage);
+\draw[->, very thick] (er) -- (stage);
+\draw[->, very thick] (age) -- (expr);
+\draw[->, very thick] (meno) -- (expr);
+\draw[->, very thick] (er) -- (expr);
+\draw[->, very thick, dashed] (u) -- (stage);
+\draw[->, very thick, dashed] (u) -- (expr);
+\draw[->, very thick, dashed, blue] (w) -- (expr);
+\draw[->, very thick, magenta] (stage) -- (expr);
+\end{tikzpicture}
+\end{center}
+
+
+
+## Reference {.allowframebreaks}
