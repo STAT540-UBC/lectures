@@ -703,16 +703,16 @@ ggplot(cell_stats, aes(x = log10(mu), y = log10(sig^2))) +
 
 ## Mean-variance relationship: genes
 
-```{r mean-var-gene, echo=FALSE, fig.width=5, fig.height=3, dev="png", dpi=300}
+```{r mean-var-gene, echo=FALSE, fig.width=5, fig.height=3}
 ggplot(gene_stats, aes(x = log10(mu), y = log10(sig^2))) +
-    geom_point(alpha = 0.3, size = 0.5, color = "steelblue") +
+    ggrastr::rasterize(geom_point(alpha = 0.3, size = 0.5, color = "steelblue"), dpi=300) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
     labs(x = "log10(mean)", y = "log10(variance)")
 ```
 
 ## Mean-variance relationship: genes (density)
 
-```{r mean-var-gene-density, echo=FALSE, fig.width=5, fig.height=3, dev="png", dpi=300}
+```{r mean-var-gene-density, echo=FALSE, fig.width=5, fig.height=3}
 ggplot(gene_stats, aes(x = log10(mu), y = log10(sig^2))) +
     stat_density_2d(geom = "raster",
                     aes(fill = after_stat(sqrt(density))),
