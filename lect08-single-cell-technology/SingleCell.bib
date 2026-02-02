@@ -1,0 +1,327 @@
+@ARTICLE{Ahlmann-Eltze2023-lq,
+  title     = "Comparison of transformations for single-cell {RNA}-seq data",
+  author    = "Ahlmann-Eltze, Constantin and Huber, Wolfgang",
+  journal   = "Nat. Methods",
+  publisher = "Nature Publishing Group",
+  pages     = "1--8",
+  abstract  = "The count table, a numeric matrix of genes × cells, is the basic
+               input data structure in the analysis of single-cell
+               RNA-sequencing data. A common preprocessing step is to adjust the
+               counts for variable sampling efficiency and to transform them so
+               that the variance is similar across the dynamic range. These
+               steps are intended to make subsequent application of generic
+               statistical methods more palatable. Here, we describe four
+               transformation approaches based on the delta method, model
+               residuals, inferred latent expression state and factor analysis.
+               We compare their strengths and weaknesses and find that the
+               latter three have appealing theoretical properties; however, in
+               benchmarks using simulated and real-world data, it turns out that
+               a rather simple approach, namely, the logarithm with a
+               pseudo-count followed by principal-component analysis, performs
+               as well or better than the more sophisticated alternatives. This
+               result highlights limitations of current theoretical analysis as
+               assessed by bottom-line performance benchmarks. This paper
+               compares different transformation approaches for analysis of
+               single-cell RNA-sequencing data and provides recommendations for
+               method selection.",
+  month     =  apr,
+  year      =  2023,
+  language  = "en"
+}
+@ARTICLE{Korsunsky2019-vv,
+  title    = "Fast, sensitive and accurate integration of single-cell data with
+              Harmony",
+  author   = "Korsunsky, Ilya and Millard, Nghia and Fan, Jean and Slowikowski,
+              Kamil and Zhang, Fan and Wei, Kevin and Baglaenko, Yuriy and
+              Brenner, Michael and Loh, Po-Ru and Raychaudhuri, Soumya",
+  journal  = "Nat. Methods",
+  abstract = "The emerging diversity of single-cell RNA-seq datasets allows for
+              the full transcriptional characterization of cell types across a
+              wide variety of biological and clinical conditions. However, it is
+              challenging to analyze them together, particularly when datasets
+              are assayed with different technologies, because biological and
+              technical differences are interspersed. We present Harmony
+              (https://github.com/immunogenomics/harmony), an algorithm that
+              projects cells into a shared embedding in which cells group by
+              cell type rather than dataset-specific conditions. Harmony
+              simultaneously accounts for multiple experimental and biological
+              factors. In six analyses, we demonstrate the superior performance
+              of Harmony to previously published algorithms while requiring
+              fewer computational resources. Harmony enables the integration of
+              ~106 cells on a personal computer. We apply Harmony to peripheral
+              blood mononuclear cells from datasets with large experimental
+              differences, five studies of pancreatic islet cells, mouse
+              embryogenesis datasets and the integration of scRNA-seq with
+              spatial transcriptomics data.",
+  month    =  nov,
+  year     =  2019
+}
+@ARTICLE{Kobak2021-yu,
+  title     = "Initialization is critical for preserving global data structure
+               in both t -{SNE} and {UMAP}",
+  author    = "Kobak, Dmitry and Linderman, George C",
+  journal   = "Nat. Biotechnol.",
+  publisher = "Nature Publishing Group",
+  pages     = "1--2",
+  month     =  feb,
+  year      =  2021,
+  language  = "en"
+}
+@ARTICLE{Hie2019-nw,
+  title    = "Geometric Sketching Compactly Summarizes the Single-Cell
+              Transcriptomic Landscape",
+  author   = "Hie, Brian and Cho, Hyunghoon and DeMeo, Benjamin and Bryson,
+              Bryan and Berger, Bonnie",
+  journal  = "Cell Syst",
+  volume   =  8,
+  number   =  6,
+  pages    = "483--493.e7",
+  abstract = "Large-scale single-cell RNA sequencing (scRNA-seq) studies that
+              profile hundreds of thousands of cells are becoming increasingly
+              common, overwhelming existing analysis pipelines. Here, we
+              describe how to enhance and accelerate single-cell data analysis
+              by summarizing the transcriptomic heterogeneity within a dataset
+              using a small subset of cells, which we refer to as a geometric
+              sketch. Our sketches provide more comprehensive visualization of
+              transcriptional diversity, capture rare cell types with high
+              sensitivity, and reveal biological cell types via clustering. Our
+              sketch of umbilical cord blood cells uncovers a rare subpopulation
+              of inflammatory macrophages, which we experimentally validated.
+              The construction of our sketches is extremely fast, which enabled
+              us to accelerate other crucial resource-intensive tasks, such as
+              scRNA-seq data integration, while maintaining accuracy. We
+              anticipate our algorithm will become an increasingly essential
+              step when sharing and analyzing the rapidly growing volume of
+              scRNA-seq data and help enable the democratization of single-cell
+              omics.",
+  month    =  jun,
+  year     =  2019,
+  keywords = "big data; data integration; diversity; geometric sketching;
+              heterogeneity; rare cell-type discovery; sampling; scRNA-seq;
+              single-cell RNA-seq; sketching",
+  language = "en"
+}
+
+@ARTICLE{Hie2019-fh,
+  title    = "Efficient integration of heterogeneous single-cell transcriptomes
+              using Scanorama",
+  author   = "Hie, Brian and Bryson, Bryan and Berger, Bonnie",
+  journal  = "Nat. Biotechnol.",
+  volume   =  37,
+  number   =  6,
+  pages    = "685--691",
+  abstract = "Integration of single-cell RNA sequencing (scRNA-seq) data from
+              multiple experiments, laboratories and technologies can uncover
+              biological insights, but current methods for scRNA-seq data
+              integration are limited by a requirement for datasets to derive
+              from functionally similar cells. We present Scanorama, an
+              algorithm that identifies and merges the shared cell types among
+              all pairs of datasets and accurately integrates heterogeneous
+              collections of scRNA-seq data. We applied Scanorama to integrate
+              and remove batch effects across 105,476 cells from 26 diverse
+              scRNA-seq experiments representing 9 different technologies.
+              Scanorama is sensitive to subtle temporal changes within the same
+              cell lineage, successfully integrating functionally similar cells
+              across time series data of CD14+ monocytes at different stages of
+              differentiation into macrophages. Finally, we show that Scanorama
+              is orders of magnitude faster than existing techniques and can
+              integrate a collection of 1,095,538 cells in just ~9 h.",
+  month    =  jun,
+  year     =  2019,
+  language = "en"
+}
+@ARTICLE{Haghverdi2016-jp,
+  title    = "Diffusion pseudotime robustly reconstructs lineage branching",
+  author   = "Haghverdi, Laleh and Büttner, Maren and Wolf, F Alexander and
+              Buettner, Florian and Theis, Fabian J",
+  journal  = "Nat. Methods",
+  volume   =  13,
+  number   =  10,
+  pages    = "845--848",
+  abstract = "The temporal order of differentiating cells is intrinsically
+              encoded in their single-cell expression profiles. We describe an
+              efficient way to robustly estimate this order according to
+              diffusion pseudotime (DPT), which measures transitions between
+              cells using diffusion-like random walks. Our DPT software
+              implementations make it possible to reconstruct the developmental
+              progression of cells and identify transient or metastable states,
+              branching decisions and differentiation endpoints.",
+  month    =  oct,
+  year     =  2016,
+  language = "en"
+}
+@ARTICLE{Polanski2019-hz,
+  title    = "{BBKNN}: Fast Batch Alignment of Single Cell Transcriptomes",
+  author   = "Polański, Krzysztof and Park, Jong-Eun and Young, Matthew D and
+              Miao, Zhichao and Meyer, Kerstin B and Teichmann, Sarah A",
+  journal  = "Bioinformatics",
+  abstract = "MOTIVATION: Increasing numbers of large scale single cell RNA-Seq
+              projects are leading to a data explosion, which can only be fully
+              exploited through data integration. A number of methods have been
+              developed to combine diverse datasets by removing technical batch
+              effects, but most are computationally intensive. To overcome the
+              challenge of enormous datasets, we have developed BBKNN, an
+              extremely fast graph-based data integration algorithm. We
+              illustrate the power of BBKNN on large scale mouse atlasing data,
+              and favourably benchmark its run time against a number of
+              competing methods. AVAILABILITY AND IMPLEMENTATION: BBKNN is
+              available at https://github.com/Teichlab/bbknn, along with
+              documentation and multiple example notebooks, and can be installed
+              from pip. SUPPLEMENTARY INFORMATION: Supplementary data are
+              available at Bioinformatics online.",
+  month    =  aug,
+  year     =  2019,
+  language = "en"
+}
+@ARTICLE{Yates2025-sd,
+  title     = "Filtering cells with high mitochondrial content depletes viable
+               metabolically altered malignant cell populations in cancer
+               single-cell studies",
+  author    = "Yates, Josephine and Kraft, Agnieszka and Boeva, Valentina",
+  journal   = "Genome Biol.",
+  publisher = "Springer Science and Business Media LLC",
+  volume    =  26,
+  number    =  1,
+  pages     =  91,
+  abstract  = "BACKGROUND: Single-cell transcriptomics has transformed our
+               understanding of cellular diversity, yet noise from technical
+               artifacts and low-quality cells can obscure key biological
+               signals. A common practice is filtering out cells with a high
+               percentage of mitochondrial RNA counts (pctMT), typically
+               indicative of cell death. However, commonly used filtering
+               thresholds, primarily derived from studies on healthy tissues,
+               may be overly stringent for malignant cells, which often
+               naturally exhibit higher baseline mitochondrial gene expression.
+               RESULTS: We examine nine public single-cell RNA-seq datasets from
+               various cancers, including 441,445 cells from 134 patients, and
+               public spatial transcriptomics data, assessing the viability of
+               malignant cells with high pctMT. Our analysis reveals that
+               malignant cells exhibit significantly higher pctMT than
+               nonmalignant cells, without a notable increase in
+               dissociation-induced stress scores. Malignant cells with high
+               pctMT show metabolic dysregulation, including increased
+               xenobiotic metabolism, relevant to therapeutic response. Analysis
+               of pctMT in cancer cell lines further reveals links to drug
+               resistance. We also observe associations between pctMT and
+               malignant cell transcriptional heterogeneity, as well as patient
+               clinical features. CONCLUSIONS: This study provides insights into
+               the functional characteristics of malignant cells with elevated
+               pctMT, challenging current quality control practices in tumor
+               single-cell RNA-seq analyses and offering potential improvements
+               in data interpretation for future cancer studies.",
+  month     =  apr,
+  year      =  2025,
+  keywords  = "Cancer; Data quality; Drug resistance; MT-RNA; Metabolism;
+               Single-cell RNA-seq",
+  language  = "en"
+}
+@ARTICLE{Macosko2015-vi,
+  title    = "Highly Parallel Genome-wide Expression Profiling of Individual
+              Cells Using Nanoliter Droplets",
+  author   = "Macosko, Evan Z and Basu, Anindita and Satija, Rahul and Nemesh,
+              James and Shekhar, Karthik and Goldman, Melissa and Tirosh, Itay
+              and Bialas, Allison R and Kamitaki, Nolan and Martersteck, Emily M
+              and Trombetta, John J and Weitz, David A and Sanes, Joshua R and
+              Shalek, Alex K and Regev, Aviv and McCarroll, Steven A",
+  journal  = "Cell",
+  volume   =  161,
+  number   =  5,
+  pages    = "1202--1214",
+  abstract = "Cells, the basic units of biological structure and function, vary
+              broadly in type and state. Single-cell genomics can characterize
+              cell identity and function, but limitations of ease and scale have
+              prevented its broad application. Here we describe Drop-seq, a
+              strategy for quickly profiling thousands of individual cells by
+              separating them into nanoliter-sized aqueous droplets, associating
+              a different barcode with each cell's RNAs, and sequencing them all
+              together. Drop-seq analyzes mRNA transcripts from thousands of
+              individual cells simultaneously while remembering transcripts'
+              cell of origin. We analyzed transcriptomes from 44,808 mouse
+              retinal cells and identified 39 transcriptionally distinct cell
+              populations, creating a molecular atlas of gene expression for
+              known retinal cell classes and novel candidate cell subtypes.
+              Drop-seq will accelerate biological discovery by enabling routine
+              transcriptional profiling at single-cell resolution. VIDEO
+              ABSTRACT.",
+  month    =  may,
+  year     =  2015,
+  language = "en"
+}
+@ARTICLE{Kharchenko2021-wr,
+  title     = "The triumphs and limitations of computational methods for
+               {scRNA}-seq",
+  author    = "Kharchenko, Peter V",
+  journal   = "Nat. Methods",
+  publisher = "Nature Publishing Group",
+  pages     = "1--10",
+  abstract  = "The rapid progress of protocols for sequencing single-cell
+               transcriptomes over the past decade has been accompanied by
+               equally impressive advances in the computational methods for
+               analysis of such data. As capacity and accuracy of the
+               experimental techniques grew, the emerging algorithm developments
+               revealed increasingly complex facets of the underlying biology,
+               from cell type composition to gene regulation to developmental
+               dynamics. At the same time, rapid growth has forced continuous
+               reevaluation of the underlying statistical models, experimental
+               aims, and sheer volumes of data processing that are handled by
+               these computational tools. Here, I review key computational steps
+               of single-cell RNA sequencing (scRNA-seq) analysis, examine
+               assumptions made by different approaches, and highlight
+               successes, remaining ambiguities, and limitations that are
+               important to keep in mind as scRNA-seq becomes a mainstream
+               technique for studying biology. This review provides an overview
+               of recent computational developments in scRNA-seq analysis and
+               highlights packages and tools applied in executing these
+               analyses.",
+  month     =  jun,
+  year      =  2021,
+  language  = "en"
+}
+@ARTICLE{Steele2020-tq,
+  title     = "Multimodal mapping of the tumor and peripheral blood immune
+               landscape in human pancreatic cancer",
+  author    = "Steele, Nina G and Carpenter, Eileen S and Kemp, Samantha B and
+               Sirihorachai, Veerin R and {Stephanie The} and Delrosario,
+               Lawrence and Lazarus, Jenny and Amir, El-Ad David and Gunchick,
+               Valerie and Espinoza, Carlos and Bell, Samantha and Harris,
+               Lindsey and Lima, Fatima and Irizarry-Negron, Valerie and Paglia,
+               Daniel and Macchia, Justin and Chu, Angel Ka Yan and Schofield,
+               Heather and Wamsteker, Erik-Jan and Kwon, Richard and Schulman,
+               Allison and Prabhu, Anoop and Law, Ryan and Sondhi, Arjun and Yu,
+               Jessica and Patel, Arpan and Donahue, Katelyn and Nathan, Hari
+               and Cho, Clifford and Anderson, Michelle A and Sahai, Vaibhav and
+               Lyssiotis, Costas A and Zou, Weiping and Allen, Benjamin L and
+               Rao, Arvind and Crawford, Howard C and Bednar, Filip and Frankel,
+               Timothy L and di Magliano, Marina Pasca",
+  journal   = "Nature Cancer",
+  publisher = "Nature Publishing Group",
+  volume    =  1,
+  number    =  11,
+  pages     = "1097--1112",
+  abstract  = "Pancreatic ductal adenocarcinoma (PDA) is characterized by an
+               immune-suppressive tumor microenvironment that renders it largely
+               refractory to immunotherapy. We implemented a multimodal analysis
+               approach to elucidate the immune landscape in PDA. Using a
+               combination of CyTOF, single-cell RNA sequencing and multiplex
+               immunohistochemistry on patient tumors, matched blood and
+               non-malignant samples, we uncovered a complex network of
+               immune-suppressive cellular interactions. These experiments
+               revealed heterogeneous expression of immune checkpoint receptors
+               in individual patients’ T cells and increased markers of CD8+ T
+               cell dysfunction in the advanced disease stage.
+               Tumor-infiltrating CD8+ T cells had an increased proportion of
+               cells expressing an exhausted expression profile that included
+               upregulation of the immune checkpoint TIGIT, a finding that we
+               validated at the protein level. Our findings point to a profound
+               alteration of the immune landscape of tumors, and to
+               patient-specific immune changes that should be taken into account
+               as combination immunotherapy becomes available for pancreatic
+               cancer. Using single-cell RNA sequencing, CyTOF and multiplex
+               immunohistochemistry, Steele et al. survey the immune landscape
+               in pancreatic cancers, adjacent tissue and blood, observing
+               heterogeneous immune checkpoint receptor expression within
+               patients.",
+  month     =  oct,
+  year      =  2020,
+  language  = "en"
+}

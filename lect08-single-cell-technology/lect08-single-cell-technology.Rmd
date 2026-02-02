@@ -1,0 +1,1352 @@
+---
+title: "Single-cell RNA-seq, Technology and Quality Control"
+author: "Yongjin Park"
+date: "February 3, 2026"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: SingleCell.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: pdflatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+<!--
+Rules: 
+
+1. After editing this file, run `make` to rebuild the slides: make lect08-single-cell-technology-slides.pdf
+
+2. Use data-beans and senna (legume) Rust-based CLI tools (already installed)
+
+3. Small data sets: we can show both Seurat and Scanpy how we can process
+
+4. Do not mix R and python in the same slide/frame (it's confusing)
+
+5. Prefer hdf5 backend since zarr takes too many files.
+
+6. Prefer onslide rather than only in latex beamer
+
+7. use \large for discussion (text-driven) slides then close it with \normalsize
+
+8. Figure width never exceeds 6 and height never 3
+
+9. Rasterize plots with too many dots with dpi=300 using `ggrastr`
+
+-->
+
+
+## Learning objectives
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/single-cell-technology/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+
+theme_set(theme_minimal())
+```
+
+\large
+
+* Introduction to single-cell RNA-seq technology
+
+* Understand single-cell RNA-seq data structure
+
+* Introduction to analysis workflow
+  * Data quality control
+  * Exploratory data analysis
+
+
+# Single-cell sequencing technology
+
+## Droplet-based single-cell sequencing technology
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{img/dropseq_technology/dropseq1.pdf}}
+\vfill
+\flushright
+\small
+[@Macosko2015-vi]
+
+## Idea 1: Capture one cell with a microbead in a droplet
+
+\vfill
+\centerline{\includegraphics[height=.7\textheight]{img/dropseq_technology/dropseq2.pdf}}
+\vfill
+\flushright
+\small
+[@Macosko2015-vi]
+
+## Idea 2: Massively-parallel sequencing followed by cell-specific barcoding
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{img/dropseq_technology/dropseq3.pdf}}
+\vfill
+\flushright
+\small
+[@Macosko2015-vi]
+
+
+## Idea 3: How do we keep track of mRNA short reads' membership to a certain droplet?
+
+\vfill
+\centerline{\includegraphics[width=.9\textwidth]{img/dropseq_technology/dropseq4.pdf}}
+\vfill
+\flushright
+\small
+[@Macosko2015-vi]
+
+## How do we construct millions of unique barcodes? Use DNA as a hashing function!
+
+\vfill
+
+\only<1>{
+\includegraphics[height=.5\textheight]{img/dropseq_technology/dropseq5.pdf}
+}
+
+\only<2>{
+\includegraphics[height=.5\textheight]{img/dropseq_technology/dropseq6.pdf}
+}
+
+\only<3>{
+\includegraphics[height=.55\textheight]{img/dropseq_technology/dropseq7.pdf}
+}
+
+\vfill
+
+\flushright
+\small
+[@Macosko2015-vi]
+
+## The lengths of barcode sequences determine data dimensionality
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.75}
+
+\centerline{\includegraphics[width=\linewidth]{img/dropseq_technology/dropseq8.pdf}}
+
+:::
+::: {.column width=.2}
+
+\begin{block}{}
+Technically, we can build up to a `r num.int(4^8)` $\times$ `r num.int(4^12)`, gene $\times$ cell expression matrix in one single-cell RNA-seq experiment.
+\end{block}
+
+:::
+::::::
+
+\vfill
+\small
+[@Macosko2015-vi]
+
+
+## Droplet-based single-cell sequencing pipeline
+
+\vfill
+\centerline{\includegraphics[width=.8\textwidth]{img/dropseq_technology/dropseq9.pdf}}
+\vfill
+\flushright
+\small
+[@Macosko2015-vi]
+
+## Discussions: What are the potential challenges?
+
+\large
+
+* What are the same challenges we had in bulk RNA-seq?
+
+* What are the new challenges?
+
+\normalsize
+
+
+## Overview of single-cell data analysis
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_overview/Karchenko_1.pdf}}
+
+\vfill
+
+\flushright
+\small
+[@Kharchenko2021-wr]
+
+## Overview of single-cell data analysis cont'd
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_overview/Karchenko_2.pdf}}
+
+\vfill
+
+\flushright
+\small
+[@Kharchenko2021-wr]
+
+
+# Basic quality control
+
+## Example: Comprehensive immune profiling in pancreatic cancer
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.6}
+
+Multimodal mapping of the tumor and peripheral blood immune landscape in human pancreatic cancer
+
+**Approach:**
+
+* **Disease model:** Pancreatic ductal adenocarcinoma (PDA)
+* **Technologies:** CyTOF, \textbf{\color{magenta} single-cell RNA sequencing}, multiplex immunohistochemistry
+* **Sample diversity:** Tumors, matched blood, and healthy tissues
+* **Goal:** Comprehensive immune characterization
+
+:::
+::: {.column width=.35}
+
+\begin{block}{Key discoveries}
+\begin{itemize}
+\item Revealed complex cellular immune networks
+\item Mapped patient-specific checkpoint receptor patterns
+\item Identified CD8$^+$ T cell states and transitions
+\item Discovered TIGIT as potential therapeutic target
+\end{itemize}
+\end{block}
+
+:::
+::::::
+
+\vfill
+
+\flushright
+\small
+[@Steele2020-tq]
+
+## Dataset overview: 41 samples
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.5}
+
+* 16 PDAC tissue
+* 3 Adjacent normal tissue
+* 16 PDAC PBMC
+* 4 Healthy PBMC
+
+\vspace{0.5cm}
+
+**Platform:** 10x Genomics Chromium
+
+:::
+::: {.column width=.45}
+
+\small
+```
+../data/
+  GSE155698_PDAC_Steele2020/
+```
+\normalsize
+
+**GEO:** GSE155698
+
+:::
+::::::
+
+\vfill
+
+## Sample directories
+
+\small
+
+:::::: {.columns}
+::: {.column width=.32}
+
+**PDAC Tissue (16)**
+```
+PDAC_TISSUE_1
+PDAC_TISSUE_2
+...
+PDAC_TISSUE_16
+```
+
+:::
+::: {.column width=.32}
+
+**PDAC PBMC (16)**
+```
+PDAC_PBMC_1
+PDAC_PBMC_2
+...
+PDAC_PBMC_16
+```
+
+:::
+::: {.column width=.32}
+
+**Controls**
+```
+AdjNorm_TISSUE_1
+AdjNorm_TISSUE_2
+AdjNorm_TISSUE_3
+
+Healthy_PBMC_1
+Healthy_PBMC_2
+Healthy_PBMC_3
+Healthy_PBMC_4
+```
+
+:::
+::::::
+
+\normalsize
+
+## 10x Genomics data format
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\small
+```bash
+PDAC_TISSUE_1/
+|-- barcodes.tsv.gz   (9 KB)
+|-- features.tsv.gz   (303 KB)
++-- matrix.mtx.gz     (17 MB)
+```
+\normalsize
+
+\vspace{0.5cm}
+
+* **`barcodes.tsv.gz`** - Cell IDs
+* **`features.tsv.gz`** - Genes
+* **`matrix.mtx.gz`** - Counts (sparse)
+
+:::
+::: {.column width=.45}
+
+**Matrix Market format**
+
+* Sparse matrix standard
+* Memory efficient
+* Compatible with Seurat, Scanpy
+
+\vspace{0.5cm}
+
+**Why sparse?** Most genes are not expressed in most cells
+
+:::
+::::::
+
+\vfill
+
+## Loading 10x data with Seurat (R) \hfill \includegraphics[height=1em]{img/logos/seurat_logo.jpg}
+
+```{r load-seurat, message=FALSE, warning=FALSE}
+library(Seurat)
+
+data.dir <- "../data/GSE155698_PDAC_Steele2020/PDAC_TISSUE_1/"
+
+pdac <- Read10X(data.dir = data.dir)
+pdac <- CreateSeuratObject(counts = pdac,
+                           project = "PDAC_TISSUE_1",
+                           min.cells = 3,
+                           min.features = 200)
+pdac
+```
+
+## Seurat object structure
+
+* `SeuratObject` class stores everything
+* Genes in rows, cells in columns
+* Access counts: `GetAssayData(pdac)`
+* Cell metadata: `pdac@meta.data`
+
+```{r seurat-cell-metadata, message=FALSE}
+head(pdac@meta.data, 3)
+```
+
+```{r seurat-gene-metadata, message=FALSE}
+head(rownames(pdac), 5)
+```
+
+## Loading 10x data with scanpy (Python) \hfill \includegraphics[height=1em]{img/logos/scanpy_logo.png}
+
+```{python load-scanpy}
+import scanpy as sc
+
+data_dir = "../data/GSE155698_PDAC_Steele2020/PDAC_TISSUE_1/"
+
+adata = sc.read_10x_mtx(data_dir, var_names='gene_symbols', cache=True)
+adata
+```
+
+## AnnData object structure
+
+* `AnnData` class stores everything
+* Cells in rows, genes in columns (transposed from Seurat!)
+* Access counts: `adata.X`
+* Cell metadata: `adata.obs`, gene metadata: `adata.var`
+
+```{python scanpy-cell-metadata}
+print(adata.obs_names[:5].tolist())
+```
+
+```{python scanpy-gene-metadata}
+print(adata.var_names[:5].tolist())
+```
+
+## Cell QC metrics with Seurat
+
+```{r cell-qc-metrics, message=FALSE}
+# Calculate mitochondrial gene percentage
+pdac[["percent.mt"]] <- PercentageFeatureSet(pdac, pattern = "^MT-")
+
+# View QC metrics
+head(pdac@meta.data)
+```
+
+* `nCount_RNA` = total UMI counts per cell
+* `nFeature_RNA` = number of genes detected
+* `percent.mt` = % mitochondrial reads (high = dying cells)
+
+## Why high mitochondrial?
+
+\large
+
+\begin{itemize}
+\item MT genes: 13 protein-coding genes
+\item But 100s--1000s of mitochondria per cell
+\item MT RNA is abundant and stable
+\end{itemize}
+
+\onslide<2->{
+\textbf{Proportion effect:}
+
+Cytoplasmic RNA degrades $\to$ MT\% goes up
+}
+
+## Why does high MT implicate dying cells?
+
+\large
+
+\textbf{Conventional wisdom:}
+
+Membrane breaks $\to$ cytoplasmic RNA leaks $\to$ MT RNA stays
+
+\onslide<2->{
+\textbf{But...}
+
+\begin{itemize}
+\item Why wouldn't mitochondria also be damaged?
+\item Other organelles have membranes too (ER, nucleus)
+\end{itemize}
+}
+
+\onslide<3->{
+High MT\% correlates with low quality --- mechanism unclear
+}
+
+\small
+[@Yates2025-sd]
+
+## Seurat: QC visualization commands
+
+```{r seurat-qc-commands, eval=FALSE}
+# Violin plots
+VlnPlot(pdac, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"))
+
+# Scatter plots
+FeatureScatter(pdac, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+FeatureScatter(pdac, feature1 = "nCount_RNA", feature2 = "percent.mt")
+```
+
+## Visualizing QC metrics
+
+:::::: {.columns}
+::: {.column width=.32}
+
+```{r qc-vln-nfeature, echo=FALSE, fig.width=2, fig.height=2.5, onslide.plot="1-"}
+VlnPlot(pdac, features = "nFeature_RNA", pt.size = 0, cols = "steelblue") +
+    NoLegend() +
+    ggtitle("nFeature_RNA") +
+    theme(plot.title = element_text(size = 10)) +
+    theme(axis.text.x = element_blank(), axis.title.x = element_blank())
+```
+
+:::
+::: {.column width=.32}
+
+```{r qc-vln-ncount, echo=FALSE, fig.width=2, fig.height=2.5, onslide.plot="2-"}
+VlnPlot(pdac, features = "nCount_RNA", pt.size = 0, cols = "steelblue") +
+    NoLegend() +
+    ggtitle("nCount_RNA") +
+    theme(plot.title = element_text(size = 10)) +
+    theme(axis.text.x = element_blank(), axis.title.x = element_blank())
+```
+
+:::
+::: {.column width=.32}
+
+```{r qc-vln-mt, echo=FALSE, fig.width=2, fig.height=2.5, onslide.plot="3-"}
+VlnPlot(pdac, features = "percent.mt", pt.size = 0, cols = "steelblue") +
+    NoLegend() +
+    ggtitle("percent.mt") +
+    theme(plot.title = element_text(size = 10)) +
+    theme(axis.text.x = element_blank(), axis.title.x = element_blank())
+```
+
+:::
+::::::
+
+## QC: Scatter plots
+
+:::::: {.columns}
+::: {.column width=.48}
+
+```{r qc-scatter-1, echo=FALSE, fig.width=3, fig.height=2.5, onslide.plot="1-"}
+FeatureScatter(pdac, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", pt.size = 0.3, cols = "steelblue") +
+    NoLegend() +
+    theme(plot.title = element_blank())
+```
+
+\onslide<1->{
+\begin{itemize}
+\item Positive correlation expected
+\item Low-low $\to$ empty/dying
+\end{itemize}
+}
+
+:::
+::: {.column width=.48}
+
+```{r qc-scatter-2, echo=FALSE, fig.width=3, fig.height=2.5, onslide.plot="2-"}
+FeatureScatter(pdac, feature1 = "nCount_RNA", feature2 = "percent.mt", pt.size = 0.3, cols = "steelblue") +
+    NoLegend() +
+    theme(plot.title = element_blank())
+```
+
+\onslide<2->{
+\begin{itemize}
+\item High MT + low count $\to$ dying
+\item High MT + high count $\to$ keep?
+\end{itemize}
+}
+
+:::
+::::::
+
+## Cell QC metrics with scanpy \hfill \includegraphics[height=1em]{img/logos/scanpy_logo.png}
+
+```{python scanpy-qc-metrics}
+# Calculate QC metrics (mitochondrial genes start with "MT-")
+adata.var['mt'] = adata.var_names.str.startswith('MT-')
+sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], inplace=True)
+adata.obs.head()[['n_genes_by_counts', 'total_counts', 'pct_counts_mt']]
+```
+
+## scanpy: QC visualization commands \hfill \includegraphics[height=1em]{img/logos/scanpy_logo.png}
+
+```{python scanpy-qc-commands, eval=FALSE}
+# Violin plots
+sc.pl.violin(adata, ['n_genes_by_counts', 'total_counts', 'pct_counts_mt'])
+
+# Scatter plots
+sc.pl.scatter(adata, x='total_counts', y='n_genes_by_counts')
+sc.pl.scatter(adata, x='total_counts', y='pct_counts_mt')
+```
+
+## Visualizing QC metrics (scanpy) \hfill \includegraphics[height=1em]{img/logos/scanpy_logo.png}
+
+```{python scanpy-qc-violin, echo=FALSE, dev='png', fig.width=6, fig.height=2, results='hide'}
+import matplotlib.pyplot as plt
+plt.rcParams.update({'font.size': 8, 'axes.titlesize': 8, 'axes.labelsize': 7, 'xtick.labelsize': 6, 'ytick.labelsize': 6})
+fig, axes = plt.subplots(1, 3, figsize=(6, 2))
+sc.pl.violin(adata, 'n_genes_by_counts', ax=axes[0], show=False)
+sc.pl.violin(adata, 'total_counts', ax=axes[1], show=False)
+sc.pl.violin(adata, 'pct_counts_mt', ax=axes[2], show=False)
+plt.tight_layout()
+plt.show()
+```
+
+## QC: Scatter plots (scanpy) \hfill \includegraphics[height=1em]{img/logos/scanpy_logo.png}
+
+```{python scanpy-qc-scatter, echo=FALSE, dev='png', fig.width=5, fig.height=2, results='hide'}
+fig, axes = plt.subplots(1, 2, figsize=(5, 2))
+sc.pl.scatter(adata, x='total_counts', y='n_genes_by_counts', ax=axes[0], show=False)
+sc.pl.scatter(adata, x='total_counts', y='pct_counts_mt', ax=axes[1], show=False)
+plt.tight_layout()
+plt.show()
+```
+
+```{r reset-dev, include=FALSE}
+knitr::opts_chunk$set(dev = "cairo_pdf")
+```
+
+```{bash compute-cell-stats, include=FALSE}
+DATA_DIR="../data/GSE155698_PDAC_Steele2020"
+H5_FILES=$(find ${DATA_DIR} -maxdepth 2 -name "*.h5" | grep -v "TISSUE_14" | grep -v "TISSUE_16" | sort)
+
+[ -f cell_stats.parquet ] || echo ${H5_FILES} | xargs data-beans stat -s column -o cell_stats.parquet
+[ -f cell_stats_mt.parquet ] || echo ${H5_FILES} | xargs data-beans stat -s column -r "_MT-" -o cell_stats_mt.parquet
+[ -f gene_stats.parquet ] || echo ${H5_FILES} | xargs data-beans stat -s row -o gene_stats.parquet
+```
+
+## Overview: where are we?
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_overview/Karchenko_1.pdf}}
+
+\vfill
+
+\flushright
+\small
+[@Kharchenko2021-wr]
+
+## Cell stats: total counts vs. MT%
+
+```{r load-cell-stats, include=F}
+library(arrow)
+library(ggrastr)
+
+# Load cell stats and MT stats
+cell_stats <- as.data.table(read_parquet("cell_stats.parquet"))
+mt_stats <- as.data.table(read_parquet("cell_stats_mt.parquet"))
+gene_stats <- as.data.table(read_parquet("gene_stats.parquet"))
+
+# Merge and compute pct_mt
+merged <- merge(cell_stats, mt_stats, by = "row", suffixes = c("", "_mt"))
+merged[, pct_mt := 100 * tot_mt / tot]
+```
+
+We have **`r scales::comma(nrow(cell_stats))`** cells across 38 samples.
+
+```{r cell-stats-scatter-tot, echo=FALSE, fig.width=5, fig.height=2.8}
+ggplot(merged[sample(nrow(merged), min(10000, nrow(merged)))],
+       aes(x = log10(tot), y = pct_mt)) +
+    rasterise(geom_point(alpha = 0.3, size = 0.5, color = "steelblue"), dpi = 300) +
+    labs(x = "log10(total counts)", y = "% MT")
+```
+
+
+## Cell stats: # genes expressed vs. MT%
+
+```{r cell-stats-scatter, echo=FALSE, fig.width=5, fig.height=3}
+ggplot(merged[sample(nrow(merged), min(10000, nrow(merged)))],
+       aes(x = log10(nnz), y = pct_mt)) +
+    rasterise(geom_point(alpha = 0.3, size = 0.5, color = "steelblue"), dpi = 300) +
+    labs(x = "log10(# genes expressed)", y = "% MT")
+```
+
+## Cell stats: 2D density
+
+```{r cell-stats-density, echo=FALSE, fig.width=5, fig.height=3}
+ggplot(merged, aes(x = log10(nnz), y = pct_mt)) +
+    stat_density_2d(geom = "raster",
+                    aes(fill = after_stat(sqrt(density))),
+                    contour = FALSE) +
+    scale_fill_viridis_c() +
+    labs(x = "log10(# genes expressed)", y = "% MT")
+```
+
+## Mean-variance relationship: cells
+
+```{r mean-var-cell, echo=FALSE, fig.width=5, fig.height=3}
+ggplot(cell_stats[sample(nrow(cell_stats), min(10000, nrow(cell_stats)))],
+       aes(x = log10(mu), y = log10(sig^2))) +
+    rasterise(geom_point(alpha = 0.3, size = 0.5, color = "steelblue"), dpi = 300) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(x = "log10(mean)", y = "log10(variance)")
+```
+
+## Mean-variance relationship: cells (density)
+
+```{r mean-var-cell-density, echo=FALSE, fig.width=5, fig.height=3}
+ggplot(cell_stats, aes(x = log10(mu), y = log10(sig^2))) +
+    stat_density_2d(geom = "raster",
+                    aes(fill = after_stat(sqrt(density))),
+                    contour = FALSE) +
+    scale_fill_viridis_c() +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(x = "log10(mean)", y = "log10(variance)")
+```
+
+## Mean-variance relationship: genes
+
+```{r mean-var-gene, echo=FALSE, fig.width=5, fig.height=3, dev="png", dpi=300}
+ggplot(gene_stats, aes(x = log10(mu), y = log10(sig^2))) +
+    geom_point(alpha = 0.3, size = 0.5, color = "steelblue") +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(x = "log10(mean)", y = "log10(variance)")
+```
+
+## Mean-variance relationship: genes (density)
+
+```{r mean-var-gene-density, echo=FALSE, fig.width=5, fig.height=3, dev="png", dpi=300}
+ggplot(gene_stats, aes(x = log10(mu), y = log10(sig^2))) +
+    stat_density_2d(geom = "raster",
+                    aes(fill = after_stat(sqrt(density))),
+                    contour = FALSE) +
+    scale_fill_viridis_c() +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "red") +
+    labs(x = "log10(mean)", y = "log10(variance)")
+```
+
+## Can we use the count data as they are?
+
+\large
+
+* In bulk RNA-seq, we transformed the count data to adjust size factors that vary across samples.
+
+* In single-cell data analysis, we generally care a lot about zero values, not knowing whether they come from actual "no expression" or technical drop-out.
+
+* Should we take some sort of `voom` transformation?
+
+\normalsize
+
+## Transformation methods for scRNA-seq
+
+\vfill
+
+\large
+
+:::::: {.columns}
+::: {.column width=.25}
+
+**Raw counts**
+
+$$Y$$
+
+:::
+::: {.column width=.25}
+
+**Delta method**
+
+$$\log(Y/s + 1)$$
+
+:::
+::: {.column width=.25}
+
+**GLM residual**
+
+$$\frac{Y - \mu}{\sqrt{\mu + \alpha\mu^2}}$$
+
+:::
+::: {.column width=.25}
+
+**Latent expression**
+
+$$Y \sim \text{Poisson}(M)$$
+$$M \sim \text{logNormal}(\mu, \sigma^2)$$
+
+:::
+::::::
+
+\vfill
+
+\small
+[@Ahlmann-Eltze2023-lq]
+
+## Effect of transformation on PCA
+
+\vfill
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_transformation/Ahlmann_Huber_2023-2.pdf}}
+
+\vfill
+
+\small
+[@Ahlmann-Eltze2023-lq]
+
+## Mean-variance relationship after transformation
+
+\vfill
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_transformation/Ahlmann_Huber_2023-3.pdf}}
+
+\vfill
+
+\small
+[@Ahlmann-Eltze2023-lq]
+
+## Gene expression distribution after transformation
+
+\vfill
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_transformation/Ahlmann_Huber_2023-4.pdf}}
+
+\vfill
+
+\small
+[@Ahlmann-Eltze2023-lq]
+
+## What would happen after cell Q/C?
+
+```{r seurat-umap-noqc, include=FALSE, cache=TRUE}
+# Process without QC filtering
+pdac <- pdac |>
+    NormalizeData() |>
+    FindVariableFeatures(nfeatures = 2000) |>
+    ScaleData() |>
+    RunPCA(npcs = 30) |>
+    RunUMAP(dims = 1:20)
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r eval=F, size="large"}
+pdac <- pdac |>
+    NormalizeData() |>
+    FindVariableFeatures() |>
+    ScaleData() |>
+    RunPCA() |>
+    RunUMAP(dims = 1:20)
+
+DimPlot(pdac,
+        reduction = "umap")
+```
+
+:::
+::: {.column width=.5}
+
+```{r seurat-umap-plot, echo=FALSE, fig.width=3, fig.height=3}
+DimPlot(pdac, reduction = "umap", pt.size = 0.5) +
+    NoLegend()
+```
+
+:::
+::::::
+
+## What would happen after Q/C? Let's see..
+
+```{r umap-qc-metrics, echo=FALSE, message=FALSE, fig.width=6, fig.height=2.8}
+p1 <- FeaturePlot(pdac, features = "percent.mt", pt.size = 0.3) +
+    scale_color_viridis_c() +
+    labs(title = "% MT")
+p2 <- FeaturePlot(pdac, features = "nCount_RNA", pt.size = 0.3) +
+    scale_color_viridis_c(trans = "log10") +
+    labs(title = "Total counts (log10)")
+p1 | p2
+```
+
+
+## It's useful to show high-dimensional data in 2D
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\onslide<1->{
+\includegraphics[width=.8\linewidth]{img/scRNA_data_cartoon.pdf}
+}
+
+:::
+::: {.column width=.45}
+
+\onslide<2->{
+\includegraphics[width=.7\linewidth]{img/scRNA_data_cartoon_tSNE.pdf}
+}
+
+:::
+::::::
+
+\vfill
+
+\onslide<2->{
+\small
+\texttt{tSNE}: t-distributed Stochastic Neighbourhood Embedding (Van der Maaten \& Hinton, 2008).
+}
+
+## Warning: Don't over interpret 2D embedding
+
+\vfill
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_ETM/tSNE_over.pdf}}
+\vfill
+
+\small
+
+[@Kobak2021-yu]
+
+## Don't over-interpret 2D embedding results
+
+Check out these papers:
+
+* [Initialization is critical for preserving global data structure in both t-SNE and UMAP](https://www.nature.com/articles/s41587-020-00809-z)
+
+* [The art of using t-SNE for single-cell transcriptomics](https://www.nature.com/articles/s41467-019-13056-x)
+
+* [Dimensionality reduction for visualizing single-cell data using UMAP](https://www.nature.com/articles/nbt.4314)
+
+
+## What if we capture more than one cell in a droplet?
+
+\vfill
+\centerline{\includegraphics[width=.8\textwidth]{img/dropseq_technology/dropseq9.pdf}}
+\vfill
+
+\flushright
+\small
+[@Macosko2015-vi]
+
+## What is a doublet in single-cell data?
+
+**Biological/technical definition:**
+
+- One or more cells captured (usually at most two cells by chance)
+
+- Thus, multiple cells accidentally share the same cell barcode sequence
+
+- Not so clear in general... since we missed the chance to assign
+different tags to different cells encapsulated in the same droplet.
+
+**Statistical definition**:
+
+- If marker genes of multiple cell types are
+simultaneously expressed...
+
+- An unvetted approach: Find ambiguous/intermediate coordinates in
+PCA/tSNE/UMAP (after removing ambient cells).
+
+## Idea: k-Nearest Neighbour classification for doublet detection
+
+\vfill
+
+\centerline{\includegraphics[width=.9\textwidth]{img/doublet/doublet_knn.pdf}}
+
+\vfill
+\small
+
+
+
+## Can we create artificial doublets?
+
+\large
+
+A straightforward definition (used in [`DoubletFinder`](https://github.com/chris-mcginnis-ucsf/DoubletFinder)):
+
+For each cell $i$:
+
+* Take some other $j$ by random selection
+
+* Create an artificial doublet
+
+\centerline{$\tilde{\mathbf{x}} \gets \frac{1}{2}(\mathbf{x}_{i} + \mathbf{x}_{j})$}
+
+Some thought questions:
+
+* Doublets within the same cell type?
+
+* Doublets between the different cell types?
+
+## DoubletFinder on PDAC_TISSUE_1
+
+```{r doubletfinder, include=FALSE, cache=TRUE}
+library(DoubletFinder)
+
+# Estimate doublet rate (~5 per 1000 cells)
+nExp_poi <- round(.05 * ncol(pdac)^2 / 1000)
+
+# Find optimal pK
+sweep.res <- paramSweep(pdac, PCs = 1:20, sct = FALSE)
+sweep.stats <- summarizeSweep(sweep.res, GT = FALSE)
+bcmvn <- find.pK(sweep.stats)
+pK <- as.numeric(as.character(bcmvn$pK[which.max(bcmvn$BCmetric)]))
+
+# Run DoubletFinder
+pdac <- doubletFinder(pdac, PCs = 1:20, pN = 0.25, pK = pK,
+                      nExp = nExp_poi, sct = FALSE)
+```
+
+:::::: {.columns}
+::: {.column width=.3}
+
+```{r eval=F, size="normalsize"}
+library(DoubletFinder)
+
+sweep.res <- paramSweep(
+    pdac, PCs = 1:20)
+sweep.stats <- summarizeSweep(
+    sweep.res, GT = FALSE)
+bcmvn <- find.pK(sweep.stats)
+
+pdac <- doubletFinder(
+    pdac, PCs = 1:20,
+    pN = 0.25, pK = pK,
+    nExp = nExp_poi)
+```
+
+:::
+::: {.column width=.6}
+
+```{r doubletfinder-plot, echo=FALSE, fig.width=3.5, fig.height=3}
+# Get the DoubletFinder classification column
+df_col <- grep("DF.classifications", colnames(pdac@meta.data), value = TRUE)[1]
+DimPlot(pdac, reduction = "umap", group.by = df_col, pt.size = 0.5,
+        cols = c("Singlet" = "steelblue", "Doublet" = "red")) +
+    labs(title = "DoubletFinder") +
+    theme(legend.position = "bottom")
+```
+
+:::
+::::::
+
+
+<!--------------------->
+<!-- dont edit below -->
+<!--------------------->
+
+# Data normalization across many batches
+
+## Where are we?
+
+\centerline{\includegraphics[width=.85\textwidth]{img/scRNA_overview/Karchenko_1.pdf}}
+
+\centerline{\includegraphics[width=.85\textwidth]{img/scRNA_overview/Karchenko_2.pdf}}
+
+\vfill
+
+\flushright
+\small
+[@Kharchenko2021-wr]
+
+## Why batch normalization?
+
+\large
+
+- Single-cell experiments are often performed across **multiple samples, batches, or technologies**
+
+- Technical variation can cause cells to cluster by **batch** rather than **cell type**
+
+- Without correction, biological signals are confounded with technical artifacts
+
+- **Goal**: Remove technical variation while preserving biological heterogeneity
+
+\normalsize
+
+## Batch normalization aims to minimize the difference between nearest cells across different batches
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.45}
+\only<1-2>{\centerline{\includegraphics[width=.85\linewidth]{img/scRNA_batch_normalization/mutual_neighbour1.pdf}}}
+
+:::
+::: {.column width=.45}
+
+\only<2>{\centerline{\includegraphics[width=.85\linewidth]{img/scRNA_batch_normalization/mutual_neighbour2.pdf}}}
+
+:::
+::::::
+
+\only<3>{\centerline{\includegraphics[width=.7\linewidth]{img/scRNA_batch_normalization/mutual_neighbour3.pdf}}}
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\only<4>{
+\centerline{\includegraphics[width=.85\linewidth]{img/scRNA_batch_normalization/mutual_neighbour4.pdf}}
+}
+
+\only<5>{
+\centerline{\includegraphics[width=.85\linewidth]{img/scRNA_batch_normalization/mutual_neighbour5.pdf}}
+}
+
+:::
+::: {.column width=.45}
+
+\only<4-5>{
+What is the gap $\Delta$ between the batches?
+
+\centerline{$\min_{\Delta} \sum_{a,b} W_{ab} \| \mathbf{x}_{a} - \mathbf{x}_{b} - \Delta\|_{2}$}
+}
+
+\only<4>{
+A key assumption:
+$$0 \approx W_{ac} < W_{ab}$$
+}
+
+\only<5>{
+Fixed point (local) optimal solution:
+$$\Delta \gets \frac{\sum_{a,b} W_{ab}(\mathbf{x}_{a} - \mathbf{x}_{b})}{\sum_{b} W_{ab}}$$
+}
+
+:::
+::::::
+
+\vfill
+\flushright
+\small
+[@Haghverdi2016-jp]
+
+## A batch-balancing k-nearest neighbour graph
+
+BBKNN method strikes balance between over- and under-normalization
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.75}
+
+\only<1>{\includegraphics[width=\linewidth]{img/scRNA_batch_normalization/bbknn1.pdf}}
+
+:::
+::: {.column width=.2}
+
+\only<1>{
+What kind of differences are due to inter-batch, technical discrepancy, not inter-cell-type divergence?
+}
+
+:::
+::::::
+
+\only<2>{\centerline{\includegraphics[width=.8\linewidth]{img/scRNA_batch_normalization/bbknn2.pdf}}}
+\only<3>{\centerline{\includegraphics[width=.8\linewidth]{img/scRNA_batch_normalization/bbknn3.pdf}}}
+
+\vfill
+\small
+[@Polanski2019-hz]
+
+
+
+##
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.75}
+
+\centerline{
+\includegraphics[width=\linewidth]{img/scRNA_batch_normalization/scanorama.pdf}
+}
+
+:::
+::: {.column width=.2}
+
+$${}$$
+
+How do we integrate multiple samples/batches?
+
+$${}$$
+
+**Scanorama**: mutual nearest neighbourhood-based data integration
+
+:::
+::::::
+
+\vfill
+\small
+[@Hie2019-fh]
+
+## Canonical Correlation Analysis (CCA)
+
+\large
+
+- CCA finds linear combinations of features that are **maximally correlated** between two datasets
+
+- Given two data matrices $X_1$ and $X_2$, find vectors $a$ and $b$ such that:
+$$\text{corr}(X_1 a, X_2 b) \text{ is maximized}$$
+
+- The projected values $X_1 a$ and $X_2 b$ are called **canonical variates**
+
+- Multiple canonical variates can be found (orthogonal to previous ones)
+
+\normalsize
+
+## CCA for batch integration
+
+\large
+
+**Intuition**: Cells of the same type should have similar gene expression patterns, regardless of batch
+
+\onslide<2->
+
+**Seurat CCA integration**:
+
+1. Run CCA on each pair of datasets to find shared correlation structure
+
+2. Identify **anchor cells** --- pairs of cells (one from each batch) that are mutual nearest neighbours in CCA space
+
+3. Use anchors to compute correction vectors that align the datasets
+
+\normalsize
+
+## Batch normalization with Seurat
+
+```{r load-batch-helpers, include=FALSE}
+source("batch_normalization.R")
+```
+
+```{r load-multiple-samples, include=FALSE, cache=TRUE}
+samples <- c("PDAC_TISSUE_1", "PDAC_TISSUE_2", "PDAC_TISSUE_3")
+data_dir <- "../data/GSE155698_PDAC_Steele2020"
+
+seu_list <- load_pdac_samples(samples, data_dir)
+seu_list <- preprocess_samples(seu_list)
+```
+
+```{r merge-without-integration, include=FALSE, cache=TRUE}
+seu_merged <- merge_without_integration(seu_list)
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+
+
+```{r umap-before-integration, echo=FALSE, fig.width=3, fig.height=3}
+ggrastr::rasterise(
+    DimPlot(seu_merged, reduction = "umap", group.by = "orig.ident",
+            pt.size = 0.1, alpha = 0.3) +
+        labs(title = "Merged (no integration)") +
+        theme(text = element_text(size = 8),
+              legend.text = element_text(size = 6),
+              legend.title = element_blank(),
+              legend.key.size = unit(0.3, "cm"),
+              legend.margin = margin(0, 0, 0, 0),
+              plot.title = element_text(size = 9)),
+    dpi = 300)
+```
+
+:::
+::: {.column width=.5}
+
+```{r seurat-integration, include=FALSE, cache=TRUE}
+seu_integrated <- integrate_seurat_cca(seu_list)
+```
+
+
+
+```{r umap-after-integration, echo=FALSE, fig.width=3, fig.height=3}
+ggrastr::rasterise(
+    DimPlot(seu_integrated, reduction = "umap", group.by = "orig.ident",
+            pt.size = 0.1, alpha = 0.3) +
+        labs(title = "Seurat CCA integration") +
+        theme(text = element_text(size = 8),
+              legend.text = element_text(size = 6),
+              legend.title = element_blank(),
+              legend.key.size = unit(0.3, "cm"),
+              legend.margin = margin(0, 0, 0, 0),
+              plot.title = element_text(size = 9)),
+    dpi = 300)
+```
+
+:::
+::::::
+
+## Seurat integration workflow
+
+```{r eval=FALSE}
+# 1. Preprocess each sample separately
+seu_list <- lapply(seu_list, function(seu) {
+    seu |> NormalizeData() |> FindVariableFeatures()
+})
+
+# 2. Find integration anchors
+features <- SelectIntegrationFeatures(seu_list)
+anchors <- FindIntegrationAnchors(seu_list, anchor.features = features)
+
+# 3. Integrate data
+seu_integrated <- IntegrateData(anchors)
+
+# 4. Standard workflow on integrated data
+seu_integrated <- seu_integrated |>
+    ScaleData() |> RunPCA() |> RunUMAP(dims = 1:20)
+```
+
+## Harmony algorithm
+
+\vfill
+
+\centerline{
+\onslide<1->{\includegraphics[height=.7\textheight]{img/scRNA_batch_normalization/harmony1.pdf}}
+\onslide<2->{\includegraphics[height=.7\textheight]{img/scRNA_batch_normalization/harmony2.pdf}}
+\onslide<3->{\includegraphics[height=.7\textheight]{img/scRNA_batch_normalization/harmony3.pdf}}
+\onslide<4->{\includegraphics[height=.7\textheight]{img/scRNA_batch_normalization/harmony4.pdf}}
+}
+
+\vfill
+\small
+[@Korsunsky2019-vv]
+
+## Harmony: a fast alternative
+
+```{r harmony-integration, include=FALSE, cache=TRUE}
+library(harmony)
+seu_harmony <- seu_merged |>
+    RunHarmony("orig.ident") |>
+    RunUMAP(reduction = "harmony", dims = 1:20)
+```
+
+:::::: {.columns}
+::: {.column width=.4}
+
+```{r eval=FALSE}
+library(harmony)
+
+seu_harmony <- seu_merged |>
+    RunHarmony("orig.ident") |>
+    RunUMAP(reduction = "harmony",
+            dims = 1:20)
+```
+
+:::
+::: {.column width=.6}
+
+```{r umap-harmony, echo=FALSE, fig.width=3.5, fig.height=3}
+ggrastr::rasterise(
+    DimPlot(seu_harmony, reduction = "umap", group.by = "orig.ident",
+            pt.size = 0.1, alpha = 0.3) +
+        labs(title = "Harmony integration") +
+        theme(text = element_text(size = 8),
+              legend.text = element_text(size = 6),
+              legend.title = element_blank(),
+              legend.key.size = unit(0.3, "cm"),
+              legend.margin = margin(0, 0, 0, 0),
+              plot.title = element_text(size = 9)),
+    dpi = 300)
+```
+
+:::
+::::::
+
+##
+
+<!--------------------->
+<!-- intential blank -->
+<!--------------------->
+
+
+## Reference {.allowframebreaks}
