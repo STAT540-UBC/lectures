@@ -6,7 +6,10 @@
 Ringnér M. *Nature Biotechnology* 26(3):303-304 (2008)
 [DOI: 10.1038/nbt0308-303](https://doi.org/10.1038/nbt0308-303)
 
+
 ---
+
+The following articles are only recommended for general knowledge. Many of them will be discussed in the lecture, but we strongly recommend avoiding being bogged down by technical details; instead, focus on the big picture. 
 
 ## (Non-negative) Matrix Factorization in Genomics
 
@@ -18,7 +21,7 @@ Brunet JP, Tamayo P, Golub TR, Mesirov JP. *Proceedings of the National Academy 
 Kotliar D, Veres A, Nagy MA, Tabrizi S, Hodis E, Melton DA, Sabeti PC. *eLife* 8:e43803 (2019)
 [DOI: 10.7554/eLife.43803](https://doi.org/10.7554/eLife.43803)
 
----
+
 
 ## NMF in single-cell data integration
 
@@ -26,7 +29,7 @@ Kotliar D, Veres A, Nagy MA, Tabrizi S, Hodis E, Melton DA, Sabeti PC. *eLife* 8
 Welch JD, Kozareva V, Ferreira A, Vanderburg C, Martin C, Macosko EZ. *Cell* 177(7):1873-1887.e17 (2019)
 [DOI: 10.1016/j.cell.2019.05.006](https://doi.org/10.1016/j.cell.2019.05.006)
 
----
+
 
 ## Generalized PCA in single-cell genomics
 
@@ -34,7 +37,7 @@ Welch JD, Kozareva V, Ferreira A, Vanderburg C, Martin C, Macosko EZ. *Cell* 177
 Townes FW, Hicks SC, Aryee MJ, Irizarry RA. *Genome Biology* 20(1):295 (2019)
 [DOI: 10.1186/s13059-019-1861-6](https://doi.org/10.1186/s13059-019-1861-6)
 
----
+
 
 ## Benchmarking and Evaluation
 
@@ -46,16 +49,16 @@ Luecken MD, Büttner M, Chaichoompu K, Danese A, Interlandi M, Mueller MF, Strob
 Antonsson SE, Melsted P. *Genome Research* 35(8):1832-1841 (2025)
 [DOI: 10.1101/gr.279509.124](https://doi.org/10.1101/gr.279509.124)
 
----
+
 
 ## Software
 
 **Orchestrating single-cell analysis with Bioconductor**
 Amezquita RA, Lun ATL, Becht E, Carey VJ, Carpp LN, Geistlinger L, Marini F, Rue-Albrecht K, Risso D, Soneson C, Waldron L, Pagès H, Smith ML, Huber W, Morgan M, Gottardo R, Hicks SC. *Nature Methods* 17(2):137-145 (2020)
-[DOI: 10.1038/s41592-019-0654-x](https://doi.org/10.1038/s41592-019-0654-x) | [OSCA Book](https://osca.bioconductor.org)
+[DOI: 10.1038/s41592-019-0654-x](https://doi.org/10.1038/s41592-019-0654-x) | [OSCA Book](https://bioconductor.org/books/release/OSCA/)
 
-- **LIGER R package**: [github.com/welch-lab/liger](https://github.com/welch-lab/liger)
-- **cNMF Python package**: [github.com/dylkot/cNMF](https://github.com/dylkot/cNMF)
-- **Scikit-learn NMF**: [scikit-learn.org/stable/modules/decomposition.html#nmf](https://scikit-learn.org/stable/modules/decomposition.html#nmf)
+- **LIGER R package**: [https://github.com/welch-lab/liger](https://github.com/welch-lab/liger)
+- **cNMF Python package**: [https://github.com/dylkot/cNMF](https://github.com/dylkot/cNMF)
+- **Scikit-learn NMF**: [https://scikit-learn.org/stable/modules/decomposition.html#nmf](https://scikit-learn.org/stable/modules/decomposition.html#nmf)
 
 
