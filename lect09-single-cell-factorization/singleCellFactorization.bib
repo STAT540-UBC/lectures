@@ -1,0 +1,346 @@
+@ARTICLE{Welch2019-jl,
+  title    = "Single-Cell Multi-omic Integration Compares and Contrasts Features
+              of Brain Cell Identity",
+  author   = "Welch, Joshua D and Kozareva, Velina and Ferreira, Ashley and
+              Vanderburg, Charles and Martin, Carly and Macosko, Evan Z",
+  journal  = "Cell",
+  volume   =  177,
+  number   =  7,
+  pages    = "1873--1887.e17",
+  abstract = "Defining cell types requires integrating diverse single-cell
+              measurements from multiple experiments and biological contexts. To
+              flexibly model single-cell datasets, we developed LIGER, an
+              algorithm that delineates shared and dataset-specific features of
+              cell identity. We applied it to four diverse and challenging
+              analyses of human and mouse brain cells. First, we defined
+              region-specific and sexually dimorphic gene expression in the
+              mouse bed nucleus of the stria terminalis. Second, we analyzed
+              expression in the human substantia nigra, comparing cell states in
+              specific donors and relating cell types to those in the mouse.
+              Third, we integrated in situ and single-cell expression data to
+              spatially locate fine subtypes of cells present in the mouse
+              frontal cortex. Finally, we jointly defined mouse cortical cell
+              types using single-cell RNA-seq and DNA methylation profiles,
+              revealing putative mechanisms of cell-type-specific epigenomic
+              regulation. Integrative analyses using LIGER promise to accelerate
+              investigations of cell-type definition, gene regulation, and
+              disease states.",
+  month    =  jun,
+  year     =  2019,
+  keywords = "bed nucleus of the stria terminalis; data integration; single-cell
+              genomics; substantia nigra",
+  language = "en"
+}
+@ARTICLE{Kriebel2022-fe,
+  title    = "{UINMF} performs mosaic integration of single-cell multi-omic
+              datasets using nonnegative matrix factorization",
+  author   = "Kriebel, April R and Welch, Joshua D",
+  journal  = "Nat. Commun.",
+  volume   =  13,
+  number   =  1,
+  pages    =  780,
+  abstract = "Single-cell genomic technologies provide an unprecedented
+              opportunity to define molecular cell types in a data-driven
+              fashion, but present unique data integration challenges. Many
+              analyses require ``mosaic integration'', including both features
+              shared across datasets and features exclusive to a single
+              experiment. Previous computational integration approaches require
+              that the input matrices share the same number of either genes or
+              cells, and thus can use only shared features. To address this
+              limitation, we derive a nonnegative matrix factorization algorithm
+              for integrating single-cell datasets containing both shared and
+              unshared features. The key advance is incorporating an additional
+              metagene matrix that allows unshared features to inform the
+              factorization. We demonstrate that incorporating unshared features
+              significantly improves integration of single-cell RNA-seq, spatial
+              transcriptomic, SNARE-seq, and cross-species datasets. We have
+              incorporated the UINMF algorithm into the open-source LIGER R
+              package ( https://github.com/welch-lab/liger ).",
+  month    =  feb,
+  year     =  2022,
+  language = "en"
+}
+@ARTICLE{Antonsson2025-yt,
+  title     = "Batch correction methods used in single-cell {RNA} sequencing
+               analyses are often poorly calibrated",
+  author    = "Antonsson, Sindri Emmanúel and Melsted, Páll",
+  journal   = "Genome Res.",
+  publisher = "Cold Spring Harbor Laboratory",
+  volume    =  35,
+  number    =  8,
+  pages     = "1832--1841",
+  abstract  = "As the number of experiments that employ single-cell RNA
+               sequencing (scRNA-seq) grows, it opens up the possibility of
+               combining results across experiments or processing cells from the
+               same experiment assayed in separate sequencing runs. The gain in
+               the number of cells that can be compared comes at the cost of
+               batch effects that may be present. Several methods have been
+               proposed to combat this for scRNA-seq data sets. We compare eight
+               widely used methods used for batch correction of scRNA-seq data
+               sets. We present a novel approach to measure the degree to which
+               the methods alter the data in the process of batch correction,
+               both at the fine scale, comparing distances between cells, as
+               well as measuring effects observed across clusters of cells. We
+               demonstrate that many of the published methods are poorly
+               calibrated in the sense that the process of correction creates
+               measurable artifacts in the data. In particular, MNN, SCVI, and
+               LIGER perform poorly in our tests, often altering the data
+               considerably. Batch correction with Combat, ComBat-seq, BBKNN,
+               and Seurat introduces artifacts that could be detected in our
+               setup. However, we find that Harmony is the only method that
+               consistently performs well in all the testing methodology we
+               present. Therefore, Harmony is the only method we recommend using
+               when performing batch correction of scRNA-seq data.",
+  month     =  aug,
+  year      =  2025,
+  language  = "en"
+}
+@ARTICLE{Luecken2022-ov,
+  title    = "Benchmarking atlas-level data integration in single-cell genomics",
+  author   = "Luecken, Malte D and Büttner, M and Chaichoompu, K and Danese, A
+              and Interlandi, M and Mueller, M F and Strobl, D C and Zappia, L
+              and Dugas, M and Colomé-Tatché, M and Theis, Fabian J",
+  journal  = "Nat. Methods",
+  volume   =  19,
+  number   =  1,
+  pages    = "41--50",
+  abstract = "Single-cell atlases often include samples that span locations,
+              laboratories and conditions, leading to complex, nested batch
+              effects in data. Thus, joint analysis of atlas datasets requires
+              reliable data integration. To guide integration method choice, we
+              benchmarked 68 method and preprocessing combinations on 85 batches
+              of gene expression, chromatin accessibility and simulation data
+              from 23 publications, altogether representing >1.2 million cells
+              distributed in 13 atlas-level integration tasks. We evaluated
+              methods according to scalability, usability and their ability to
+              remove batch effects while retaining biological variation using 14
+              evaluation metrics. We show that highly variable gene selection
+              improves the performance of data integration methods, whereas
+              scaling pushes methods to prioritize batch removal over
+              conservation of biological variation. Overall, scANVI, Scanorama,
+              scVI and scGen perform well, particularly on complex integration
+              tasks, while single-cell ATAC-sequencing integration performance
+              is strongly affected by choice of feature space. Our freely
+              available Python module and benchmarking pipeline can identify
+              optimal data integration methods for new data, benchmark new
+              methods and improve method development.",
+  month    =  jan,
+  year     =  2022,
+  language = "en"
+}
+@ARTICLE{Gao2021-vy,
+  title    = "Iterative single-cell multi-omic integration using online learning",
+  author   = "Gao, Chao and Liu, Jialin and Kriebel, April R and Preissl,
+              Sebastian and Luo, Chongyuan and Castanon, Rosa and Sandoval,
+              Justin and Rivkin, Angeline and Nery, Joseph R and Behrens,
+              Margarita M and Ecker, Joseph R and Ren, Bing and Welch, Joshua D",
+  journal  = "Nat. Biotechnol.",
+  volume   =  39,
+  number   =  8,
+  pages    = "1000--1007",
+  abstract = "Integrating large single-cell gene expression, chromatin
+              accessibility and DNA methylation datasets requires general and
+              scalable computational approaches. Here we describe online
+              integrative non-negative matrix factorization (iNMF), an algorithm
+              for integrating large, diverse and continually arriving
+              single-cell datasets. Our approach scales to arbitrarily large
+              numbers of cells using fixed memory, iteratively incorporates new
+              datasets as they are generated and allows many users to
+              simultaneously analyze a single copy of a large dataset by
+              streaming it over the internet. Iterative data addition can also
+              be used to map new data to a reference dataset. Comparisons with
+              previous methods indicate that the improvements in efficiency do
+              not sacrifice dataset alignment and cluster preservation
+              performance. We demonstrate the effectiveness of online iNMF by
+              integrating more than 1 million cells on a standard laptop,
+              integrating large single-cell RNA sequencing and spatial
+              transcriptomic datasets, and iteratively constructing a
+              single-cell multi-omic atlas of the mouse motor cortex.",
+  month    =  aug,
+  year     =  2021,
+  language = "en"
+}
+@ARTICLE{Townes2019-fo,
+  title    = "Feature selection and dimension reduction for single-cell
+              {RNA}-Seq based on a multinomial model",
+  author   = "Townes, F William and Hicks, Stephanie C and Aryee, Martin J and
+              Irizarry, Rafael A",
+  journal  = "Genome Biol.",
+  volume   =  20,
+  number   =  1,
+  pages    =  295,
+  abstract = "Single-cell RNA-Seq (scRNA-Seq) profiles gene expression of
+              individual cells. Recent scRNA-Seq datasets have incorporated
+              unique molecular identifiers (UMIs). Using negative controls, we
+              show UMI counts follow multinomial sampling with no zero
+              inflation. Current normalization procedures such as log of counts
+              per million and feature selection by highly variable genes produce
+              false variability in dimension reduction. We propose simple
+              multinomial methods, including generalized principal component
+              analysis (GLM-PCA) for non-normal distributions, and feature
+              selection using deviance. These methods outperform the current
+              practice in a downstream clustering assessment using ground truth
+              datasets.",
+  month    =  dec,
+  year     =  2019,
+  keywords = "Dimension reduction; GLM-PCA; Gene expression; Principal component
+              analysis; RNA-Seq; Single cell; Variable genes",
+  language = "en"
+}
+@ARTICLE{Grabski2023-vy,
+  title    = "Significance analysis for clustering with single-cell
+              {RNA}-sequencing data",
+  author   = "Grabski, Isabella N and Street, Kelly and Irizarry, Rafael A",
+  journal  = "Nat. Methods",
+  abstract = "Unsupervised clustering of single-cell RNA-sequencing data enables
+              the identification of distinct cell populations. However, the most
+              widely used clustering algorithms are heuristic and do not
+              formally account for statistical uncertainty. We find that not
+              addressing known sources of variability in a statistically
+              rigorous manner can lead to overconfidence in the discovery of
+              novel cell types. Here we extend a previous method, significance
+              of hierarchical clustering, to propose a model-based hypothesis
+              testing approach that incorporates significance analysis into the
+              clustering algorithm and permits statistical evaluation of
+              clusters as distinct cell populations. We also adapt this approach
+              to permit statistical assessment on the clusters reported by any
+              algorithm. Finally, we extend these approaches to account for
+              batch structure. We benchmarked our approach against popular
+              clustering workflows, demonstrating improved performance. To show
+              practical utility, we applied our approach to the Human Lung Cell
+              Atlas and an atlas of the mouse cerebellar cortex, identifying
+              several cases of over-clustering and recapitulating experimentally
+              validated cell type definitions.",
+  month    =  jul,
+  year     =  2023,
+  language = "en"
+}
+@ARTICLE{Pedregosa2011-ie,
+  title    = "Scikit-learn: Machine Learning in Python",
+  author   = "Pedregosa, Fabian and Varoquaux, G and Gramfort, Alexandre and
+              Michel, V and Thirion, B and Grisel, O and Blondel, Mathieu and
+              Louppe, Gilles and Prettenhofer, P and Weiss, Ron and Weiss, Ron J
+              and Vanderplas, J and Passos, Alexandre and Cournapeau, D and
+              Brucher, M and Perrot, M and Duchesnay, E",
+  journal  = "J. Mach. Learn. Res.",
+  volume   = "abs/1201.0490",
+  number   =  85,
+  pages    = "2825--2830",
+  abstract = "Scikit-learn is a Python module integrating a wide range of
+              state-of-the-art machine learning algorithms for medium-scale
+              supervised and unsupervised problems. This package focuses on
+              bringing machine learning to non-specialists using a
+              general-purpose high-level language. Emphasis is put on ease of
+              use, performance, documentation, and API consistency. It has
+              minimal dependencies and is distributed under the simplified BSD
+              license, encouraging its use in both academic and commercial
+              settings. Source code, binaries, and documentation can be
+              downloaded from http://scikit-learn.sourceforge.net.",
+  month    =  feb,
+  year     =  2011
+}
+@ARTICLE{Amezquita2020-wa,
+  title    = "Orchestrating single-cell analysis with Bioconductor",
+  author   = "Amezquita, Robert A and Lun, Aaron T L and Becht, Etienne and
+              Carey, Vince J and Carpp, Lindsay N and Geistlinger, Ludwig and
+              Marini, Federico and Rue-Albrecht, Kevin and Risso, Davide and
+              Soneson, Charlotte and Waldron, Levi and Pagès, Hervé and Smith,
+              Mike L and Huber, Wolfgang and Morgan, Martin and Gottardo,
+              Raphael and Hicks, Stephanie C",
+  journal  = "Nat. Methods",
+  volume   =  17,
+  number   =  2,
+  pages    = "137--145",
+  abstract = "Recent technological advancements have enabled the profiling of a
+              large number of genome-wide features in individual cells. However,
+              single-cell data present unique challenges that require the
+              development of specialized methods and software infrastructure to
+              successfully derive biological insights. The Bioconductor project
+              has rapidly grown to meet these demands, hosting
+              community-developed open-source software distributed as R
+              packages. Featuring state-of-the-art computational methods,
+              standardized data infrastructure and interactive data
+              visualization tools, we present an overview and online book
+              (https://osca.bioconductor.org) of single-cell methods for
+              prospective users.",
+  month    =  feb,
+  year     =  2020,
+  language = "en"
+}
+@ARTICLE{Ringner2008-mv,
+  title     = "What is principal component analysis?",
+  author    = "Ringnér, Markus",
+  journal   = "Nat. Biotechnol.",
+  publisher = "Springer Science and Business Media LLC",
+  volume    =  26,
+  number    =  3,
+  pages     = "303--304",
+  month     =  mar,
+  year      =  2008,
+  language  = "en"
+}
+@ARTICLE{Brunet2004-ty,
+  title     = "Metagenes and molecular pattern discovery using matrix
+               factorization",
+  author    = "Brunet, Jean-Philippe and Tamayo, Pablo and Golub, Todd R and
+               Mesirov, Jill P",
+  journal   = "Proc. Natl. Acad. Sci. U. S. A.",
+  publisher = "Proceedings of the National Academy of Sciences",
+  volume    =  101,
+  number    =  12,
+  pages     = "4164--4169",
+  abstract  = "We describe here the use of nonnegative matrix factorization
+               (NMF), an algorithm based on decomposition by parts that can
+               reduce the dimension of expression data from thousands of genes
+               to a handful of metagenes. Coupled with a model selection
+               mechanism, adapted to work for any stochastic clustering
+               algorithm, NMF is an efficient method for identification of
+               distinct molecular patterns and provides a powerful method for
+               class discovery. We demonstrate the ability of NMF to recover
+               meaningful biological information from cancer-related microarray
+               data. NMF appears to have advantages over other methods such as
+               hierarchical clustering or self-organizing maps. We found it less
+               sensitive to a priori selection of genes or initial conditions
+               and able to detect alternative or context-dependent patterns of
+               gene expression in complex biological systems. This ability,
+               similar to semantic polysemy in text, provides a general method
+               for robust molecular pattern discovery.",
+  month     =  mar,
+  year      =  2004,
+  language  = "en"
+}
+@ARTICLE{Kotliar2019-zw,
+  title     = "Identifying gene expression programs of cell-type identity and
+               cellular activity with single-cell {RNA}-Seq",
+  author    = "Kotliar, Dylan and Veres, Adrian and Nagy, M Aurel and Tabrizi,
+               Shervin and Hodis, Eran and Melton, Douglas A and Sabeti, Pardis
+               C",
+  journal   = "Elife",
+  publisher = "eLife Sciences Publications, Ltd",
+  volume    =  8,
+  number    = "e43803",
+  abstract  = "Identifying gene expression programs underlying both cell-type
+               identity and cellular activities (e.g. life-cycle processes,
+               responses to environmental cues) is crucial for understanding the
+               organization of cells and tissues. Although single-cell RNA-Seq
+               (scRNA-Seq) can quantify transcripts in individual cells, each
+               cell's expression profile may be a mixture of both types of
+               programs, making them difficult to disentangle. Here, we
+               benchmark and enhance the use of matrix factorization to solve
+               this problem. We show with simulations that a method we call
+               consensus non-negative matrix factorization (cNMF) accurately
+               infers identity and activity programs, including their relative
+               contributions in each cell. To illustrate the insights this
+               approach enables, we apply it to published brain organoid and
+               visual cortex scRNA-Seq datasets; cNMF refines cell types and
+               identifies both expected (e.g. cell cycle and hypoxia) and novel
+               activity programs, including programs that may underlie a
+               neurosecretory phenotype and synaptogenesis.",
+  month     =  jul,
+  year      =  2019,
+  keywords  = "brain organoids; computational biology; gene expression programs;
+               genetics; genomics; human; matrix factorization; mouse;
+               single-cell Rna-Seq; synaptogenesis; systems biology; visual
+               cortex",
+  language  = "en"
+}
