@@ -359,6 +359,8 @@ $$Y_{gj} = \sum_{k} L_{gk} F_{kj}$$
 
 \normalsize
 
+@Carbonetto2021-ft; @Carbonetto2023-gd
+
 ```{r fasttopic-run, include=FALSE}
 library(fastTopics)
 

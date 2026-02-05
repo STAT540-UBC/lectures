@@ -1142,6 +1142,7 @@ U <- svd.out$u; D <- diag(svd.out$d); V <- svd.out$v
 \normalsize
 
 
+
 ## Generalized Linear Model PCA to model count data
 
 :::::: {.columns}
@@ -1457,6 +1458,8 @@ plotClusterDimRed(liger_obj)
 $$Y_{gj} = \sum_{k} L_{gk} F_{kj}$$
 
 \normalsize
+
+@Carbonetto2021-ft; @Carbonetto2023-gd
 
 
 
