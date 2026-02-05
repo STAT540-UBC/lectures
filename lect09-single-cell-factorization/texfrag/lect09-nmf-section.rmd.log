@@ -1,0 +1,83 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=prv_lect09-nmf-section.rmd 2026.2.4)  4 FEB 2026 20:06
+entering extended mode
+ restricted \write18 enabled.
+ file:line:error style messages enabled.
+ %&-line parsing enabled.
+**&prv_lect09-nmf-section.rmd /AUCTEXINPUT{ lect09-nmf-section.rmd.tex }
+(./lect09-nmf-section.rmd.tex (/usr/local/texlive/2025/texmf-dist/tex/latex/l3backend/l3backend-pdftex.def
+File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
+\l__color_backend_stack_int=\count282
+\l__pdf_internal_box=\box54
+)
+No file lect09-nmf-section.rmd.aux.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 5.
+LaTeX Font Info:    ... okay on input line 5.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 5.
+LaTeX Font Info:    ... okay on input line 5.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 5.
+LaTeX Font Info:    ... okay on input line 5.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 5.
+LaTeX Font Info:    ... okay on input line 5.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 5.
+LaTeX Font Info:    ... okay on input line 5.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 5.
+LaTeX Font Info:    ... okay on input line 5.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 5.
+LaTeX Font Info:    ... okay on input line 5.
+(/Users/ypp/.emacs.d/elpa/auctex-14.1.0/latex/preview.sty
+Package: preview 2024/06/30 14.0.6 (AUCTeX/preview-latex)
+ (/usr/local/texlive/2025/texmf-dist/tex/generic/luatex85/luatex85.sty
+Package: luatex85 2016/06/15 v1.4 pdftex aliases for luatex
+) (/Users/ypp/.emacs.d/elpa/auctex-14.1.0/latex/prtightpage.def
+\PreviewBorder=\dimen151
+) (/Users/ypp/.emacs.d/elpa/auctex-14.1.0/latex/prauctex.def
+No auxiliary output files.
+
+
+\hbadness=\count283
+\hfuzz=\dimen152
+(/Users/ypp/.emacs.d/elpa/auctex-14.1.0/latex/prauctex.cfg)) (/Users/ypp/.emacs.d/elpa/auctex-14.1.0/latex/prfootnotes.def)
+\pr@snippet=\count284
+\pr@box=\box55
+\pr@output=\toks24
+
+Preview: Fontsize 10pt
+Preview: PDFoutput 1
+)
+./lect09-nmf-section.rmd.tex:6: Preview: Snippet 1 started.
+<-><->
+      
+l.6 \begin{eqnarray*}
+                     
+Not a real error.
+
+Preview: Tightpage -32891 -32891 32891 32891
+./lect09-nmf-section.rmd.tex:11: Preview: Snippet 1 ended.(3850220+0x22609920).
+<-><->
+      
+l.11 \end{eqnarray*}
+                    
+Not a real error.
+
+[1{/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/local/texlive/2025/texmf-dist/fonts/enc/dvips/cm-super/cm-super-t1.enc}]
+ ***********
+LaTeX2e <2024-11-01> patch level 2
+L3 programming layer <2025-01-18>
+ ***********
+ ) 
+Here is how much of TeX's memory you used:
+ 429 strings out of 471854
+ 9295 string characters out of 5698824
+ 413053 words of memory out of 5000000
+ 25019 multiletter control sequences out of 15000+600000
+ 567598 words of font info for 54 fonts, out of 8000000 for 9000
+ 1141 hyphenation exceptions out of 8191
+ 46i,9n,54p,211b,150s stack positions out of 10000i,1000n,20000p,200000b,200000s
+</usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi7.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/local/texlive/2025/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb>
+Output written on lect09-nmf-section.rmd.pdf (1 page, 51933 bytes).
+PDF statistics:
+ 39 PDF objects out of 1000 (max. 8388607)
+ 23 compressed objects within 1 object stream
+ 0 named destinations out of 1000 (max. 500000)
+ 1 words of extra memory for PDF output out of 10000 (max. 10000000)
+

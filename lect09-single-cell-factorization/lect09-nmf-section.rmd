@@ -1,0 +1,98 @@
+
+## Why Non-negative Matrix Factorization (NMF)?
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**PCA (SVD) can have negative values:**
+
+E.g., For some gene $g$:
+We can have
+\begin{eqnarray*}
+U_{g1} + U_{g2} &=& 0 \\
+\text{if } U_{g1} &=& - U_{g2} < 0 \\
+\text{or } U_{g1} &=& U_{g2} = 0 \\
+\vdots
+\end{eqnarray*}
+
+:::
+::: {.column width=.45}
+
+**NMF constraint:**
+
+\large
+
+$$X \approx UV$$ 
+
+where $U, V \geq 0$
+
+\normalsize
+
+:::
+::::::
+
+## Classic NMF in Genomics (metagenes)
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\large
+
+**@Brunet2004-fk:**
+
+\normalsize
+
+- Discovers **"metagenes"** (coherent patterns)
+- Non-negative gene/sample combinations
+- Only additive combinations (vs. PCA's +/- components)
+
+:::
+::: {.column width=.45}
+
+- Metagenes = pathways/processes
+- Genes are "on" or "off" (not negative)
+- Sparse representation
+- Natural for expression data
+
+\vspace{0.3cm}
+
+**Applications:**
+
+- Cancer subtype discovery
+- Gene expression pattern analysis
+- Identifying co-regulated gene modules
+
+:::
+::::::
+
+\vfill
+
+\flushright
+\small
+@Brunet2004-fk
+
+## 
+
+<!---------------------------->
+<!-- will add some figures  -->
+<!---------------------------->
+
+## NMF for single-cell RNA-seq
+
+\large
+
+**Why NMF is particularly useful for scRNA-seq:**
+
+\normalsize
+
+- Gene expression is naturally non-negative (counts)
+- Identifies **gene programs** (co-expressed gene sets)
+- Discovers **cell states** and gradients
+- Integrates datasets across batches/conditions
+- More interpretable than PCA for biological processes
+
+\vspace{0.5cm}
+
+**Two popular tools:** `rliger` and `fasttopic`
+
+

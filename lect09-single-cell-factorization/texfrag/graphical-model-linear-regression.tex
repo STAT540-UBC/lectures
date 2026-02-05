@@ -1,0 +1,34 @@
+\begin{tikzpicture}[
+    scale=1.55,
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1.1cm, font=\normalsize},
+    param/.style={circle, draw, fill=white, minimum size=0.9cm, font=\normalsize},
+    plate/.style={draw, rectangle, rounded corners, inner sep=10pt, thick}
+]
+
+% Plate for individuals
+\node[observed] (x1) at (-1, 1.5) {$X_{i1}$};
+\node[observed] (x2) at (0, 1.5) {$X_{i2}$};
+\node[observed] (x3) at (1, 1.5) {$X_{i3}$};
+\node[observed] (y) at (0, 0) {$Y_{ig}$};
+
+% Draw plate
+\node[plate, fit=(x1)(x2)(x3)(y)] (plate1) {};
+\node[anchor=south east] at (plate1.south east) {$i = 1, \ldots, n$};
+
+% Parameters on the right
+\node[param] (b1) at (2.2, 1.5) {$\beta_{1g}$};
+\node[param] (b2) at (2.2, 0.75) {$\beta_{2g}$};
+\node[param] (b3) at (2.2, 0) {$\beta_{3g}$};
+
+% Arrows from parameters to Y
+\draw[->, thick] (b1) -- (y);
+\draw[->, thick] (b2) -- (y);
+\draw[->, thick] (b3) -- (y);
+
+% Arrows from covariates to Y
+\draw[->, thick] (x1) -- (y);
+\draw[->, thick] (x2) -- (y);
+\draw[->, thick] (x3) -- (y);
+
+\end{tikzpicture}

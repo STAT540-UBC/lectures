@@ -1,0 +1,18 @@
+\begin{tikzpicture}[scale=1.]
+% Column space plane
+\fill[blue!10] (-2,-1) -- (2,-1) -- (2.5,2) -- (-1.5,2) -- cycle;
+\node at (5, 1.5) {\small Column space of $\mathbf{X} = [\mathbf{x}_{1}, \mathbf{x}_{2}]$};
+
+% Vectors
+\draw[->, thick, blue] (0,0) -- (1.5, 0.5) node[below right] {$\mathbf{x}_1$};
+\draw[->, thick, blue] (0,0) -- (0.2, 1.5) node[above left] {$\mathbf{x}_2$};
+\draw[->, thick, red] (0,0) -- (1.2, 1.8) node[right] {$\hat{\mathbf{y}}_g$};
+\draw[->, thick, black] (0,0) -- (0.8, 2.5) node[above] {$\mathbf{y}_g$};
+
+% Residual
+\draw[dashed, thick, gray] (0.8, 2.5) -- (1.2, 1.8);
+\node[right] at (1.0, 2.15) {$\boldsymbol{\epsilon}_g$};
+
+% Origin
+\fill (0,0) circle (0.05);
+\end{tikzpicture}

@@ -1,0 +1,651 @@
+---
+title: "Matrix Factorization with applications in single-cell RNA-seq"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: singleCellFactorization.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: pdflatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{fit}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+<!--
+Rules: 
+
+1. After editing this file, run `make` to rebuild the slides: make lect08-single-cell-technology-slides.pdf
+
+2. Use data-beans and senna (legume) Rust-based CLI tools (already installed)
+
+3. Small data sets: we can show both Seurat and Scanpy how we can process
+
+4. Do not mix R and python in the same slide/frame (it's confusing)
+
+5. Prefer hdf5 backend since zarr takes too many files.
+
+6. Prefer onslide rather than only in latex beamer
+
+7. use \large for discussion (text-driven) slides then close it with \normalsize
+
+8. Figure width never exceeds 6 and height never 3
+
+9. Rasterize plots with too many dots with dpi=300 using `ggrastr`
+
+10. use pdflatex preferrably...
+
+-->
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/single-cell-factorization/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(ggrastr)
+library(rsvd)
+
+theme_set(theme_minimal())
+```
+
+## Roadmap of STAT/BIOF/GSAT540 2026
+
+_data generation_ followed by _inference_ or validation
+
+\vfill
+
+\large
+
+:::::: {.columns}
+::: {.column width=.45}
+
+3. Formulating biological questions
+
+4. Hypothesis testing
+
+5. RNA-seq data
+
+6. Inference focusing on RNA-seq
+
+7. Experimental design
+
+:::
+::: {.column width=.45}
+
+8. Single-cell genomics
+
+9. \textbf{\color{magenta} Matrix factorization} (Today)
+
+10. Genome-wide association studies
+
+11. Multiple hypothesis testing
+
+:::
+::::::
+
+\normalsize
+
+
+## Recap: Overview of single-cell data analysis
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_overview/Kharchenko_1.pdf}}
+
+\vfill
+
+\flushright
+\small
+[@Kharchenko2021-wr]
+
+## Overview of single-cell data analysis cont'd
+
+\centerline{\includegraphics[width=\textwidth]{img/scRNA_overview/Kharchenko_2.pdf}}
+
+\vfill
+
+\flushright
+\small
+[@Kharchenko2021-wr]
+
+
+## Learning objectives
+
+- Learn Principal Component Analysis (PCA) and Singular Value Decomposition (SVD)
+
+- Understand matrix factorization and its applications in single-cell analysis
+
+- Introduction to useful tools based on matrix factorization
+
+	- `glmpca`, `rliger`, `fastTopic`, `MOFA`, ...
+
+
+# What is Principal Component Analysis?
+
+
+```{r child='lect09-pca-section.rmd'}
+```
+
+
+## Generalized Linear Model PCA to model count data
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\large
+
+- scRNA-seq data are **counts** (discrete, non-negative)
+
+$$\log(\mu_{ij}) = (UV^{\top})_{ij}$$
+
+$$Y_{ij} \sim \text{Poisson}(\mu_{ij})$$
+
+or
+
+$$Y_{ij} \sim \text{NB}(\mu_{ij}, \phi)$$
+
+\normalsize
+
+:::
+::: {.column width=.45}
+
+```{r eval=FALSE, echo=TRUE}
+library(glmpca)
+
+## Run GLM-PCA on count matrix
+res <- glmpca(X, L = 5, fam = "nb")
+
+factors <- res$factors
+loadings <- res$loadings
+```
+
+:::
+::::::
+
+## GLM-PCA vs standard PCA
+
+\large
+
+**When to use GLM-PCA?**
+
+\normalsize
+
+- Working with **raw counts** (not normalized)
+- Want to avoid log-transformation artifacts
+- More computationally intensive than standard PCA
+
+\vspace{0.5cm}
+
+**Reference:** [@Townes2019-rg]
+
+
+# Non-negative Matrix Factorization
+
+```{r child='lect09-nmf-section.rmd'}
+```
+
+## `rliger`: Integrative NMF for single-cell data
+
+:::::: {.columns}
+::: {.column width=.25}
+
+\includegraphics[width=\textwidth]{img/logos/rliger_logo.png}
+
+:::
+::: {.column width=.6}
+
+- Joint NMF across multiple datasets
+- Shared factors ($W$) capture common biology
+- Dataset-specific factors ($V_i$) capture batch effects
+- Quantile normalization aligns factor loadings
+
+$$X^{(d)} \approx H^{(d)} (W + V^{(d)})^{\top}$$
+
+$H^{(d)}$: cell factor loadings for dataset $d$
+
+$W$: shared gene factors, $V^{(d)}$: dataset-specific
+
+:::
+::::::
+
+
+@Welch2019-jl; @Gao2021-vy; @Kriebel2022-fe 
+
+
+## `rliger`: Running integrative NMF
+
+```{r load-seurat-main, message=FALSE, warning=FALSE}
+library(Seurat)
+
+data.dir <- "../data/GSE155698_PDAC_Steele2020/PDAC_TISSUE_1/"
+
+pdac <- Read10X(data.dir = data.dir)
+pdac <- CreateSeuratObject(counts = pdac,
+                           project = "PDAC_TISSUE_1",
+                           min.cells = 3,
+                           min.features = 200)
+
+X <- as.matrix(GetAssayData(pdac, layer = "counts"))
+mt.genes <- grep("^MT-", rownames(X), value = TRUE)
+X <- X[!rownames(X) %in% mt.genes, ]
+```
+
+
+```{r liger-run, include=FALSE}
+library(rliger)
+liger.rds <- "../data/GSE155698_PDAC_Steele2020/liger_obj_3tissues.rds"
+
+if.needed(liger.rds, {
+  tissues <- c("PDAC_TISSUE_1", "PDAC_TISSUE_2", "PDAC_TISSUE_3")
+  data.list <- lapply(tissues, function(tissue) {
+    data <- Read10X(data.dir = paste0("../data/GSE155698_PDAC_Steele2020/", tissue, "/"))
+    mt.genes <- grep("^MT-", rownames(data), value = TRUE)
+    data[!rownames(data) %in% mt.genes, ]
+  })
+  names(data.list) <- tissues
+  liger_obj <- createLiger(data.list)
+  liger_obj <- normalize(liger_obj)
+  liger_obj <- selectGenes(liger_obj)
+  liger_obj <- scaleNotCenter(liger_obj)
+  liger_obj <- optimizeALS(liger_obj, k = 20)
+  liger_obj <- quantile_norm(liger_obj)
+  liger_obj <- louvainCluster(liger_obj, resolution = 0.4)
+  liger_obj <- runUMAP(liger_obj, n_neighbors = 30)
+  saveRDS(liger_obj, liger.rds)
+})
+
+liger_obj <- readRDS(liger.rds)
+```
+
+```{r liger-load, eval=FALSE, echo=TRUE}
+library(rliger)
+
+## Load three PDAC tissue samples
+tissues <- c("PDAC_TISSUE_1", "PDAC_TISSUE_2", "PDAC_TISSUE_3")
+
+data.list <- lapply(tissues, function(tissue) {
+  data <- Read10X(data.dir = paste0("../data/GSE155698_PDAC_Steele2020/", tissue, "/"))
+  ## Remove MT-genes
+  mt.genes <- grep("^MT-", rownames(data), value = TRUE)
+  data[!rownames(data) %in% mt.genes, ]
+})
+names(data.list) <- tissues
+```
+
+## `rliger`: Create object and preprocess
+
+```{r liger-preprocess, eval=FALSE, echo=TRUE}
+## Create liger object with three datasets
+liger_obj <- createLiger(data.list)
+
+## Normalize and select variable genes
+liger_obj <- normalize(liger_obj)
+liger_obj <- selectGenes(liger_obj)
+liger_obj <- scaleNotCenter(liger_obj)
+```
+
+## `rliger`: Run integrative NMF
+
+```{r liger-inmf, eval=FALSE, echo=TRUE, size="Large"}
+## Run integrative NMF
+liger_obj <- optimizeALS(liger_obj, k = 20)
+```
+
+## `rliger`: Align datasets and cluster
+
+```{r liger-cluster, eval=FALSE, echo=TRUE}
+## Quantile normalization for alignment
+liger_obj <- quantile_norm(liger_obj)
+
+## Clustering on aligned factors
+liger_obj <- louvainCluster(liger_obj, resolution = 0.4)
+
+## UMAP visualization
+liger_obj <- runUMAP(liger_obj, n_neighbors = 30)
+```
+
+## `rliger`: UMAP by dataset
+
+```{r liger-umap-dataset, eval=TRUE, echo=TRUE, fig.width=6, fig.height=2.5}
+## UMAP colored by dataset
+plotDatasetDimRed(liger_obj)
+```
+
+## `rliger`: UMAP by cluster
+
+```{r liger-umap-cluster, eval=TRUE, echo=TRUE, fig.width=6, fig.height=2.5}
+## UMAP colored by cluster
+plotClusterDimRed(liger_obj)
+```
+
+## `fastTopics`: Topic modeling for scRNA-seq
+
+\large
+
+- Topic model: each cell $F$ = **mixture of topics**
+- each topic $L$ = distribution over genes
+
+$$Y_{gj} = \sum_{k} L_{gk} F_{kj}$$
+
+\normalsize
+
+```{r fasttopic-run, include=FALSE}
+library(fastTopics)
+
+## Use the same PDAC tissue 1 count matrix (cells x genes)
+gene_var <- apply(X, 1, var)
+top_genes <- names(sort(gene_var, decreasing = TRUE))[1:5000]
+counts <- t(X[top_genes, ])
+
+fasttopic.rds <- "../data/GSE155698_PDAC_Steele2020/fasttopic_fit.rds"
+if.needed(fasttopic.rds, {
+  fit <- fit_topic_model(counts, k = 10)
+  saveRDS(fit, fasttopic.rds)
+})
+fit <- readRDS(fasttopic.rds)
+
+fasttopic.de.rds <- "../data/GSE155698_PDAC_Steele2020/fasttopic_de.rds"
+if.needed(fasttopic.de.rds, {
+  de <- de_analysis(fit, counts)
+  saveRDS(de, fasttopic.de.rds)
+})
+de <- readRDS(fasttopic.de.rds)
+```
+
+```{r fasttopic-load, eval=FALSE, echo=TRUE}
+library(fastTopics)
+
+## Use the same PDAC tissue 1 count matrix (cells x genes)
+## Select top 5000 most variable genes
+gene_var <- apply(X, 1, var)
+top_genes <- names(sort(gene_var, decreasing = TRUE))[1:5000]
+counts <- t(X[top_genes, ])
+dim(counts)
+```
+
+## `fastTopics`: Fit topic model
+
+```{r fasttopic-fit, eval=FALSE, echo=TRUE, size="Large"}
+## Fit topic model with k=10 topics
+fit <- fit_topic_model(counts, k = 10)
+```
+
+## `fastTopics`: Topic proportions per cell
+
+```{r fasttopic-L, eval=TRUE, echo=TRUE}
+## L matrix: cells x topics (topic proportions)
+head(round(fit$L, 3))
+```
+
+## `fastTopics`: Top genes per topic
+
+```{r fasttopic-genes, eval=TRUE, echo=TRUE}
+## F matrix: genes x topics (gene weights)
+top_genes <- apply(fit$F, 2, function(x) {
+  names(sort(x, decreasing = TRUE)[1:10])
+})
+top_genes[, 1:3]
+```
+
+## `fastTopics`: Structure plot
+
+```{r fasttopic-structure, eval=TRUE, fig.width=6, fig.height=2.5, message=FALSE, warning=FALSE, results='hide'}
+## Structure plot: stacked bar of topic proportions per cell
+structure_plot(fit, topics = 1:10, n = 500)
+```
+
+## `fastTopics`: Volcano plot — genes driving each topic
+
+\only<1>{Topic 1: PRSS1, REG3A, CTRB1 — pancreatic acinar cells}
+\only<2>{Topic 2: MALAT1, RPL41, RPL10 — housekeeping/ribosomal}
+\only<3>{Topic 3: FTL, SPP1, CTSD — macrophage/myeloid markers}
+\only<4>{Topic 4: RARRES1, PLA2G2A, RPL18A — ductal/regenerating}
+\only<5>{Topic 5: TMSB4X, GNLY, GZMA — cytotoxic T/NK cells}
+\only<6>{Topic 6: RARRES1, FTH1, HLA-B — ductal/epithelial}
+\only<7>{Topic 7: S100A6, RPLP1, RPS19 — epithelial}
+\only<8>{Topic 8: S100A9, S100A8, LYZ — neutrophils/monocytes}
+\only<9>{Topic 9: S100A6, FTH1, TMSB10 — proliferating}
+\only<10>{Topic 10: MALAT1, NEAT1, HLA-A — antigen presentation/stress}
+
+```{r fasttopic-volcano-1, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="1"}
+volcano_plot(de, k = 1)
+```
+
+```{r fasttopic-volcano-2, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="2"}
+volcano_plot(de, k = 2)
+```
+
+```{r fasttopic-volcano-3, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="3"}
+volcano_plot(de, k = 3)
+```
+
+```{r fasttopic-volcano-4, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="4"}
+volcano_plot(de, k = 4)
+```
+
+```{r fasttopic-volcano-5, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="5"}
+volcano_plot(de, k = 5)
+```
+
+```{r fasttopic-volcano-6, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="6"}
+volcano_plot(de, k = 6)
+```
+
+```{r fasttopic-volcano-7, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="7"}
+volcano_plot(de, k = 7)
+```
+
+```{r fasttopic-volcano-8, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="8"}
+volcano_plot(de, k = 8)
+```
+
+```{r fasttopic-volcano-9, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="9"}
+volcano_plot(de, k = 9)
+```
+
+```{r fasttopic-volcano-10, eval=TRUE, fig.width=5, fig.height=2.5, message=FALSE, warning=FALSE, only.plot="10"}
+volcano_plot(de, k = 10)
+```
+
+
+# How can we use factorization results?
+
+## Gene set enrichment analysis with PanglaoDB
+
+```{r gsea-run, include=FALSE}
+library(fgsea)
+
+gsea.rds <- "../data/GSE155698_PDAC_Steele2020/fasttopic_gsea.rds"
+if.needed(gsea.rds, {
+  panglao.db <- read.panglao("Pancreas")
+  .beta <- fit$F
+  rownames(.beta) <- colnames(counts)
+  .genes <- unique(unlist(panglao.db))
+  .dt <- sort.beta(.beta, genes.selected = .genes)
+  .gsea <- run.beta.gsea(.dt, panglao.db)
+  saveRDS(list(gsea = .gsea, beta = .dt, db = panglao.db), gsea.rds)
+})
+.gsea.result <- readRDS(gsea.rds)
+.gsea <- .gsea.result$gsea
+.dt <- .gsea.result$beta
+panglao.db <- .gsea.result$db
+```
+
+```{r gsea-panglao, eval=FALSE, echo=TRUE}
+library(fgsea)
+
+## Read PanglaoDB cell-type marker gene sets
+panglao.db <- read.panglao("Pancreas")
+
+## Prepare gene weights from fastTopics F matrix
+## Each column = topic, rows = genes
+.beta <- apply(fit$F, 2, scale)
+rownames(.beta) <- colnames(counts)
+
+## Sort genes by topic assignment
+.genes <- unique(unlist(panglao.db))
+.dt <- sort.beta(.beta, genes.selected = .genes)
+
+## Run fgsea per topic
+.gsea <- run.beta.gsea(.dt, panglao.db)
+```
+
+## GSEA results: which topics correspond to cell types?
+
+```{r gsea-plot, eval=TRUE, fig.width=5, fig.height=3, message=FALSE, warning=FALSE}
+.show <- select.gsea.beta(.gsea, .dt, sd.cutoff = 1e-4)
+
+## Enrichment heatmap: -log10(padj) per topic x cell type
+.gg.plot(.show$gsea, aes(variable, ct, fill=-log10(pmax(padj, 1e-4)))) +
+    xlab("topics") + ylab("cell types") +
+    geom_tile(linewidth=.1, color="black") +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(legend.text = element_text(size=4)) +
+    scale_fill_distiller("Padj", palette = "YlGnBu", direction=1,
+                         labels=function(x) num.sci(10^(-x)))
+```
+
+## GSEA: Gene weights across topics
+
+```{r gsea-beta, eval=TRUE, fig.width=6, fig.height=3, message=FALSE, warning=FALSE, only.plot="1"}
+p1 <-
+    .gg.plot(.show$beta, aes(row, variable, fill=`value`)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(legend.position = "none") +
+    ggrastr::rasterise(geom_tile(), dpi=300) +
+    ylab("topics") + xlab("genes") +
+    scale_fill_distiller(direction=-1, palette="RdBu")
+
+p2 <-
+    .gg.plot(.show$leading.edges, aes(row, ct)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(panel.grid = element_blank()) +
+    geom_tile(linewidth=0) +
+    ylab("cell types")
+
+print(p1/p2)
+```
+
+```{r gsea-combined, eval=TRUE, fig.width=6, fig.height=3, message=FALSE, warning=FALSE, only.plot="2"}
+p3 <-
+    .gg.plot(.show$gsea, aes(variable, ct, fill=-log10(pmax(padj, 1e-4)))) +
+    xlab("topics") + ylab("") +
+    scale_y_discrete(position = "right") +
+    geom_tile(linewidth=.1, color="black") +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(legend.text = element_text(size=4)) +
+    scale_fill_distiller("Padj", palette = "YlGnBu", direction=1,
+                         labels=function(x) num.sci(10^(-x)))
+
+C <- length(unique(.show$gsea$ct))
+K <- length(unique(.show$beta$variable))
+p0 <- ggplot() + theme_void()
+wrap_plots(p1, p0, p2, p3, nrow = 2, heights=c(K,C), widths=c(4,1))
+```
+
+## `rliger`: GSEA on shared gene loadings (W matrix)
+
+```{r liger-gsea-run, include=FALSE}
+library(fgsea)
+
+liger.gsea.rds <- "../data/GSE155698_PDAC_Steele2020/liger_gsea.rds"
+if.needed(liger.gsea.rds, {
+  W <- getMatrix(liger_obj, "W")
+  panglao.db <- read.panglao("Pancreas")
+  .beta <- apply(W, 2, scale)
+  rownames(.beta) <- rownames(W)
+  .genes <- unique(unlist(panglao.db))
+  .dt <- sort.beta(.beta, genes.selected = .genes)
+  .gsea <- run.beta.gsea(.dt, panglao.db)
+  saveRDS(list(gsea = .gsea, beta = .dt, db = panglao.db), liger.gsea.rds)
+})
+.liger.gsea <- readRDS(liger.gsea.rds)
+```
+
+```{r liger-gsea-plot, eval=TRUE, fig.width=5, fig.height=3, message=FALSE, warning=FALSE, only.plot="1"}
+.lshow <- select.gsea.beta(.liger.gsea$gsea, .liger.gsea$beta, sd.cutoff = 1e-4)
+
+lp1 <-
+    .gg.plot(.lshow$beta, aes(row, variable, fill=`value`)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(legend.position = "none") +
+    ggrastr::rasterise(geom_tile(), dpi=300) +
+    ylab("iNMF factors") + xlab("genes") +
+    scale_fill_distiller(direction=-1, palette="RdBu")
+
+lp2 <-
+    .gg.plot(.lshow$leading.edges, aes(row, ct)) +
+    theme(axis.text.x = element_blank()) +
+    theme(axis.ticks.x = element_blank()) +
+    theme(panel.grid = element_blank()) +
+    geom_tile(linewidth=0) +
+    ylab("cell types")
+
+print(lp1/lp2)
+```
+
+```{r liger-gsea-combined, eval=TRUE, fig.width=6, fig.height=3, message=FALSE, warning=FALSE, only.plot="2"}
+lp3 <-
+    .gg.plot(.lshow$gsea, aes(variable, ct, fill=-log10(pmax(padj, 1e-4)))) +
+    xlab("iNMF factors") + ylab("") +
+    scale_y_discrete(position = "right") +
+    geom_tile(linewidth=.1, color="black") +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(legend.text = element_text(size=4)) +
+    scale_fill_distiller("Padj", palette = "YlGnBu", direction=1,
+                         labels=function(x) num.sci(10^(-x)))
+
+C <- length(unique(.lshow$gsea$ct))
+K <- length(unique(.lshow$beta$variable))
+lp0 <- ggplot() + theme_void()
+wrap_plots(lp1, lp0, lp2, lp3, nrow = 2, heights=c(K,C), widths=c(4,1))
+```
+
+## Wrap-up
+
+\large
+
+- **PCA/SVD**: Find orthogonal axes of maximum variance; fast, good for QC
+- **NMF**: Non-negative, parts-based decomposition; interpretable gene programs
+- **`rliger`**: Integrative NMF across multiple datasets (batch correction)
+- **`fastTopics`**: Scalable topic model; cells as mixtures of gene programs
+- **GSEA on factors**: Link learned topics to known cell types (e.g., PanglaoDB + `fgsea`)
+
+\normalsize
+
+##
+
+## Reference {.allowframebreaks}
