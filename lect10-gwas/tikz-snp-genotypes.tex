@@ -1,0 +1,98 @@
+\begin{center}
+\begin{tikzpicture}[
+    base/.style={font=\ttfamily\scriptsize, minimum width=0.38cm, minimum height=0.35cm, inner sep=0pt},
+    snpA/.style={base, fill=blue!20, font=\ttfamily\scriptsize\bfseries, text=blue!70!black},
+    snpG/.style={base, fill=red!20, font=\ttfamily\scriptsize\bfseries, text=red!70!black},
+    brace/.style={decorate, decoration={brace, amplitude=4pt, raise=2pt}},
+    geno/.style={font=\small\bfseries, rounded corners=2pt, inner sep=3pt},
+]
+
+\def\xs{0.42}  % x spacing between bases
+\def\ys{-0.85} % y spacing between individuals
+
+% --- Column header: SNP site ---
+\node[font=\footnotesize, draw, rounded corners=2pt, fill=yellow!20, inner sep=3pt]
+  (snplabel) at (4*\xs, 1.1) {SNP};
+\draw[-{Stealth}, gray] (snplabel.south) -- (4*\xs, 0.55);
+
+% === Individual 1: A/A (homozygous ref) ===
+\def\yy{0}
+\node[font=\small, anchor=east] at (-0.8, \yy+0.18) {Ind.\ 1};
+% maternal
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base] at (\i*\xs, \yy+0.18) {\nt}; }
+\node[snpA] at (4*\xs, \yy+0.18) {A};
+% paternal
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base, text=gray] at (\i*\xs, \yy-0.18) {\nt}; }
+\node[snpA] at (4*\xs, \yy-0.18) {A};
+% outline
+\draw[thick, rounded corners=2pt, gray!60]
+  (-0.15, \yy+0.42) rectangle (9*\xs+0.15, \yy-0.42);
+% genotype
+\node[geno, blue!70!black] (g1) at (9*\xs+1.1, \yy) {A/A};
+\node[font=\scriptsize, gray, anchor=west] at (g1.east) {~homo.};
+
+% === Individual 2: A/G (heterozygous) ===
+\def\yy{-0.85}
+\node[font=\small, anchor=east] at (-0.8, \yy+0.18) {Ind.\ 2};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base] at (\i*\xs, \yy+0.18) {\nt}; }
+\node[snpA] at (4*\xs, \yy+0.18) {A};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base, text=gray] at (\i*\xs, \yy-0.18) {\nt}; }
+\node[snpG] at (4*\xs, \yy-0.18) {G};
+\draw[thick, rounded corners=2pt, gray!60]
+  (-0.15, \yy+0.42) rectangle (9*\xs+0.15, \yy-0.42);
+\node[geno, violet] (g2) at (9*\xs+1.1, \yy) {A/G};
+\node[font=\scriptsize, gray, anchor=west] at (g2.east) {~het.};
+
+% === Individual 3: A/G (heterozygous) ===
+\def\yy{-1.7}
+\node[font=\small, anchor=east] at (-0.8, \yy+0.18) {Ind.\ 3};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base] at (\i*\xs, \yy+0.18) {\nt}; }
+\node[snpG] at (4*\xs, \yy+0.18) {G};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base, text=gray] at (\i*\xs, \yy-0.18) {\nt}; }
+\node[snpA] at (4*\xs, \yy-0.18) {A};
+\draw[thick, rounded corners=2pt, gray!60]
+  (-0.15, \yy+0.42) rectangle (9*\xs+0.15, \yy-0.42);
+\node[geno, violet] (g3) at (9*\xs+1.1, \yy) {A/G};
+\node[font=\scriptsize, gray, anchor=west] at (g3.east) {~het.};
+
+% === Individual 4: G/G (homozygous alt) ===
+\def\yy{-2.55}
+\node[font=\small, anchor=east] at (-0.8, \yy+0.18) {Ind.\ 4};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base] at (\i*\xs, \yy+0.18) {\nt}; }
+\node[snpG] at (4*\xs, \yy+0.18) {G};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base, text=gray] at (\i*\xs, \yy-0.18) {\nt}; }
+\node[snpG] at (4*\xs, \yy-0.18) {G};
+\draw[thick, rounded corners=2pt, gray!60]
+  (-0.15, \yy+0.42) rectangle (9*\xs+0.15, \yy-0.42);
+\node[geno, red!70!black] (g4) at (9*\xs+1.1, \yy) {G/G};
+\node[font=\scriptsize, gray, anchor=west] at (g4.east) {~homo.};
+
+% === Individual 5: A/A (homozygous ref) ===
+\def\yy{-3.4}
+\node[font=\small, anchor=east] at (-0.8, \yy+0.18) {Ind.\ 5};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base] at (\i*\xs, \yy+0.18) {\nt}; }
+\node[snpA] at (4*\xs, \yy+0.18) {A};
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 5/T, 6/G, 7/C, 8/A, 9/T}
+  { \node[base, text=gray] at (\i*\xs, \yy-0.18) {\nt}; }
+\node[snpA] at (4*\xs, \yy-0.18) {A};
+\draw[thick, rounded corners=2pt, gray!60]
+  (-0.15, \yy+0.42) rectangle (9*\xs+0.15, \yy-0.42);
+\node[geno, blue!70!black] (g5) at (9*\xs+1.1, \yy) {A/A};
+\node[font=\scriptsize, gray, anchor=west] at (g5.east) {~homo.};
+
+% --- Dashed vertical line through SNP column ---
+\draw[dashed, thick, red!40!black, opacity=0.4]
+  (4*\xs, 0.7) -- (4*\xs, -3.8);
+
+
+\end{tikzpicture}
+\end{center}

@@ -1,0 +1,89 @@
+\begin{center}
+\begin{tikzpicture}[
+    base/.style={font=\ttfamily\scriptsize, minimum width=0.4cm, minimum height=0.35cm, inner sep=0pt},
+    comp/.style={font=\ttfamily\scriptsize, minimum width=0.4cm, minimum height=0.35cm, inner sep=0pt, text=gray},
+    brace/.style={decorate, decoration={brace, amplitude=5pt, raise=2pt}},
+]
+
+\def\yM{0.6}      % maternal sense strand
+\def\yMc{0.15}    % maternal complementary strand
+\def\yP{-1.1}     % paternal sense strand
+\def\yPc{-1.55}   % paternal complementary strand
+
+% --- Labels on the left ---
+\node[font=\bfseries\small, anchor=east] at (-0.6, 0.375) {Maternal};
+\node[font=\bfseries\small, anchor=east] at (-0.6, -1.325) {Paternal};
+
+% --- Maternal sense strand (5' to 3') ---
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 4/\textcolor{blue!70!black}{\textbf{A}}, 5/T, 6/G, 7/C, 8/A, 9/T} {
+  \ifnum\i=4
+    \node[base, fill=blue!20] (ms\i) at (\i*0.45, \yM) {\nt};
+  \else
+    \node[base] (ms\i) at (\i*0.45, \yM) {\nt};
+  \fi
+}
+% --- Maternal complementary strand (3' to 5') ---
+\foreach \i/\nt in {0/A, 1/C, 2/G, 3/T, 4/T, 5/A, 6/C, 7/G, 8/T, 9/A} {
+  \ifnum\i=4
+    \node[comp, fill=blue!8] (mc\i) at (\i*0.45, \yMc) {\nt};
+  \else
+    \node[comp] (mc\i) at (\i*0.45, \yMc) {\nt};
+  \fi
+}
+
+% --- Paternal sense strand (5' to 3') ---
+\foreach \i/\nt in {0/T, 1/G, 2/C, 3/A, 4/\textcolor{red!70!black}{\textbf{G}}, 5/T, 6/G, 7/C, 8/A, 9/T} {
+  \ifnum\i=4
+    \node[base, fill=red!20] (ps\i) at (\i*0.45, \yP) {\nt};
+  \else
+    \node[base] (ps\i) at (\i*0.45, \yP) {\nt};
+  \fi
+}
+% --- Paternal complementary strand (3' to 5') ---
+\foreach \i/\nt in {0/A, 1/C, 2/G, 3/T, 4/C, 5/A, 6/C, 7/G, 8/T, 9/A} {
+  \ifnum\i=4
+    \node[comp, fill=red!8] (pc\i) at (\i*0.45, \yPc) {\nt};
+  \else
+    \node[comp] (pc\i) at (\i*0.45, \yPc) {\nt};
+  \fi
+}
+
+% --- Strand direction labels ---
+\node[font=\tiny, gray, anchor=east] at ([xshift=-2pt]ms0.west) {5'};
+\node[font=\tiny, gray, anchor=west] at ([xshift=2pt]ms9.east) {3'};
+\node[font=\tiny, gray, anchor=east] at ([xshift=-2pt]mc0.west) {3'};
+\node[font=\tiny, gray, anchor=west] at ([xshift=2pt]mc9.east) {5'};
+\node[font=\tiny, gray, anchor=east] at ([xshift=-2pt]ps0.west) {5'};
+\node[font=\tiny, gray, anchor=west] at ([xshift=2pt]ps9.east) {3'};
+\node[font=\tiny, gray, anchor=east] at ([xshift=-2pt]pc0.west) {3'};
+\node[font=\tiny, gray, anchor=west] at ([xshift=2pt]pc9.east) {5'};
+
+% --- Chromosome outlines ---
+\draw[thick, rounded corners=3pt, blue!40!black]
+  ([xshift=-4pt, yshift=3pt]ms0.north west) rectangle ([xshift=4pt, yshift=-3pt]mc9.south east);
+\draw[thick, rounded corners=3pt, red!40!black]
+  ([xshift=-4pt, yshift=3pt]ps0.north west) rectangle ([xshift=4pt, yshift=-3pt]pc9.south east);
+
+% --- Diploid brace on the right ---
+\draw[brace] ([xshift=10pt]ms9.north east) -- ([xshift=10pt]pc9.south east)
+  node[midway, right=8pt, font=\bfseries\small, align=center] {Diploid\\[-2pt]\fontsize{7}{8}\selectfont (one from each parent)};
+
+% --- Variant site highlight ---
+\draw[dashed, thick, gray]
+  ([yshift=5pt]ms4.north) -- ([yshift=-5pt]pc4.south);
+
+% --- Allele labels ---
+\node[above=8pt of ms4, font=\small\bfseries, blue!70!black] (reflabel) {Ref allele: A};
+\node[below=8pt of pc4, font=\small\bfseries, red!70!black] (altlabel) {Alt allele: G};
+
+% --- Biallelic annotation ---
+\draw[brace, decoration={mirror}]
+  ([yshift=-3pt]altlabel.south west) -- ([yshift=-3pt]altlabel.south east)
+  node[midway, below=6pt, font=\small, align=center] {\textbf{Biallelic variant}: two alleles at one site};
+
+% --- Variant/locus label ---
+\node[above=20pt of ms4, font=\footnotesize, draw, rounded corners=2pt, fill=yellow!20, inner sep=3pt] (varlabel) {Variant (locus)};
+\draw[-{Stealth}, gray] (varlabel.south) -- (reflabel.north);
+
+\end{tikzpicture}
+\end{center}
