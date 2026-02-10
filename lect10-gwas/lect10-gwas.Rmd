@@ -178,7 +178,7 @@ _data generation_ followed by _inference_ or validation
 
 - Two forms for a variant
 
-	- \textbf{Reference} (more frequent)
+	- \textbf{Reference} (reference genome, usually more frequent)
 	- \textbf{Alternative} (less frequent)
 
 :::
@@ -481,9 +481,9 @@ https://www.cog-genomics.org/plink/1.9/formats
 
 \begin{itemize}
 \item<6-> How many haplotypes? A conventional way to code "genotype" is to sum them up (additive effect); there are several other options (dominance, heterozygous).
-\item<7-> How do you code "TT"? \only<8>{\color{red}\bf 0}
+\item<7-> How do you code "TT"? \only<8>{\color{blue}\bf 0}
 \item<7-> How do you code "CC"? \only<8>{\color{red}\bf 2}
-\item<7-> How do you code "CT"? \only<8>{\color{red}\bf 1}
+\item<7-> How do you code "CT"? \only<8>{\color{purple}\bf 1}
 \end{itemize}
 
 ## Recap: Single nucleotide polymorphism (just 5' $\to$ 3')
@@ -1189,13 +1189,13 @@ In the 1KG data, we have `r nrow(data$genotypes)` rows/individuals and `r ncol(d
 
 \begin{itemize}
 \item<2-> \textit{Recall}: Each SNP/genotype comprises two numbers (haplotypes)--one from the maternal and the other from the paternal genome.
-\item<3-> There are major (usually reference) and minor (usually effect) alleles. To save bits (in the early 2000s), geneticists used 0 for the major and 1 for the minor allele.
+\item<3-> There are major (usually reference) and minor (usually alternative) alleles. In PLINK/\texttt{bigsnpr}, the genotype value (0, 1, 2) counts the number of A2 (major) alleles.
 \item<4> So, each variant, we have a minor allele frequency (MAF), namely, $f_{j}$, for a variant $j$.
 \end{itemize}
 
 ## If each variant follows Binomial distribution 
 
-In Binomial distribution, with a MAF $f_{j}$, we have
+In Binomial distribution, with an allele frequency $f_{j}$ (of the counted allele), we have
 
 \begin{itemize}
 \item<1-> What will be a useful summary statistic for a variant $j$?
