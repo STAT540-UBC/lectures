@@ -1,0 +1,274 @@
+@ARTICLE{Korthauer2019-tw,
+  title    = "A practical guide to methods controlling false discoveries in
+              computational biology",
+  author   = "Korthauer, Keegan and Kimes, Patrick K and Duvallet, Claire and
+              Reyes, Alejandro and Subramanian, Ayshwarya and Teng, Mingxiang
+              and Shukla, Chinmay and Alm, Eric J and Hicks, Stephanie C",
+  journal  = "Genome Biol.",
+  volume   =  20,
+  number   =  1,
+  pages    =  118,
+  abstract = "BACKGROUND: In high-throughput studies, hundreds to millions of
+              hypotheses are typically tested. Statistical methods that control
+              the false discovery rate (FDR) have emerged as popular and
+              powerful tools for error rate control. While classic FDR methods
+              use only p values as input, more modern FDR methods have been
+              shown to increase power by incorporating complementary information
+              as informative covariates to prioritize, weight, and group
+              hypotheses. However, there is currently no consensus on how the
+              modern methods compare to one another. We investigate the
+              accuracy, applicability, and ease of use of two classic and six
+              modern FDR-controlling methods by performing a systematic
+              benchmark comparison using simulation studies as well as six case
+              studies in computational biology. RESULTS: Methods that
+              incorporate informative covariates are modestly more powerful than
+              classic approaches, and do not underperform classic approaches,
+              even when the covariate is completely uninformative. The majority
+              of methods are successful at controlling the FDR, with the
+              exception of two modern methods under certain settings.
+              Furthermore, we find that the improvement of the modern FDR
+              methods over the classic methods increases with the
+              informativeness of the covariate, total number of hypothesis
+              tests, and proportion of truly non-null hypotheses. CONCLUSIONS:
+              Modern FDR methods that use an informative covariate provide
+              advantages over classic FDR-controlling procedures, with the
+              relative gain dependent on the application and informativeness of
+              available covariates. We present our findings as a practical guide
+              and provide recommendations to aid researchers in their choice of
+              methods to correct for false discoveries.",
+  month    =  jun,
+  year     =  2019,
+  keywords = "ChIP-seq; False discovery rate; GWAS; Gene set analysis;
+              Microbiome; Multiple hypothesis testing; RNA-seq; ScRNA-seq",
+  language = "en"
+}
+@ARTICLE{Leek2008-mv,
+  title     = "A general framework for multiple testing dependence",
+  author    = "Leek, Jeffrey T and Storey, John D",
+  journal   = "Proc. Natl. Acad. Sci. U. S. A.",
+  publisher = "Proceedings of the National Academy of Sciences",
+  volume    =  105,
+  number    =  48,
+  pages     = "18718--18723",
+  abstract  = "We develop a general framework for performing large-scale
+               significance testing in the presence of arbitrarily strong
+               dependence. We derive a low-dimensional set of random vectors,
+               called a dependence kernel, that fully captures the dependence
+               structure in an observed high-dimensional dataset. This result
+               shows a surprising reversal of the ``curse of dimensionality'' in
+               the high-dimensional hypothesis testing setting. We show
+               theoretically that conditioning on a dependence kernel is
+               sufficient to render statistical tests independent regardless of
+               the level of dependence in the observed data. This framework for
+               multiple testing dependence has implications in a variety of
+               common multiple testing problems, such as in gene expression
+               studies, brain imaging, and spatial epidemiology.",
+  month     =  dec,
+  year      =  2008,
+  language  = "en"
+}
+@ARTICLE{Storey2003-zc,
+  title     = "{Statistical significance for genomewide studies.}",
+  author    = "Storey, John D and Tibshirani, Robert",
+  journal   = "Proceedings of the National Academy of Sciences",
+  publisher = "National Acad Sciences",
+  volume    =  100,
+  number    =  16,
+  pages     = "9440--9445",
+  abstract  = "With the increase in genomewide experiments and the sequencing of
+               multiple genomes, the analysis of large data sets has become
+               commonplace in biology. It is often the case that thousands of
+               features in a genomewide data set are tested against some null
+               hypothesis, where a number of features are expected to be
+               significant. Here we propose an approach to measuring statistical
+               significance in these genomewide studies based on the concept of
+               the false discovery rate. This approach offers a sensible balance
+               between the number of true and false positives that is
+               automatically calibrated and easily interpreted. In doing so, a
+               measure of statistical significance called the q value is
+               associated with each tested feature. The q value is similar to
+               the well known p value, except it is a measure of significance in
+               terms of the false discovery rate rather than the false positive
+               rate. Our approach avoids a flood of false positive results,
+               while offering a more liberal criterion than what has been used
+               in genome scans for linkage.",
+  month     =  aug,
+  year      =  2003,
+  language  = "English"
+}
+@ARTICLE{Stephens2017-hz,
+  title     = "{False discovery rates: a new deal}",
+  author    = "Stephens, Matthew",
+  journal   = "Biostatistics",
+  publisher = "Oxford University Press",
+  volume    =  18,
+  number    =  2,
+  pages     = "275--294",
+  abstract  = "We introduce a new Empirical Bayes approach for large-scale
+               hypothesis testing, including estimating false discovery rates
+               (FDRs), and effect sizes. This approach has two key differences
+               from existing approaches to FDR analysis. First, it assumes that
+               the distribution of the actual (unobserved) effects is unimodal,
+               with a mode at 0. This ``unimodal assumption'' (UA), although
+               natural in many contexts, is not usually incorporated into
+               standard FDR analysis, and we demonstrate how incorporating it
+               brings many benefits. Specifically, the UA facilitates efficient
+               and robust computation-estimating the unimodal distribution
+               involves solving a simple convex optimization problem-and enables
+               more accurate inferences provided that it holds. Second, the
+               method takes as its input two numbers for each test (an effect
+               size estimate and corresponding standard error), rather than the
+               one number usually used ($p$ value or $z$ score). When available,
+               using two numbers instead of one helps account for variation in
+               measurement precision across tests. It also facilitates
+               estimation of effects, and unlike standard FDR methods, our
+               approach provides interval estimates (credible regions) for each
+               effect in addition to measures of significance. To provide a
+               bridge between interval estimates and significance measures, we
+               introduce the term ``local false sign rate'' to refer to the
+               probability of getting the sign of an effect wrong and argue that
+               it is a superior measure of significance than the local FDR
+               because it is both more generally applicable and can be more
+               robustly estimated. Our methods are implemented in an R package
+               ashr available from http://github.com/stephens999/ashr.",
+  month     =  apr,
+  year      =  2017,
+  keywords  = "Empirical Bayes; False discovery rates; Multiple testing;
+               Shrinkage; Unimodal",
+  language  = "en"
+}
+@ARTICLE{Stephens2009-as,
+  title    = "Bayesian statistical methods for genetic association studies",
+  author   = "Stephens, Matthew and Balding, David J",
+  journal  = "Nat. Rev. Genet.",
+  volume   =  10,
+  number   =  10,
+  pages    = "681--690",
+  abstract = "Bayesian statistical methods have recently made great inroads into
+              many areas of science, and this advance is now extending to the
+              assessment of association between genetic variants and disease or
+              other phenotypes. We review these methods, focusing on single-SNP
+              tests in genome-wide association studies. We discuss the
+              advantages of the Bayesian approach over classical (frequentist)
+              approaches in this setting and provide a tutorial on basic
+              analysis steps, including practical guidelines for appropriate
+              prior specification. We demonstrate the use of Bayesian methods
+              for fine mapping in candidate regions, discuss meta-analyses and
+              provide guidance for refereeing manuscripts that contain Bayesian
+              analyses.",
+  month    =  oct,
+  year     =  2009,
+  language = "en"
+}
+@ARTICLE{Urbut2017-cm,
+  title       = "{Flexible statistical methods for estimating and testing
+                 effects in genomic studies with multiple conditions}",
+  author      = "Urbut, Sarah M and Wang, Gao and Carbonetto, Peter and
+                 Stephens, Matthew",
+  journal     = "Nat. Genet.",
+  institution = "bioRxiv",
+  number      =  1,
+  pages       = "187--195",
+  abstract    = "We introduce new statistical methods for analyzing genomic
+                 datasets that measure many effects in many conditions (e.g.
+                 gene expression changes under many treatments). These new
+                 methods improve on existing methods by allowing for arbitrary
+                 correlations among conditions. This flexible approach increases
+                 power, improves effect-size estimates, and facilitates more
+                 quantitative assessments of effect-size heterogeneity than
+                 simple ``shared/condition-specific'' assessments. We illustrate
+                 these features through a detailed analysis of locally-acting
+                 (``cis'') eQTLs in 44 human tissues (data from GTEx project).
+                 Our analysis identifies more eQTLs than existing approaches,
+                 consistent with improved power. More importantly, although
+                 eQTLs are often shared broadly among tissues, our more
+                 quantitative approach highlights that effect sizes can vary
+                 considerably among tissues: some shared eQTLs show stronger
+                 effects in a subset of biologically-related tissues (e.g.
+                 brain-related tissues), or in only a single tissue (e.g.
+                 testis; transformed-fibroblasts). Our methods are widely
+                 applicable, computationally tractable for many conditions, and
+                 available at https://github.com/stephenslab/mashr.",
+  month       =  may,
+  year        =  2017,
+  language    = "English"
+}
+@ARTICLE{Zou2022-vv,
+  title    = "Fine-mapping from summary data with the ``Sum of Single Effects''
+              model",
+  author   = "Zou, Yuxin and Carbonetto, Peter and Wang, Gao and Stephens,
+              Matthew",
+  journal  = "PLoS Genet.",
+  volume   =  18,
+  number   =  7,
+  pages    = "e1010299",
+  abstract = "In recent work, Wang et al introduced the ``Sum of Single
+              Effects'' (SuSiE) model, and showed that it provides a simple and
+              efficient approach to fine-mapping genetic variants from
+              individual-level data. Here we present new methods for fitting the
+              SuSiE model to summary data, for example to single-SNP z-scores
+              from an association study and linkage disequilibrium (LD) values
+              estimated from a suitable reference panel. To develop these new
+              methods, we first describe a simple, generic strategy for
+              extending any individual-level data method to deal with summary
+              data. The key idea is to replace the usual regression likelihood
+              with an analogous likelihood based on summary data. We show that
+              existing fine-mapping methods such as FINEMAP and CAVIAR also
+              (implicitly) use this strategy, but in different ways, and so this
+              provides a common framework for understanding different methods
+              for fine-mapping. We investigate other common practical issues in
+              fine-mapping with summary data, including problems caused by
+              inconsistencies between the z-scores and LD estimates, and we
+              develop diagnostics to identify these inconsistencies. We also
+              present a new refinement procedure that improves model fits in
+              some data sets, and hence improves overall reliability of the
+              SuSiE fine-mapping results. Detailed evaluations of fine-mapping
+              methods in a range of simulated data sets show that SuSiE applied
+              to summary data is competitive, in both speed and accuracy, with
+              the best available fine-mapping methods for summary data.",
+  month    =  jul,
+  year     =  2022,
+  language = "en"
+}
+@ARTICLE{Wang2020-qu,
+  title     = "A simple new approach to variable selection in regression, with
+               application to genetic fine mapping",
+  author    = "Wang, Gao and Sarkar, Abhishek and Carbonetto, Peter and
+               Stephens, Matthew",
+  journal   = "J. R. Stat. Soc. Series B Stat. Methodol.",
+  publisher = "Wiley",
+  volume    =  82,
+  number    =  5,
+  pages     = "1273--1300",
+  abstract  = "Summary We introduce a simple new approach to variable selection
+               in linear regression, with a particular focus on quantifying
+               uncertainty in which variables should be selected. The approach
+               is based on a new model?the ?sum of single effects? model, called
+               ?SuSiE??which comes from writing the sparse vector of regression
+               coefficients as a sum of ?single-effect? vectors, each with one
+               non-zero element. We also introduce a corresponding new fitting
+               procedure?iterative Bayesian stepwise selection (IBSS)?which is a
+               Bayesian analogue of stepwise selection methods. IBSS shares the
+               computational simplicity and speed of traditional stepwise
+               methods but, instead of selecting a single variable at each step,
+               IBSS computes a distribution on variables that captures
+               uncertainty in which variable to select. We provide a formal
+               justification of this intuitive algorithm by showing that it
+               optimizes a variational approximation to the posterior
+               distribution under SuSiE. Further, this approximate posterior
+               distribution naturally yields convenient novel summaries of
+               uncertainty in variable selection, providing a credible set of
+               variables for each selection. Our methods are particularly well
+               suited to settings where variables are highly correlated and
+               detectable effects are sparse, both of which are characteristics
+               of genetic fine mapping applications. We demonstrate through
+               numerical experiments that our methods outperform existing
+               methods for this task, and we illustrate their application to
+               fine mapping genetic variants influencing alternative splicing in
+               human cell lines. We also discuss the potential and challenges
+               for applying these methods to generic variable-selection
+               problems.",
+  month     =  dec,
+  year      =  2020,
+  language  = "en"
+}
