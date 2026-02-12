@@ -208,7 +208,12 @@ $$\quad \mathbb{E}\!\left[X_{ij}|Y_{i}=1\right] \neq \mathbb{E}\!\left[X_{ij}|Y_
 
 * The average genotype is the same between the case and control under the null.
 
-```{r echo=T, size="large"}
+```{r echo=T, size="large",eval=F}
+library(matrixTests)
+.gwas <- col_t_welch(X[Y == 0, ], X[Y == 1, ])
+```
+
+```{r include=F}
 ## library(matrixTests)
 .gwas.file <- "../data/genotype/gwas_results.rds"
 if.needed(.gwas.file, {
@@ -349,9 +354,9 @@ $$\text{SE} = \frac{\sigma}{\sqrt{n}}$$
 \vfill
 
 * **Both** null and alternative distributions have the same SE
-* Larger $n$ -> **both distributions become narrower**
-* Fixed effect size $\delta$ -> distributions **separate more** (relative to SE)
-* Less overlap -> easier to distinguish $H_0$ from $H_1$
+* Larger $n \implies$ **both distributions become narrower**
+* Fixed effect size $\delta \implies$ distributions **separate more** (relative to SE)
+* Less overlap $\implies$ easier to distinguish $H_0$ from $H_1$
 * Result: **higher power**
 
 \normalsize
@@ -472,8 +477,8 @@ plot_power_n(500)
 
 **Typical questions:**
 
-* Given $\alpha$, $\delta$, $\sigma$, and desired power -> find $n$
-* Given $\alpha$, $n$, $\sigma$, $\delta$ -> find power
+* Given $\alpha$, $\delta$, $\sigma$, and desired power $\implies$ find $n$
+* Given $\alpha$, $n$, $\sigma$, $\delta\implies$ find power
 
 
 
@@ -551,6 +556,49 @@ ggplot(power.data, aes(x = n, y = power, color = effect)) +
     ylim(0, 1) +
     theme(legend.position = "top")
 ```
+
+## Handy functions we can play with {.allowframebreaks}
+
+\scriptsize
+
+```
+power.t.test               package:stats               R Documentation
+
+Power calculations for one and two sample t tests
+
+Description:
+
+     Compute the power of the one- or two- sample t test, or determine
+     parameters to obtain a target power.
+
+Usage:
+
+     power.t.test(n = NULL, delta = NULL, sd = 1, sig.level = 0.05,
+                  power = NULL,
+                  type = c("two.sample", "one.sample", "paired"),
+                  alternative = c("two.sided", "one.sided"),
+                  strict = FALSE, tol = .Machine$double.eps^0.25)
+```
+
+```
+power.prop.test             package:stats              R Documentation
+
+Power Calculations for Two-Sample Test for Proportions
+
+Description:
+
+     Compute the power of the two-sample test for proportions, or
+     determine parameters to obtain a target power.
+
+Usage:
+
+     power.prop.test(n = NULL, p1 = NULL, p2 = NULL, sig.level = 0.05,
+                     power = NULL,
+                     alternative = c("two.sided", "one.sided"),
+                     strict = FALSE, tol = .Machine$double.eps^0.25)
+```
+
+\normalsize
 
 # Controlling Family-Wise Error Rate 
 
@@ -960,7 +1008,7 @@ dt.bon <- data.table(
 ) %>% mutate(sig.bon = pvalue < bon.threshold)
 
 p1 <- ggplot(dt.bon, aes(x = pos, y = -log10(pvalue), colour = sig.bon)) +
-    geom_point(size = 0.8, alpha = 0.6) +
+    geom_point(alpha = 0.6) +
     geom_hline(yintercept = -log10(bon.threshold), lty = 2, colour = "red") +
     scale_colour_manual(values = c("gray50", "red")) +
     annotate("text", x = max(dt.bon$pos) * 0.7, y = -log10(bon.threshold) + 0.3,
