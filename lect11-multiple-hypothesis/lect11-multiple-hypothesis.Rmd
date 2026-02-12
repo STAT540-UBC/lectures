@@ -4,6 +4,7 @@ author: "Yongjin Park"
 date: "12 February 2026"
 classoption: "aspectratio=169"
 fontsize: 12pt
+bibliography: multiple_hypothesis.bib
 output:
     beamer_presentation:
         theme: Madrid
@@ -1054,7 +1055,7 @@ ggplot(dt.bon.clumped, aes(x = pos, y = -log10(pvalue), colour = sig.bon)) +
 <!-- ``` -->
 <!-- \normalsize -->
 
-## Holm--Bonferroni: a less conservative FWER control
+## Holm--Bonferroni: a less conservative FWER control [@Holm1979-st]
 
 * **Holm's step-down** procedure uses decreasing multipliers:
 
@@ -1278,7 +1279,7 @@ $$\textsf{FWER} = P(V \ge 1) = P(\textsf{at least 1 false discovery})$$
 
 
 
-## Benjamini--Hochberg (BH) procedure
+## Benjamini--Hochberg (BH) procedure [@Benjamini1995-kx]
 
 \large
 
@@ -1932,7 +1933,7 @@ ggplot(qval.zoom, aes(x = pvalue, y = qvalue, color = pi0)) +
 
 # Beyond global FDR: gene-by-gene localized control
 
-## Local false discovery rate (Efron 2001)
+## Local false discovery rate [@Efron2001-ue; @Efron2010-lb]
 
 \large
 
@@ -2295,3 +2296,6 @@ ggplot(comparison_ash_top, aes(x = 1:nrow(comparison_ash_top))) +
 :::
 ::::::
 
+##
+
+## Reference {.allowframebreaks}
