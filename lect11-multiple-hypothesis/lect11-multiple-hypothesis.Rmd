@@ -1765,19 +1765,17 @@ $$q(p_i) \approx P(H_0 \mid p \le p_i)$$
 
 \large
 
-We want to control: $P(H_0 \mid \text{reject}) = P(H_0 \mid p \le t)$
+**Bayes rule**: $P(H_0 \mid p \le t) = \frac{P(p \le t \mid H_0) \cdot P(H_0)}{P(p \le t)}$
 
-**Bayes rule**:
+\vfill
 
-$$P(H_0 \mid p \le t) = \frac{P(p \le t \mid H_0) \cdot P(H_0)}{P(p \le t)}$$
+$$P(H_0 \mid p \le t) = \frac{t \cdot \pi_0}{\#\{p_i \le t\} / m} \approx q(t)$$
+
+\vfill
+
+[@Storey2003-yd]
 
 \normalsize
-
-* It is called "positive" FDR because of the denominator.
-
-* What is the first term of the numerator?
-
- [@Storey2003-yd]
 
 ## Storey's q-value
 
