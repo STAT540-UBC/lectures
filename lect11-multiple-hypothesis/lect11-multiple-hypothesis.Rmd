@@ -1,0 +1,2297 @@
+---
+title: "Multiple Hypothesis Testing (in DEG, GWAS)"
+author: "Yongjin Park"
+date: "12 February 2026"
+classoption: "aspectratio=169"
+fontsize: 12pt
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{positioning,fit}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+    \include{toc}
+---
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/multiple-hypothesis/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+
+theme_set(theme_classic() + theme(title = element_text(size=10)))
+```
+
+
+## An example: Genome-wide Association Studies
+
+\large
+
+::: {.block}
+### GWAS
+
+* Input:
+
+    - A genotype matrix $X$ ${(n{\times}p)}$, where $X_{ij} \in \{0, 1, 2\}$
+
+    - A phenotype vector $\mathbf{y}$ ${(n{\times}1)}$
+
+* Optimization:
+
+\centerline{$\mathbf{y} = \mathbf{x}_{j} \beta_{j} + \epsilon,\, \textsf{for each }j$}
+
+* Output:
+
+    - Estimate an effect size (coefficient) $\beta_{j}$ ${(j \in 1,\ldots, p)}$
+
+:::
+
+
+* Testing $H_{0}: \beta_{j} = 0$ vs. $H_{1}: \beta_{j} \neq 0$.
+
+\normalsize
+
+
+
+```{r download_1000g_data, include=F}
+dir.create("../data/genotype/", recursive=TRUE, showWarnings=FALSE)
+
+library(bigsnpr)
+.bed.file <- "../data/genotype/1000G_phase3_common_norel.bed"
+if.needed(.bed.file, {
+    download_1000G("../data/genotype/")
+})
+
+.bk.file <- "../data/genotype/1000G_phase3_common_norel.rds"
+if.needed(.bk.file, {
+    BED <- snp_readBed(.bed.file)
+})
+```
+
+```{r include=F}
+.fam.file <- "../data/genotype/1000G_phase3_common_norel.fam"
+.bim.file <- "../data/genotype/1000G_phase3_common_norel.bim"
+data <- snp_attach(.bk.file)
+```
+
+```{r include = F}
+pop.info.file <- "../data/genotype/1000G_phase3_common_norel.fam2"
+pop.info <- fread(pop.info.file)
+```
+
+## GWAS to map locations associated with case vs. control tests
+
+```{r include=F}
+## population structure
+W <-
+    pop.info %>%
+    mutate(one = 1) %>%
+    dcast(`sample.ID` ~ `Super Population`, value.var = "one", fill = 0) %>%
+    (function(x) left_join(data$fam[, "sample.ID", drop = F], x)) %>%
+    column_to_rownames("sample.ID") %>%
+    as.matrix()
+
+## Take first 10000 variants
+X <- data$genotypes[, 1:10000]
+rownames(X) <- data$fam$sample.ID
+colnames(X) <- data$map$physical.pos[1:10000]
+
+#' @param X genotype matrix
+#' @param W population structure
+#' @param h2 heritability
+#' @param pve.w population PVe
+#' @param n.causal
+#' @param n.traits
+simulate.pgs <- function(X, W, h2, pve.w, n.causal, n.traits = 1) {
+    .rnorm <- function(d1, d2) matrix(rnorm(d1*d2), d1, d2)
+    causal.snp <- sample(ncol(X), n.causal)
+    xx.causal <- apply(X[, causal.snp, drop=FALSE], 2, scale)
+    xx.causal[is.na(xx.causal)] <- 0
+
+    n.ind <- nrow(X)
+    y.true <- apply(xx.causal %*% .rnorm(n.causal, n.traits), 2, scale)
+    if(pve.w > 0){
+        y.pop <- apply(W %*% .rnorm(ncol(W), n.traits), 2, scale)
+    }else{
+        y.pop <- 0
+    }
+    y.err <- apply(.rnorm(n.ind, n.traits), 2, scale)
+
+    y.obs <- y.true * sqrt(h2) + y.pop * sqrt(pve.w)
+    y.obs <- y.obs + y.err * sqrt(1 - h2 - pve.w)
+
+    prop <- 1/(1+ exp(-y.obs))
+    y.cc <- rbinom(length(prop), 1, prop)
+
+    list(y.q = y.obs, y.cc = y.cc, x = X, w = W, causal = causal.snp)
+}
+```
+
+```{r}
+.sim.file <- "../data/genotype/gwas_simulation.rds"
+if.needed(.sim.file, {
+    set.seed(1)
+    .sim <- simulate.pgs(X, W, h2=.3, pve.w=0, n.causal=3)
+    saveRDS(.sim, .sim.file)
+})
+.sim <- readRDS(.sim.file)
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+A genotype matrix $X$ ($X_{ij} \in \{0,1,2\}$):
+
+```{r fig.width=2.5, fig.height=2.35}
+X <- .sim$x
+.matshow(X[1:30,1:30], .lw=.1, .lab=2)
+```
+
+:::
+::: {.column width=.5}
+
+A vector of phenotypes $Y$ ($Y_{i} = 1$ if case vs. $Y_{i} = 0$ if control)
+
+```{r}
+Y <- .sim$y.cc
+```
+
+```{r echo=T, size="large"}
+table(Y)
+```
+
+$${}$$
+
+Goal: Find locations (columns of $X$) where a genotype $\mathbf{x}_{j}$ is associated with a phenotype $\mathbf{y}$
+
+:::
+::::::
+
+## GWAS by variant-by-variant association tests
+
+A variant-by-variant association t-test for a variant $j$:
+
+$$H_{0}:\, \mathbb{E}\!\left[X_{ij}|Y_{i}=1\right] = \mathbb{E}\!\left[X_{ij}|Y_{i}=0\right]\quad\textsf{vs.}$$
+
+$$\quad \mathbb{E}\!\left[X_{ij}|Y_{i}=1\right] \neq \mathbb{E}\!\left[X_{ij}|Y_{i}=0\right]$$
+
+* The average genotype is the same between the case and control under the null.
+
+```{r echo=T, size="large"}
+## library(matrixTests)
+.gwas.file <- "../data/genotype/gwas_results.rds"
+if.needed(.gwas.file, {
+    .gwas <- col_t_welch(X[Y == 0, ], X[Y == 1, ])
+    saveRDS(.gwas, .gwas.file)
+})
+.gwas <- readRDS(.gwas.file)
+```
+
+# Hypothesis testing in terms of two errors
+
+## Recap: Steps of hypothesis testing
+
+\large
+
+1. **Choose a test statistic** and formulate hypotheses
+   - Null hypothesis $H_0$: no effect / no difference
+
+2. **Define the rejection region**
+   - Set significance level $\alpha$ (e.g., 0.05)
+   - Determine critical values or thresholds
+
+3. **Compute the test statistic** from observed data
+
+4. **Make a decision**
+   - If test statistic falls in rejection region (or p-value < $\alpha$): reject $H_0$
+
+\normalsize
+
+
+## What does type I error mean for a single test?
+
+```{r fig.width=5.5, fig.height=2.9}
+## null and alternative distributions
+x <- seq(-4, 6, length.out = 500)
+alpha <- 0.05
+crit <- qnorm(1 - alpha/2)
+
+df.null <- data.table(x = x, density = dnorm(x), dist = "Null (H0 true)")
+df.alt <- data.table(x = x, density = dnorm(x, mean = 2), dist = "Alternative (H1 true)")
+df.plot <- rbind(df.null, df.alt)
+
+ggplot(df.plot, aes(x, density, color = dist, linetype = dist)) +
+    geom_line(linewidth = 1) +
+    geom_area(data = df.null[x > crit],
+              aes(x, density), fill = "red", alpha = .3, inherit.aes = FALSE) +
+    geom_area(data = df.null[x < -crit],
+              aes(x, density), fill = "red", alpha = .3, inherit.aes = FALSE) +
+    geom_vline(xintercept = c(-crit, crit), lty=1, color = "red", linewidth = .6) +
+    annotate("text", x = 3.2, y = .32, label = "Type I\nerror (alpha)",
+             color = "red", fontface = "bold", size = 3) +
+    scale_color_manual(values = c("darkgreen", "blue")) +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+    labs(x = "Test statistic", y = "Density",
+         title = "Type I error: rejecting H0 when H0 is true",
+         color = NULL, linetype = NULL) +
+    theme(legend.position = "top")
+```
+
+## Type I and Type II errors (`lect04`)
+
+|                    | $H_0$ True         | $H_0$ False          |
+|--------------------|--------------------|----------------------|
+| **Reject $H_0$**   | Type I Error ($\alpha$) | Correct (Power)      |
+| **Fail to reject** | Correct            | Type II Error ($\beta$) |
+
+\vfill
+
+* **Type I Error** (false positive): Reject $H_0$ when it is actually true
+
+* **Type II Error** (false negative): Fail to reject $H_0$ when it is actually false
+
+## Statistical power: $1 - \beta$
+
+\large
+
+**Power** = Probability of correctly rejecting $H_0$ when it is false
+
+$$\text{Power} = 1 - \beta = P(\text{reject } H_0 \mid H_1 \text{ is true})$$
+
+\vfill
+
+Power depends on:
+
+1. **Significance level** $\alpha$ (Type I error rate)
+2. **Effect size** $\delta$ (how different $H_1$ is from $H_0$)
+3. **Sample size** $n$
+4. **Variability** $\sigma$
+
+\normalsize
+
+## Visualizing power
+
+```{r power-viz, fig.width=5.5, fig.height=2.9}
+# Null and alternative distributions
+x <- seq(-4, 6, length.out = 500)
+alpha <- 0.05
+effect.size <- 2  # Mean difference in standard deviation units
+crit <- qnorm(1 - alpha)
+
+df.null <- data.table(x = x, density = dnorm(x), dist = "Null (H0)")
+df.alt <- data.table(x = x, density = dnorm(x, mean = effect.size), dist = "Alternative (H1)")
+
+# Type II error region (fail to reject when H1 is true)
+beta.region <- df.alt[x < crit]
+power.region <- df.alt[x >= crit]
+
+ggplot() +
+    geom_line(data = rbind(df.null, df.alt),
+              aes(x, density, color = dist, linetype = dist), linewidth = 1) +
+    geom_area(data = power.region, aes(x, density),
+              fill = "green", alpha = 0.3) +
+    geom_area(data = beta.region, aes(x, density),
+              fill = "orange", alpha = 0.3) +
+    geom_vline(xintercept = crit, lty = 2, color = "red", linewidth = 0.6) +
+    annotate("text", x = crit + 1.5, y = 0.32,
+             label = sprintf("Power = %.2f", 1 - pnorm(crit, mean = effect.size)),
+             color = "darkgreen", fontface = "bold", size = 4) +
+    annotate("text", x = crit - 1.5, y = 0.12,
+             label = sprintf("β = %.2f", pnorm(crit, mean = effect.size)),
+             color = "darkorange", fontface = "bold", size = 4) +
+    scale_color_manual(values = c("darkgreen", "blue")) +
+    scale_linetype_manual(values = c("dashed", "solid")) +
+    labs(x = "Test statistic", y = "Density",
+         title = sprintf("Power analysis: alpha = %.2f, effect size = %.1f SD", alpha, effect.size),
+         color = NULL, linetype = NULL) +
+    theme(legend.position = "top")
+```
+
+## Why statistical power changes with $n$
+
+\large
+
+**Key insight**: As $n \uparrow$, the standard error $\downarrow$
+
+$$\text{SE} = \frac{\sigma}{\sqrt{n}}$$
+
+\vfill
+
+* **Both** null and alternative distributions have the same SE
+* Larger $n$ -> **both distributions become narrower**
+* Fixed effect size $\delta$ -> distributions **separate more** (relative to SE)
+* Less overlap -> easier to distinguish $H_0$ from $H_1$
+* Result: **higher power**
+
+\normalsize
+
+## Power increases with sample size: visualization
+
+```{r power-sample-size-n10, fig.width=5.5, fig.height=2.8, only.plot="1"}
+delta <- 1.5  # True effect size
+alpha <- 0.05
+
+# Function to create plot for a given sample size
+plot_power_n <- function(n) {
+    sigma <- 10  # Population standard deviation (make it larger for clearer visualization)
+    se <- sigma / sqrt(n)  # Standard error (same for both H0 and H1)
+    crit <- qnorm(1 - alpha) * se
+    power <- 1 - pnorm(crit, mean = delta, sd = se)
+    beta <- pnorm(crit, mean = delta, sd = se)
+
+    # Create x range to show both null (at 0) and alternative (at delta) ±4 SE
+    x.min <- min(0 - 4*se, delta - 4*se)
+    x.max <- max(0 + 4*se, delta + 4*se)
+    x.vals <- seq(x.min, x.max, length.out = 500)
+
+    df.null <- data.table(x = x.vals, density = dnorm(x.vals, mean = 0, sd = se),
+                          dist = "Null (H0)")
+    df.alt <- data.table(x = x.vals, density = dnorm(x.vals, mean = delta, sd = se),
+                         dist = "Alternative (H1)")
+
+    # Type I error (alpha), Type II error (beta), and power regions
+    alpha.region <- df.null[x >= crit]
+    beta.region <- df.alt[x < crit]
+    power.region <- df.alt[x >= crit]
+
+    ggplot() +
+        geom_line(data = rbind(df.null, df.alt),
+                  aes(x, density, color = dist, linetype = dist), linewidth = 1) +
+        geom_area(data = alpha.region, aes(x, density),
+                  fill = "red", alpha = 0.25) +
+        geom_area(data = power.region, aes(x, density),
+                  fill = "green", alpha = 0.3) +
+        geom_area(data = beta.region, aes(x, density),
+                  fill = "orange", alpha = 0.3) +
+        geom_vline(xintercept = 0, lty = 2, linewidth = .1) +        
+        geom_vline(xintercept = crit, color = "red", linewidth = 0.6) +
+        # Mark the SE with a horizontal segment at the base
+        annotate("segment", x = 0, xend = se,
+                 y = -max(df.null$density) * 0.05, yend = -max(df.null$density) * 0.05,
+                 color = "blue", linewidth = 1.5,
+                 arrow = arrow(ends = "both", length = unit(0.15, "cm"))) +
+        annotate("text", x = se/2, y = 0.01, vjust = 0,
+                 label = sprintf("SE = %.2f", se),
+                 color = "blue", fontface = "bold", size = 3.5) +
+        annotate("text", x = crit + 1.5*se, y = max(df.null$density) * 0.4,
+                 label = sprintf("alpha = %.2f", alpha),
+                 color = "red", fontface = "bold", size = 3) +
+        annotate("text", x = max(crit + 0.5*se, delta + 0.5*se),
+                 y = max(df.alt$density) * 0.7,
+                 label = sprintf("Power = %.2f", power),
+                 color = "darkgreen", fontface = "bold", size = 3.5) +
+        annotate("text", x = min(crit - 0.5*se, delta - 0.5*se),
+                 y = max(df.alt$density) * 0.3,
+                 label = sprintf("beta = %.2f", beta),
+                 color = "darkorange", fontface = "bold", size = 3.5) +
+        scale_color_manual(values = c("darkgreen", "blue")) +
+        scale_linetype_manual(values = c("dashed", "solid")) +
+        labs(x = "Test statistic", y = "Density",
+             title = sprintf("n = %d", n),
+             color = NULL, linetype = NULL) +
+        theme(legend.position = "top")
+}
+
+# n = 10
+plot_power_n(10)
+```
+
+```{r power-sample-size-n30, fig.width=5.5, fig.height=2.8, only.plot="2"}
+# n = 30
+plot_power_n(30)
+```
+
+```{r power-sample-size-n100, fig.width=5.5, fig.height=2.8, only.plot="3"}
+# n = 100
+plot_power_n(100)
+```
+
+```{r power-sample-size-n500, fig.width=5.5, fig.height=2.8, only.plot="4"}
+# n = 500
+plot_power_n(500)
+```
+
+## What do we need to perform power calculation?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+1. **Significance level** ($\alpha$)
+   - Type I error rate we're willing to accept
+
+2. **Effect size** ($\delta$ or Cohen's $d$)
+   - Can estimate from pilot data or literature
+
+3. **Sample size** ($n$)
+   - Number of observations per group
+
+:::
+::: {.column width=.5}
+
+4. **Standard deviation** ($\sigma$)
+   - Estimate from prior experiments
+
+5. **Power** ($1-\beta$)
+   - Higher power = more confident in detecting true effects
+
+:::
+::::::
+
+\vfill
+
+**Typical questions:**
+
+* Given $\alpha$, $\delta$, $\sigma$, and desired power -> find $n$
+* Given $\alpha$, $n$, $\sigma$, $\delta$ -> find power
+
+
+
+## Power calculation in R (e.g., t-test)
+
+**Question**: How much power do we have with the sample size $n$?
+
+```{r echo=T, eval=F, size="large"}
+power.t.test(
+    delta = 0.5,      # Effect size (mean diff)
+    sd = 1,           # Standard deviation
+    n = 50,           # Sample size per group
+    sig.level = 0.05, # Rejection region (desired Type I)
+    type = "two.sample"
+)
+```
+
+**Answer**: roughly 0.7 power
+
+<!-- **What affects power?** -->
+<!-- * increase Sample size -> increase Power -->
+<!-- * increase Effect size -> increase Power -->
+<!-- * increase $\alpha$ -> increase Power (but more Type I errors!) -->
+<!-- * decrease Variability -> increase Power -->
+
+<!-- ::: -->
+<!-- :::::: -->
+
+## Sample size calculation
+
+**Question**: How many samples do we need to achieve 80% power?
+
+```{r echo=T, eval=F, size="large"}
+# Calculate required sample size for 80% power
+power.t.test(
+    delta = 0.5,       # Effect size...
+    sd = 1,            # Standard deviation
+    power = 0.8,       # Desired power
+    sig.level = 0.05,
+    type = "two.sample"
+)
+```
+
+**Answer**: $\approx$ 64 samples per group for the effect size $\delta=0.5$
+
+## Power curves: sample size vs. power
+
+```{r power-curves, fig.width=5, fig.height=2.9}
+# Calculate power for different sample sizes and effect sizes
+sample.sizes <- seq(10, 200, by = 5)
+effect.sizes <- c(0.2, 0.5, 0.8)  # Small, medium, large
+
+power.data <- expand.grid(
+    n = sample.sizes,
+    delta = effect.sizes
+) %>%
+    rowwise() %>%
+    mutate(
+        power = power.t.test(delta = delta, sd = 1, n = n,
+                            sig.level = 0.05, type = "two.sample")$power,
+        effect = factor(delta, levels = c(0.2, 0.5, 0.8),
+                       labels = c("Small (delta=0.2)", "Medium (delta=0.5)", "Large (delta=0.8)"))
+    ) %>%
+    as.data.table()
+
+ggplot(power.data, aes(x = n, y = power, color = effect)) +
+    geom_line(linewidth = 1) +
+    geom_hline(yintercept = 0.8, lty = 2, color = "gray40") +
+    annotate("text", x = 180, y = 0.82, label = "80% power",
+             color = "gray40", size = 3) +
+    scale_color_manual(values = c("red3", "orange2", "green4")) +
+    labs(x = "Sample size per group", y = "Statistical power",
+         title = "Power curves for two-sample t-test (alpha = 0.05)",
+         color = "Effect size") +
+    ylim(0, 1) +
+    theme(legend.position = "top")
+```
+
+# Controlling Family-Wise Error Rate 
+
+## What if we have more than one hypothesis?
+
+```{r type-i-ii-tradeoff, fig.width=4.5, fig.height=2.9}
+library(mvtnorm)
+
+## Grid
+xs <- seq(-3.5, 6, length.out = 200)
+ys <- seq(-3.5, 6, length.out = 200)
+grid <- expand.grid(x = xs, y = ys)
+
+## Two 2D Gaussians: null at origin, alternative shifted
+mu0 <- c(0, 0)
+mu1 <- c(2.5, 2.5)
+Sigma <- matrix(c(1, 0.3, 0.3, 1), 2, 2)
+
+grid$d.null <- dmvnorm(as.matrix(grid[, 1:2]), mean = mu0, sigma = Sigma)
+grid$d.alt  <- dmvnorm(as.matrix(grid[, 1:2]), mean = mu1, sigma = Sigma)
+
+## Decision boundary: circle of radius r around null center
+r.thresh <- qnorm(1 - 0.025)
+grid$dist.null <- sqrt(grid$x^2 + grid$y^2)
+grid$reject <- grid$dist.null > r.thresh
+
+dt.grid <- as.data.table(grid)
+
+dt.grid[, region := fcase(
+    reject & d.null > 0.001, "Type I: reject true null",
+    !reject & d.alt > 0.001, "Type II: miss true alt",
+    default = NA_character_
+)]
+
+## Simulate points from both distributions for hex density
+set.seed(42)
+n.pts <- 8000
+pts.null <- as.data.table(rmvnorm(n.pts, mean = mu0, sigma = Sigma))
+pts.alt  <- as.data.table(rmvnorm(n.pts, mean = mu1, sigma = Sigma))
+setnames(pts.null, c("x", "y"))
+setnames(pts.alt, c("x", "y"))
+pts.null[, dist := "Null"]
+pts.alt[, dist := "Alt"]
+
+## Main 2D hex density plot
+p.2d.main <- ggplot() +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_hex(data = pts.alt, aes(x = x, y = y), fill = "steelblue", alpha = 0.5, bins = 30) +
+    # Add vertical and horizontal lines for alpha = 0.05 threshold
+    geom_vline(xintercept = c(-r.thresh, r.thresh), lty = 2, colour = "red", linewidth = 0.5, alpha = 0.6) +
+    geom_hline(yintercept = c(-r.thresh, r.thresh), lty = 2, colour = "red", linewidth = 0.5, alpha = 0.6) +
+    annotate("path",
+             x = r.thresh * cos(seq(0, 2*pi, length.out = 200)),
+             y = r.thresh * sin(seq(0, 2*pi, length.out = 200)),
+             lty = 2, colour = "red", linewidth = 0.7) +
+    annotate("text", x = 0, y = -0.3, label = "H0", size = 3, fontface = "bold", colour = "red") +
+    annotate("text", x = 3.5, y = 3.2, label = "H1", size = 3, fontface = "bold", colour = "steelblue") +
+    annotate("text", x = -2.8, y = 2.8, label = "reject", size = 2, colour = "red") +
+    annotate("text", x = r.thresh, y = -3, label = "alpha=0.05", size = 2, colour = "red", angle = 90, vjust = -0.3) +
+    annotate("text", x = -3, y = r.thresh, label = "alpha=0.05", size = 2, colour = "red", vjust = -0.3) +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none",
+          plot.margin = margin(0, 0, 0, 0))
+
+## Top marginal: density along x (Hypothesis 1)
+dt.marg.x <- data.table(
+    x = xs,
+    null = dnorm(xs, mean = mu0[1], sd = sqrt(Sigma[1,1])),
+    alt  = dnorm(xs, mean = mu1[1], sd = sqrt(Sigma[1,1]))
+) %>% melt(id.vars = "x", variable.name = "dist", value.name = "density")
+
+p.top <- ggplot(dt.marg.x, aes(x = x, y = density, colour = dist)) +
+    geom_line(linewidth = 0.7) +
+    geom_vline(xintercept = c(-r.thresh, r.thresh), lty = 2, colour = "red", linewidth = 0.4, alpha = 0.6) +
+    scale_colour_manual(values = c(null = "gray30", alt = "steelblue")) +
+    labs(y = NULL, title = "Hypothesis 1") +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+          axis.title.x = element_blank(), axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none",
+          plot.margin = margin(0, 0, 0, 0))
+
+## Right marginal: same structure as top, but coord_flip
+dt.marg.y <- data.table(
+    x = ys,
+    null = dnorm(ys, mean = mu0[2], sd = sqrt(Sigma[2,2])),
+    alt  = dnorm(ys, mean = mu1[2], sd = sqrt(Sigma[2,2]))
+) %>% melt(id.vars = "x", variable.name = "dist", value.name = "density")
+
+p.right <- ggplot(dt.marg.y, aes(x = x, y = density, colour = dist)) +
+    geom_line(linewidth = 0.7) +
+    geom_vline(xintercept = c(-r.thresh, r.thresh), lty = 2, colour = "red", linewidth = 0.4, alpha = 0.6) +
+    scale_colour_manual(values = c(null = "gray30", alt = "steelblue")) +
+    coord_flip() +
+    labs(y = NULL, title = "Hyp 2") +
+    theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+          axis.title.x = element_blank(), axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position = "none",
+          plot.margin = margin(0, 0, 0, 0))
+
+## Compose with patchwork
+p.top + plot_spacer() + p.2d.main + p.right +
+    plot_layout(ncol = 2, nrow = 2,
+                widths = c(4, 1), heights = c(1, 4))
+```
+
+<!-- Marginals show the familiar 1D null vs alt for each hypothesis; the 2D -->
+<!-- view shows where errors overlap. -->
+
+
+## What if we decided to reject either one at $\alpha<0.05$
+
+```{r fig.width=5, fig.height=2.9, only.plot="1"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -r.thresh, ymin = -Inf, ymax = Inf,
+             fill = "red", alpha = 0.15) +
+    annotate("rect", xmin = r.thresh, xmax = Inf, ymin = -Inf, ymax = Inf,
+             fill = "red", alpha = 0.15) +
+    annotate("rect", xmin = -r.thresh, xmax = r.thresh, ymin = -Inf, ymax = -r.thresh,
+             fill = "red", alpha = 0.15) +
+    annotate("rect", xmin = -r.thresh, xmax = r.thresh, ymin = r.thresh, ymax = Inf,
+             fill = "red", alpha = 0.15) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_vline(xintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    geom_hline(yintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 4, fontface = "bold", colour = "blue") +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Reject EITHER hypothesis at alpha=0.05") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+```{r fig.width=5, fig.height=2.9, only.plot="2"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -r.thresh, ymin = -Inf, ymax = Inf,
+             fill = "red", alpha = 0.15) +
+    annotate("rect", xmin = r.thresh, xmax = Inf, ymin = -Inf, ymax = Inf,
+             fill = "red", alpha = 0.15) +
+    annotate("rect", xmin = -r.thresh, xmax = r.thresh, ymin = -Inf, ymax = -r.thresh,
+             fill = "red", alpha = 0.15) +
+    annotate("rect", xmin = -r.thresh, xmax = r.thresh, ymin = r.thresh, ymax = Inf,
+             fill = "red", alpha = 0.15) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_hex(data = pts.alt, aes(x = x, y = y), fill = "steelblue", alpha = 0.4, bins = 30) +
+    geom_vline(xintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    geom_hline(yintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 4, fontface = "bold", colour = "blue") +
+    annotate("text", x = mu1[1], y = mu1[2], label = "H1", size = 4, fontface = "bold", colour = "steelblue") +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Reject EITHER hypothesis at alpha=0.05") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+
+## What if we test each hypothesis $\alpha < 0.05$?
+
+```{r fig.width=5, fig.height=2.9, only.plot="1"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -r.thresh, ymin = r.thresh, ymax = Inf,
+             fill = "darkred", alpha = 0.2) +
+    annotate("rect", xmin = r.thresh, xmax = Inf, ymin = r.thresh, ymax = Inf,
+             fill = "darkred", alpha = 0.2) +
+    annotate("rect", xmin = -Inf, xmax = -r.thresh, ymin = -Inf, ymax = -r.thresh,
+             fill = "darkred", alpha = 0.2) +
+    annotate("rect", xmin = r.thresh, xmax = Inf, ymin = -Inf, ymax = -r.thresh,
+             fill = "darkred", alpha = 0.2) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_vline(xintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    geom_hline(yintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    annotate("text", x = -2.8, y = 3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = 2.8, y = 3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = -2.8, y = -3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = 2.8, y = -3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = 0, y = 0, label = "H0", size = 4, fontface = "bold", colour = "blue") +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Reject BOTH hypotheses") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+```{r fig.width=5, fig.height=2.9, only.plot="2"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -r.thresh, ymin = r.thresh, ymax = Inf,
+             fill = "darkred", alpha = 0.2) +
+    annotate("rect", xmin = r.thresh, xmax = Inf, ymin = r.thresh, ymax = Inf,
+             fill = "darkred", alpha = 0.2) +
+    annotate("rect", xmin = -Inf, xmax = -r.thresh, ymin = -Inf, ymax = -r.thresh,
+             fill = "darkred", alpha = 0.2) +
+    annotate("rect", xmin = r.thresh, xmax = Inf, ymin = -Inf, ymax = -r.thresh,
+             fill = "darkred", alpha = 0.2) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_hex(data = pts.alt, aes(x = x, y = y), fill = "steelblue", alpha = 0.4, bins = 30) +
+    geom_vline(xintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    geom_hline(yintercept = c(-r.thresh, r.thresh), colour = "red", linewidth = 1) +
+    annotate("text", x = -2.8, y = 3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = 2.8, y = 3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = -2.8, y = -3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = 2.8, y = -3, label = "Reject\nboth",
+             size = 2.5, colour = "darkred", fontface = "bold") +
+    annotate("text", x = 0, y = 0, label = "H0", size = 4, fontface = "bold", colour = "blue") +
+    annotate("text", x = mu1[1], y = mu1[2], label = "H1", size = 4, fontface = "bold", colour = "steelblue") +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Reject BOTH hypotheses") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+## Wait, what was the definition of p-value?
+
+\large
+
+**P-value**: Probability of observing a test statistic as extreme or more extreme than what we observed, **assuming the null hypothesis is true**
+
+$$P(\text{data as extreme or more} \mid H_0 \text{ is true})$$
+
+For a single test at $\alpha = 0.05$:
+
+- $P(\text{Type I error}) = P(\text{reject} H_0 \mid H_0\text{ is true}) < \alpha = 0.05$
+
+## What about two p-values?
+
+**Union rule** (probability of A or B):
+$$P(A \cup B) = P(A) + P(B) - P(A \cap B) < P(A) + P(B)$$
+
+**Independence** (probability of A and B when independent):
+$$P(A \cap B) = P(A) \times P(B)$$
+
+When we want to "control" two hypothesis testing....
+
+$$P(\text{reject at least one true } H_0 \mid H_{0}) \leq \alpha + \alpha$$
+
+**What will be the $\alpha$ value that is guaranteed to control both?**
+
+## Manhattan plot to show all the p-values...
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r fig.width=3, fig.height=2.5}
+par(pch=19, col="gray40", cex=.5)
+plot(colnames(X), -log10(.gwas$pvalue), xlab = "genomic location", ylab = "-log10 p-value")
+points(colnames(X)[.sim$causal], -log10(.gwas$pvalue)[.sim$causal], col=2, cex=1, lwd=2, pch=1)
+legend("topleft", "causal variant", col=2, pch=1, lwd=1.5, lty=0, cex=2)
+```
+
+:::
+::: {.column width=.5}
+
+```{r fig.width=3, fig.height=2.5}
+par(pch=19, col="gray40", cex=.5)
+hist(.gwas$pvalue, 50, main="", xlab="p-value")
+```
+
+:::
+::::::
+
+We have $p = 10{,}000$ p-values. How do we decide which variants are significant?
+
+## The problem: we tested 10,000 hypotheses
+
+```{r}
+causal.variants <- .sim$causal
+gwas.p <- .gwas$pvalue
+```
+
+\large
+
+* We performed $10{,}000$ simultaneous tests.
+
+* At $\alpha = 0.05$, how many false positives do we expect **by chance alone**?
+
+$$\mathbb{E}[\text{\# false positives}] = 10{,}000 \times 0.05 = 500$$
+
+* We need a principled way to control errors when testing many hypotheses at once.
+
+\normalsize
+
+
+## Why does this matter for 10,000 tests?
+
+```{r fig.width=5.5, fig.height=2.7}
+## Simulate 10000 p-values under the null
+set.seed(42)
+n.tests <- 10000
+null.pvals <- runif(n.tests)  # all null
+
+dt.pvals <- data.table(pvalue = null.pvals,
+                        significant = null.pvals < 0.05)
+
+ggplot(dt.pvals, aes(pvalue, fill = significant)) +
+    geom_histogram(bins = 50, color = "white", linewidth = .2) +
+    scale_fill_manual(values = c("gray60", "red"),
+                      labels = c("Not rejected", "False positive (Type I)")) +
+    geom_vline(xintercept = 0.05, lty = 2, color = "red", linewidth = .8) +
+    annotate("text", x = 0.07, y = 350,
+             label = paste0(sum(dt.pvals$significant), " false positives\nout of ",
+                            n.tests, " null tests"),
+             color = "red", fontface = "bold", size = 3.5,
+             hjust = 0, vjust = 1) +
+    labs(x = "p-value", y = "Count",
+         title = "All 10,000 tests are null — yet we get ~500 'significant' results",
+         fill = NULL) +
+    theme(legend.position = "top")
+```
+
+
+## Conversely.... The dimensionality works unfavourably...
+
+Each test at $\alpha = 0.05$: 5% chance of a false rejection if $H_0$ is true.
+
+| Variants ($m$) | $P(\ge 1\text{ false rejection})$ | |
+|:--------------:|:---------------------------------:|:--|
+| 1              | $1 - 0.95^{1} = 0.05$            | Just $\alpha$ |
+| 2              | $1 - 0.95^{2} = 0.098$           | Nearly doubled |
+| 3              | $1 - 0.95^{3} = 0.143$           | Nearly tripled |
+| 10             | $1 - 0.95^{10} = 0.40$           | 40% chance! |
+| 100            | $1 - 0.95^{100} = 0.994$         | Almost certain |
+| 10,000         | $1 - 0.95^{10000} \approx 1$     | Guaranteed |
+
+\vfill
+
+## Family-wise error rate (FWER)
+
+:::::: {.columns}
+::: {.column width=.5}
+
+* $P(\text{incorrect} \mid H_0) = \alpha$; let $\alpha = 0.05$
+
+* $P(\text{correct} \mid H_0) = 1 - \alpha = 0.95$
+
+\vfill
+
+* For $m$ **independent** tests, all under $H_0$:
+
+$$P(\text{all correct}) = (1-\alpha)^{m} = 0.95^{m}$$
+
+* **Family-wise error rate**:
+
+$$\textsf{FWER} = P(\text{at least one error}) = 1 - 0.95^{m}$$
+
+:::
+::: {.column width=.5}
+
+```{r fwer-curve, fig.width=2.5, fig.height=2.9}
+data.table(m = 1:200) %>%
+    mutate(fwer = 1 - 0.95^m) %>%
+    ggplot(aes(x = m, y = fwer)) +
+    geom_line(linewidth = 1.2, colour = "dodgerblue") +
+    labs(x = "m (number of tests)", y = "FWER") +
+    geom_hline(yintercept = 1, lty = 2, colour = "gray50") +
+    annotate("text", x = 100, y = 0.5,
+             label = "FWER = 1 - 0.95^m", size = 4, colour = "dodgerblue")
+```
+
+:::
+::::::
+
+## Bonferroni correction: controlling the FWER
+
+<!-- We want: $P(\text{at least one error in } m \text{ tests}) < \alpha$ -->
+
+\large
+
+By the **union bound**:
+
+$$P(\text{at least one error}) \le \sum_{i=1}^{m} P(\text{error on test } i)$$
+
+Set each test's threshold to $\alpha_{\textsf{Bon}} = \frac{\alpha}{m}$:
+
+$$\sum_{i=1}^{m} \alpha_{\textsf{Bon}} = m \cdot \frac{\alpha}{m} = \alpha$$
+
+\normalsize
+
+
+## Bonferroni correction: controlling the FWER
+
+\large
+
+* Reject $H_{0,i}$ if $p_i < \alpha / m$, or equivalently, 
+
+* Adjust $p_{\textsf{Bon},i} = \min(m \cdot p_i,\; 1)$ and threshold at $\alpha$.
+
+
+\normalsize
+
+
+## Bonferroni on our GWAS example
+
+```{r bonferroni-gwas, fig.width=5.5, fig.height=2.9}
+m <- length(gwas.p)
+bon.threshold <- 0.05 / m
+
+dt.bon <- data.table(
+    pos = as.numeric(colnames(X)),
+    pvalue = gwas.p,
+    causal = seq_along(gwas.p) %in% causal.variants
+) %>% mutate(sig.bon = pvalue < bon.threshold)
+
+p1 <- ggplot(dt.bon, aes(x = pos, y = -log10(pvalue), colour = sig.bon)) +
+    geom_point(size = 0.8, alpha = 0.6) +
+    geom_hline(yintercept = -log10(bon.threshold), lty = 2, colour = "red") +
+    scale_colour_manual(values = c("gray50", "red")) +
+    annotate("text", x = max(dt.bon$pos) * 0.7, y = -log10(bon.threshold) + 0.3,
+             label = paste0("Bonferroni: alpha/m = ", signif(bon.threshold, 2)),
+             colour = "red", size = 3) +
+    labs(x = "Genomic location", y = "-log10(p-value)",
+         title = paste0("Bonferroni: ", sum(dt.bon$sig.bon), " rejections out of ", m, " tests")) +
+    theme(legend.position = "none")
+
+p1
+```
+
+<!-- Very conservative --- may miss true signals! -->
+
+
+## What if we remove correlated variants (LD clumping)?
+
+```{r ld-clumping, include=F}
+library(bigsnpr)
+
+.ld.file <- "../data/genotype/ld_clumping_results.rds"
+if.needed(.ld.file, {
+    # Create a temporary FBM.code256 for genotype data (0, 1, 2)
+    tmp.file <- tempfile(fileext = ".rds")
+    X.fbm <- FBM.code256(nrow(X), ncol(X), code = c(0, 1, 2, rep(NA, 253)),
+                          backingfile = tmp.file)
+    X.fbm[] <- X
+
+    # LD clumping using bigsnpr
+    ind.keep <- snp_clumping(X.fbm,
+                             infos.chr = rep(1, ncol(X)),
+                             infos.pos = as.numeric(colnames(X)),
+                             thr.r2 = 0.2,
+                             S = -log10(gwas.p))  # Use -log10(p) as priority score
+
+    # Clean up temporary file
+    unlink(paste0(tmp.file, c("", ".bk")))
+
+    saveRDS(ind.keep, .ld.file)
+})
+ind.keep <- readRDS(.ld.file)
+
+## cat(sprintf("Original variants: %d\n", ncol(X)))
+## cat(sprintf("After LD clumping (r² < 0.2): %d\n", length(ind.keep)))
+```
+
+**After LD clumping, FWER methods work much better!**
+
+* **LD clumping** removes correlated variants, keeping only representative independent SNPs
+
+	* It still takes some threshold parameter...
+
+* Independent tests $\Rightarrow$ FWER and FDR are better aligned
+
+* But: we lose power by discarding many variants
+
+## FWER control with LD clumping
+
+```{r bonferroni-clumped, fig.width=5.5, fig.height=2.9}
+gwas.p.clumped <- gwas.p[ind.keep]
+m.clumped <- length(gwas.p.clumped)
+bon.threshold.clumped <- 0.05 / m.clumped
+
+dt.bon.clumped <- data.table(
+    pos = as.numeric(colnames(X)[ind.keep]),
+    pvalue = gwas.p.clumped,
+    causal = ind.keep %in% causal.variants
+) %>% mutate(sig.bon = pvalue < bon.threshold.clumped)
+
+ggplot(dt.bon.clumped, aes(x = pos, y = -log10(pvalue), colour = sig.bon)) +
+    geom_point(size = 1, alpha = 0.7) +
+    geom_hline(yintercept = -log10(bon.threshold.clumped), lty = 2, colour = "red") +
+    scale_colour_manual(values = c("gray50", "red")) +
+    annotate("text", x = max(dt.bon.clumped$pos) * 0.7, y = -log10(bon.threshold.clumped) + 0.3,
+             label = paste0("Bonferroni: alpha/m = ", signif(bon.threshold.clumped, 2)),
+             colour = "red", size = 3) +
+    labs(x = "Genomic location", y = "-log10(p-value)",
+         title = paste0("After LD clumping: ", sum(dt.bon.clumped$sig.bon),
+                       " rejections out of ", m.clumped, " tests")) +
+    theme(legend.position = "none")
+```
+
+<!-- \scriptsize -->
+<!-- ```{r} -->
+<!-- causal.in.clumped <- which(ind.keep %in% causal.variants) -->
+<!-- padj.clumped <- p.adjust(gwas.p.clumped, method = "bonferroni") -->
+<!-- false.disc.clumped <- setdiff(which(padj.clumped < 0.05), causal.in.clumped) -->
+<!-- empirical.FDR.clumped <- length(false.disc.clumped) / max(sum(padj.clumped < 0.05), 1) -->
+<!-- cat(sprintf("Bonferroni rejections: %d\n", sum(padj.clumped < 0.05))) -->
+<!-- cat(sprintf("False discoveries: %d\n", length(false.disc.clumped))) -->
+<!-- cat(sprintf("Empirical FDR: %.3f\n", empirical.FDR.clumped)) -->
+<!-- ``` -->
+<!-- \normalsize -->
+
+## Holm--Bonferroni: a less conservative FWER control
+
+* **Holm's step-down** procedure uses decreasing multipliers:
+
+$$p_{\textsf{Holm}(1)} = m \cdot p_{(1)}, \quad p_{\textsf{Holm}(2)} = (m-1) \cdot p_{(2)}, \quad \ldots$$
+
+* Still controls FWER $\le \alpha$, but is **uniformly more powerful** than Bonferroni
+
+* In R: `p.adjust(p, method = "holm")`
+
+## Bonferroni: uniform strict threshold
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="1"}
+alpha <- 0.05
+m <- 2
+
+bonf.thresh <- qnorm(1 - alpha/(2*m))
+uncorr.thresh <- qnorm(1 - alpha/2)
+
+ggplot() +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 1) +
+    geom_hline(yintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 1) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 3, fontface = "bold", color = "blue") +
+    annotate("text", x = 5, y = bonf.thresh + 0.3, label = "alpha/m", color = "red", size = 3) +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Bonferroni: test each at alpha/m") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="2"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -bonf.thresh, ymin = bonf.thresh, ymax = Inf,
+             fill = "red", alpha = 0.2) +
+    annotate("rect", xmin = bonf.thresh, xmax = Inf, ymin = bonf.thresh, ymax = Inf,
+             fill = "red", alpha = 0.2) +
+    annotate("rect", xmin = -Inf, xmax = -bonf.thresh, ymin = -Inf, ymax = -bonf.thresh,
+             fill = "red", alpha = 0.2) +
+    annotate("rect", xmin = bonf.thresh, xmax = Inf, ymin = -Inf, ymax = -bonf.thresh,
+             fill = "red", alpha = 0.2) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 1) +
+    geom_hline(yintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 1) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 3, fontface = "bold", color = "blue") +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Bonferroni rejection regions") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+## Holm: sequential testing, one axis at a time
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="1"}
+ggplot() +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    ## geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.5, lty = 2, alpha = 0.5) +
+    ## geom_hline(yintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.5, lty = 2, alpha = 0.5) +
+    geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "darkgreen", linewidth = 1) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 3, fontface = "bold", color = "darkgray") +
+    annotate("text", x = bonf.thresh + 0.5, y = 4, label = "Step 1: test H1\nat alpha/m", color = "darkgreen", size = 3) +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Holm Step 1: test H1 (smallest p) at alpha/m") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="2"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -bonf.thresh, ymin = -Inf, ymax = Inf,
+             fill = "darkgreen", alpha = 0.2) +
+    annotate("rect", xmin = bonf.thresh, xmax = Inf, ymin = -Inf, ymax = Inf,
+             fill = "darkgreen", alpha = 0.2) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    ## geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.5, lty = 2, alpha = 0.5) +
+    ## geom_hline(yintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.5, lty = 2, alpha = 0.5) +
+    geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "darkgreen", linewidth = 1) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 3, fontface = "bold", color = "darkgray") +
+    annotate("text", x = 3.5, y = 4, label = "Reject H1", color = "darkgreen", size = 5, fontface="bold") +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "If H1 rejects, proceed to test H2") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="3"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -bonf.thresh, ymin = -Inf, ymax = Inf,
+             fill = "darkgreen", alpha = 0.2) +
+    annotate("rect", xmin = bonf.thresh, xmax = Inf, ymin = -Inf, ymax = Inf,
+             fill = "darkgreen", alpha = 0.2) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    ## geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.5, lty = 2, alpha = 0.5) +
+    ## geom_hline(yintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.5, lty = 2, alpha = 0.5) +
+    geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "darkgreen", linewidth = 1) +
+    geom_hline(yintercept = c(-uncorr.thresh, uncorr.thresh), color = "steelblue", linewidth = 1) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 3, fontface = "bold", color = "darkgray") +
+    annotate("text", x = 0, y = uncorr.thresh + 0.5, label = "Step 2: test H2\nat alpha/(m-1)",
+             color = "steelblue", size = 5, fontface = "bold", vjust=0) +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Holm Step 2: test H2 at relaxed threshold alpha/(m-1)") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="4"}
+ggplot() +
+    annotate("rect", xmin = -Inf, xmax = -bonf.thresh, ymin = -Inf, ymax = Inf,
+             fill = "darkgreen", alpha = 0.2) +
+    annotate("rect", xmin = bonf.thresh, xmax = Inf, ymin = -Inf, ymax = Inf,
+             fill = "darkgreen", alpha = 0.2) +
+    annotate("rect", xmin = -bonf.thresh, xmax = bonf.thresh, ymin = -Inf, ymax = -uncorr.thresh,
+             fill = "steelblue", alpha = 0.25) +
+    annotate("rect", xmin = -bonf.thresh, xmax = bonf.thresh, ymin = uncorr.thresh, ymax = Inf,
+             fill = "steelblue", alpha = 0.25) +
+    geom_hex(data = pts.null, aes(x = x, y = y), fill = "gray50", alpha = 0.5, bins = 30) +
+    geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "darkgreen", linewidth = 1) +
+    geom_hline(yintercept = c(-uncorr.thresh, uncorr.thresh), color = "steelblue", linewidth = 1) +
+    geom_vline(xintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.75, lty = 2, alpha = 0.5) +
+    geom_hline(yintercept = c(-bonf.thresh, bonf.thresh), color = "red", linewidth = 0.75, lty = 2, alpha = 0.5) +
+    annotate("text", x = 0, y = 0, label = "H0", size = 3, fontface = "bold", color = "darkgray") +
+    labs(x = "Hypothesis 1", y = "Hypothesis 2",
+         title = "Holm: sequential rejection regions (axis-by-axis)") +
+    coord_cartesian(xlim = range(xs), ylim = range(ys)) +
+    theme(legend.position = "none")
+```
+
+
+## Why is FWER impractical for genomics?
+
+\large
+
+* So much about making **one single error** out of 20,000 tests?
+
+\vfill
+
+* One easy way to guarantee no Type I errors: **reject nothing!**
+
+	* But...
+
+\vfill
+
+::: {.alertblock}
+### The trade-off
+Being overly strict about Type I error $\Rightarrow$ greater Type II error.
+:::
+
+\vfill
+
+* **Key idea**: in high-throughput biology, it is acceptable to make some errors, as long as we have a *comparatively* large number of true positives.
+
+\normalsize
+
+
+## Pop-up quiz
+
+\huge
+
+Why do we use ${\color{magenta} 5 \times 10^{-8}}$ as a GWAS significance threshold?
+
+\normalsize
+
+# False Discovery Rate
+
+## The multiple testing table --- not the probability
+
+\large
+
+|                  | Not rejected | Rejected | Total   |
+|------------------|:-------------|:---------|:--------|
+| **$H_0$ true**   | $U$          | $\mathbf{\color{magenta}V}$      | $m_0$   |
+| **$H_0$ false**  | $T$          | $S$      | $m_1$   |
+| **Total**        | $m - R$      | $\mathbf{\color{teal}R}$      | $m$     |
+
+\vfill
+
+* $R$ = total rejections (observed)
+* $V$ = false positives (unobserved)
+* $S$ = true positives (unobserved)
+
+\normalsize
+
+## FDR vs. FPR vs. FWER
+
+\large
+
+* **False Discovery Rate (FDR)**:
+
+\only<1>{
+$$\textsf{\color{magenta}FDR} = \mathbb{E}\!\left[\frac{V}{R}\right] = \mathbb{E}\!\left[\frac{\text{\#false discoveries}}{\#\text{rejections}}\right] \quad \text{(define as 0 when } R = 0\text{)}$$
+}
+
+* **False Positive Rate (FPR)**:
+
+\only<2>{
+$$\textsf{FPR} = \mathbb{E}\!\left[\frac{V}{m_0}\right] = \mathbb{E}\!\left[\frac{\text{\#false discoveries}}{\text{true null}}\right]$$
+}
+
+* **Family-Wise Error Rate (FWER)**:
+
+\only<3>{
+$$\textsf{FWER} = P(V \ge 1) = P(\textsf{at least 1 false discovery})$$
+}
+
+\normalsize
+
+<!-- ## Does Bonferroni control empirical FDR? -->
+<!-- <\!-- \scriptsize -\-> -->
+<!-- <\!-- ```{r} -\-> -->
+<!-- <\!-- padj <- p.adjust(gwas.p, method = "bonferroni") -\-> -->
+<!-- <\!-- false.discoveries <- setdiff(which(padj < 0.05), causal.variants) -\-> -->
+<!-- <\!-- empirical.FDR <- length(false.discoveries) / max(sum(padj < 0.05), 1) -\-> -->
+<!-- <\!-- cat(sprintf("Bonferroni rejections: %d\n", sum(padj < 0.05))) -\-> -->
+<!-- <\!-- cat(sprintf("False discoveries: %d\n", length(false.discoveries))) -\-> -->
+<!-- <\!-- cat(sprintf("Empirical FDR: %.3f\n", empirical.FDR)) -\-> -->
+<!-- <\!-- ``` -\-> -->
+<!-- <\!-- \normalsize -\-> -->
+<!-- **Bonferroni controls FWER, not FDR!** -->
+<!-- * Even with Bonferroni adjustment, empirical FPR can be high -->
+<!-- * Why? **Linkage disequilibrium (LD)**: nearby variants are correlated -->
+<!-- * FWER guarantees $P(\text{any false rejection}) \le \alpha$, not $E[\text{proportion of false rejections}] \le \alpha$ -->
+
+
+
+## Benjamini--Hochberg (BH) procedure
+
+\large
+
+Control FDR at level $q$ (e.g. $q = 0.05$):
+
+\vfill
+
+1. Order the raw p-values: $p_{(1)} \le p_{(2)} \le \cdots \le p_{(m)}$
+
+2. Find the largest rank $j$ such that $p_{(j)} \le \frac{j \cdot q}{m}$
+
+3. Reject all hypotheses with rank $\le j$
+
+\vfill
+
+::: {.block}
+### Adjusted p-values
+$$p^{\textsf{BH}}_{(i)} = \min_{j \ge i}\!\left(\frac{m}{j}\, p_{(j)}\right), \quad \text{capped at } 1$$
+:::
+
+\normalsize
+
+## BH worked example ($m = 10$, $q = 0.05$)
+
+\small
+
+| Rank $j$ | P-value  | BH threshold $\frac{jq}{m}$ | Adjusted p-value $p^{\textsf{BH}}$ | Reject? |
+|:---------:|:--------:|:----------------------------:|:-----------------------------------:|:-------:|
+| 1         | 0.0008   | 0.005                        | 0.008                               | $\checkmark$ |
+| 2         | 0.009    | 0.010                        | 0.045                               | $\checkmark$ |
+| 3         | 0.127    | 0.015                        | 0.423                               |         |
+| 4         | 0.205    | 0.020                        | 0.513                               |         |
+| 5         | 0.396    | 0.025                        | 0.750                               |         |
+| 6         | 0.450    | 0.030                        | 0.750                               |         |
+| 7         | 0.641    | 0.035                        | 0.916                               |         |
+| 8         | 0.781    | 0.040                        | 0.976                               |         |
+| 9         | 0.900    | 0.045                        | 0.993                               |         |
+| 10        | 0.993    | 0.050                        | 0.993                               |         |
+
+Bonferroni ($\alpha/m = 0.005$) would only reject rank 1.
+
+
+## DEG: expression $Y \sim$ cancer stage in TCGA BRCA
+
+```{r include=F}
+library(recount3)
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(ggpubr)
+library(ggrepel)
+library(limma)
+library(edgeR)
+library(DESeq2)
+
+theme_set(theme_minimal())
+```
+
+```{r download-data, include = F}
+data.dir <- "../data/recount3"
+dir.create(data.dir, recursive = TRUE, showWarnings = FALSE)
+.file <- file.path(data.dir, "tcga_brca_rse.rds")
+
+if.needed(.file, {
+    tcga.proj <- subset(available_projects(),
+                        file_source == "tcga")
+    brca.info <- tcga.proj[tcga.proj$project == "BRCA", ]
+    rse.brca <- create_rse(brca.info)
+    saveRDS(rse.brca, .file)
+})
+rse <- readRDS(.file)
+```
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    observed/.style={circle, draw, fill=gray!15, minimum size=1.3cm}
+]
+\node[observed] (age) {Age};
+\node[observed, below=1.2cm of age] (meno) {Meno};
+\node[observed, below=1.2cm of meno] (stage) {\textbf{Stage}};
+\node[observed, right=2.5cm of meno] (expr) {$Y_{g}$};
+
+\draw[->, thick] (age) -- node[above, sloped] {$\beta_1$} (expr);
+\draw[->, thick] (meno) -- node[above] {$\beta_2$} (expr);
+\draw[->, thick, blue] (stage) -- node[below, sloped] {\textcolor{blue}{$\beta_3$}} (expr);
+\end{tikzpicture}
+\end{center}
+
+:::
+::: {.column width=.55}
+
+**Linear model for gene $g$:**
+
+$$Y_{ig} = \beta_{1g} \cdot \text{Age}_i + \beta_{2g} \cdot \text{Meno}_i + \textcolor{blue}{\beta_{3g} \cdot \text{Stage}_i} + \epsilon_{ig}$$
+
+where $\epsilon_{ig} \sim N(0, \sigma^2_g)$
+
+\vspace{0.3cm}
+
+**Null hypothesis for gene $g$:**
+
+$$H_{0g}: \textcolor{blue}{\beta_{3g} = 0}$$
+
+\vspace{0.2cm}
+
+Testing $m = 20{,}000$ genes $\Rightarrow$ $m = 20{,}000$ hypotheses!
+
+:::
+::::::
+
+
+## Run limma-voom analysis
+
+```{r prepare-data, include=F}
+.file <- file.path(data.dir, "brca_prepared_data.rds")
+
+if.needed(.file, {
+    # Extract expression data
+    raw.counts <- assay(rse, "raw_counts")
+
+    # Get clinical variables from colData
+    stage <- rse$tcga.gdc_cases.diagnoses.tumor_stage
+    age <- rse$tcga.gdc_cases.diagnoses.age_at_diagnosis
+    menopause <- rse$tcga.xml_menopause_status
+
+    # Simplify to early (I/II) vs late (III/IV) stage
+    stage_simple <- case_when(
+        grepl("stage i$|stage ia|stage ib|stage ii", stage, ignore.case = TRUE) ~ "Early",
+        grepl("stage iii|stage iv", stage, ignore.case = TRUE) ~ "Late",
+        TRUE ~ NA_character_
+    )
+
+    # Simplify menopause status
+    meno_simple <- case_when(
+        grepl("Pre", menopause, ignore.case = TRUE) ~ "Pre",
+        grepl("Post|Peri", menopause, ignore.case = TRUE) ~ "Post",
+        TRUE ~ NA_character_
+    )
+
+    # Keep only samples with complete data
+    keep <- !is.na(stage_simple) & !is.na(age) & !is.na(meno_simple)
+    raw.counts <- raw.counts[, keep]
+    stage_simple <- factor(stage_simple[keep])
+    age <- as.numeric(age[keep])
+    meno_simple <- factor(meno_simple[keep])
+
+    # Filter low-count genes
+    keep.genes <- rowSums(raw.counts > 1) >= 10
+    Y <- raw.counts[keep.genes, ]
+
+    # Save prepared data
+    saveRDS(list(Y = Y, stage_simple = stage_simple,
+                 age = age, meno_simple = meno_simple), .file)
+})
+
+# Load prepared data
+prepared <- readRDS(.file)
+Y <- prepared$Y
+stage_simple <- prepared$stage_simple
+age <- prepared$age
+meno_simple <- prepared$meno_simple
+
+cat(sprintf("Analyzing %d genes across %d samples\n", nrow(Y), ncol(Y)))
+cat(sprintf("Early stage: %d, Late stage: %d\n",
+    sum(stage_simple == "Early"), sum(stage_simple == "Late")))
+```
+
+
+```{r limma-voom-analysis}
+.file <- file.path(data.dir, "brca_limma_voom_results.rds")
+
+if.needed(.file, {
+    # Create design matrix with covariates
+    design <- model.matrix(~ age + meno_simple + stage_simple)
+    colnames(design)[ncol(design)] <- "Late_vs_Early"
+
+    # Create DGEList object and normalize
+    dge <- DGEList(counts = Y)
+    dge <- calcNormFactors(dge)
+
+    # Apply voom transformation
+    voom_result <- voom(dge, design = design, plot = FALSE)
+
+    # Fit linear model with voom weights
+    fit_voom <- lmFit(voom_result, design)
+
+    # Apply empirical Bayes moderation
+    fit_voom <- eBayes(fit_voom)
+
+    # Get all results
+    results <- topTable(fit_voom, coef = "Late_vs_Early", number = Inf)
+
+    # Save results
+    saveRDS(list(fit_voom = fit_voom, results = results), .file)
+})
+
+# Load results
+limma_results <- readRDS(.file)
+fit_voom <- limma_results$fit_voom
+results <- limma_results$results
+```
+
+```{r show-top-genes}
+topTable(fit_voom, coef = "Late_vs_Early", number = 5)[,
+    c("logFC", "AveExpr", "t", "P.Value", "adj.P.Val")]
+```
+
+\large
+
+How did we get the "adjusted" p-value?
+
+\normalsize
+
+
+## Volcano plot: visualizing effect size and significance
+
+
+```{r volcano-plot, fig.width=3.5, fig.height=2.9}
+# Prepare data for volcano plot
+volcano.dt <- data.table(
+    logFC = results$logFC,
+    log10p = -log10(results$P.Value),
+    P.Value = results$P.Value,
+    gene = rownames(results)
+)
+
+# Define significance thresholds (raw p-value)
+volcano.dt[, significant := ifelse(P.Value < 0.05 & abs(logFC) > 1,
+                                   "Significant", "Not significant")]
+
+ggplot(volcano.dt, aes(x = logFC, y = log10p, color = significant)) +
+    geom_point(alpha = 0.4, size = 0.8) +
+    scale_color_manual(values = c("gray60", "red3")) +
+    geom_hline(yintercept = -log10(0.05), linetype = "dashed", color = "blue") +
+    geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "blue") +
+    labs(x = "log2 Fold Change", y = "-log10(p-value)",
+         title = "Volcano plot: Late vs Early stage") +
+    theme(legend.position = "bottom")
+```
+
+## Benjamini-Hochberg procedure visualized
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="1"}
+q <- 0.05
+m <- nrow(results)
+sorted.pvals <- sort(results$P.Value)
+ranks <- 1:m
+bh.threshold <- ranks * q / m
+
+bh.dt <- data.table(
+    rank = ranks,
+    pvalue = sorted.pvals,
+    bh.threshold = bh.threshold,
+    significant = sorted.pvals <= bh.threshold
+)
+
+max.sig.rank <- max(which(bh.dt$significant), 0)
+
+zoom.max <- min(200, m)
+ggplot(bh.dt[rank <= zoom.max], aes(x = rank)) +
+    geom_line(aes(y = pvalue), color = "black", linewidth = 1) +
+    geom_line(aes(y = bh.threshold), color = "red", linewidth = 1) +
+    geom_vline(xintercept = max.sig.rank, lty = 2, color = "blue", linewidth = 0.5) +
+    annotate("text", x = max.sig.rank, y = max(bh.dt[rank <= zoom.max]$pvalue) * 0.9,
+             label = paste0("k = ", max.sig.rank), color = "blue", size = 3.5, hjust = -0.1) +
+    annotate("text", x = zoom.max * 0.6, y = bh.threshold[as.integer(zoom.max * 0.6)] * 1.5,
+             label = "BH line: i*q/m", color = "red", size = 3.5) +
+    annotate("text", x = zoom.max * 0.6, y = sorted.pvals[as.integer(zoom.max * 0.6)] * 0.7,
+             label = "Sorted p-values", color = "black", size = 3.5) +
+    labs(x = "Rank (i)", y = "p-value",
+         title = paste0("Reject ", max.sig.rank, " hypotheses at FDR < ", q)) +
+    theme(legend.position = "none")
+```
+
+```{r fig.width=5.5, fig.height=2.9, only.plot="2"}
+adj.pvals <- p.adjust(results$P.Value, method = "BH")
+comparison.dt <- data.table(
+    pvalue = results$P.Value,
+    adj.pvalue = adj.pvals,
+    significant = adj.pvals < q
+)
+
+top.genes <- order(results$P.Value)[1:min(200, nrow(results))]
+comparison.dt.zoom <- comparison.dt[top.genes]
+
+ggplot(comparison.dt.zoom, aes(x = pvalue, y = adj.pvalue, color = significant)) +
+    geom_point(size = 1.2, alpha = 0.6) +
+    geom_abline(slope = 1, intercept = 0, lty = 2, color = "gray50") +
+    geom_hline(yintercept = q, lty = 2, color = "red") +
+    scale_color_manual(values = c("gray60", "red3")) +
+    annotate("text", x = max(comparison.dt.zoom$pvalue) * 0.7, y = q + 0.003,
+             label = "FDR = 0.05", color = "red", size = 3.5) +
+    labs(x = "Raw p-value", y = "BH adjusted p-value",
+         title = paste0(sum(comparison.dt$significant), " genes significant at FDR < ", q)) +
+    theme(legend.position = "none")
+```
+
+## Recap: what are we controlling?
+
+\large
+
+**FWER** (Bonferroni, Holm): Controls **probability** of making **any** false discovery
+
+\centerline{$\text{FWER} = P(V \ge 1) \le \alpha$}
+
+\vfill
+
+**FDR** (Benjamini-Hochberg): Controls **expectation** of **proportion** of false discoveries
+
+\centerline{$\text{FDR} = E\left[\frac{V}{R}\right] \le q$}
+
+\vfill
+
+::: {.alertblock}
+### Key difference
+BH controls the **expected** FDR, not the probability. In any single experiment, the actual FDR can be higher or lower than q.
+:::
+
+\normalsize
+
+# FWER, FDR, then what?
+
+## Well-behaved p-values: uniform under the null
+
+\large
+
+All multiple testing methods assume that p-values under $H_0$ are **uniformly distributed**.
+
+\normalsize
+
+```{r pval-uniform, fig.width=5.5, fig.height=2.5}
+set.seed(23)
+p.null <- replicate(5000, t.test(rnorm(50))$p.value)
+
+p1 <- ggplot(data.table(p = p.null), aes(x = p)) +
+    geom_histogram(bins = 30, fill = "steelblue", colour = "white", linewidth = 0.2) +
+    labs(x = "p-value", y = "Count", title = "All null: uniform distribution")
+
+set.seed(23)
+p.mixed <- c(
+    replicate(4000, t.test(rnorm(50))$p.value),
+    replicate(1000, t.test(rnorm(50, mean = 1.5))$p.value)
+)
+
+p2 <- ggplot(data.table(p = p.mixed), aes(x = p)) +
+    geom_histogram(bins = 30, fill = "steelblue", colour = "white", linewidth = 0.2) +
+    labs(x = "p-value", y = "Count", title = "Mixed: near 0 = true signals")
+
+p1 + p2
+```
+
+## BH adjusted p-value distribution
+
+```{r fig.width=5.5, fig.height=2.9}
+p.mixed.adj <- p.adjust(p.mixed, method = "BH")
+
+p3 <- ggplot(data.table(p = p.mixed.adj), aes(x = p)) +
+    geom_histogram(bins = 30, fill = "coral", colour = "white", linewidth = 0.2) +
+    labs(x = "BH adjusted p-value", y = "Count",
+         title = "After BH adjustment")
+
+p2 + p3
+```
+
+
+
+
+## Poorly behaved p-values
+
+\large
+
+When p-values **misbehave**, FDR estimates become invalid.
+
+\vfill
+
+Common causes:
+
+* Model misspecification (wrong distributional assumptions)
+* Uncontrolled variation or batch effects
+* Selection bias / data filtering after testing
+
+Great reference: [http://varianceexplained.org/statistics/interpreting-pvalue-histogram/](http://varianceexplained.org/statistics/interpreting-pvalue-histogram/)
+
+
+
+
+## What can we do to make sure that p-values
+
+Possible solutions:
+
+* **Nonparametric tests** (but limited flexibility for covariates)
+
+* **Permutation testing**: shuffle group labels to construct an empirical null distribution; compare observed statistics to the permutation distribution
+
+    - Limitation: computationally intensive; not ideal for very small sample sizes
+
+
+
+## What can we estimate from data?
+
+:::::: {.columns}
+::: {.column width=.55}
+
+```{r fig.width=3, fig.height=2, only.plot="1"}
+p.2d.main
+```
+
+```{r fig.width=3, fig.height=2, only.plot="2"}
+midpoint <- (mu0 + mu1) / 2
+p.2d.main +
+    geom_abline(intercept = sum(midpoint), slope = -1,
+                color = "darkgreen", linewidth = 1, lty = 1)
+```
+
+:::
+::: {.column width=.4}
+
+* Can we estimate the distribution under $H_{0}$?
+
+* Can we estimate the distribution under $H_{1}$?
+
+* Do we need to estimate what's going on under $H_{1}$?
+
+\onslide<2>{
+
+$${}$$
+
+Can we come up with an \textit{optimal} boundary?
+
+}
+
+:::
+::::::
+
+## Bayesian view of multiple testing
+
+\large
+
+**Mixture model framework**: Each hypothesis is either
+
+:::::: {.columns}
+::: {.column width=.45}
+
+- **Null** ($H_0$) with prior probability $\pi_0$
+
+- **Alternative** ($H_1$) with probability $1-\pi_0$
+
+:::
+::: {.column width=.45}
+
+\normalsize
+
+```{r fig.width=2, fig.height=1.5}
+library(ggplot2)
+df <- data.frame(
+    Status = c("Null", "Alternative"),
+    Probability = c(0.6, 0.4)
+)
+ggplot(df, aes(x = "", y = Probability, fill = Status)) +
+    geom_bar(stat = "identity", width = 1) +
+    coord_polar(theta = "y") +
+    scale_fill_manual(values = c("Alternative" = "steelblue", "Null" = "coral")) +
+    theme_void() +
+    theme(legend.position = "bottom", legend.text = element_text(size = 8))
+```
+
+:::
+::::::
+
+\vfill
+
+**Bayesian interpretation** (note what's in the condition)  [@Storey2003-yd]: 
+
+$$q(p_i) \approx P(H_0 \mid p \le p_i)$$
+
+
+## Bayesian view of multiple testing
+
+\large
+
+We want to control: $P(H_0 \mid \text{reject}) = P(H_0 \mid p \le t)$
+
+**Bayes rule**:
+
+$$P(H_0 \mid p \le t) = \frac{P(p \le t \mid H_0) \cdot P(H_0)}{P(p \le t)}$$
+
+\normalsize
+
+* It is called "positive" FDR because of the denominator.
+
+* What is the first term of the numerator?
+
+ [@Storey2003-yd]
+
+## Storey's q-value
+
+\large
+
+**Key insight**: BH assumes **all** hypotheses are null ($\pi_0 = 1$)
+
+But in reality, many hypotheses are **truly alternative** (non-null)
+
+\vfill
+
+**Storey's q-value**: Estimates $\pi_0$ (proportion of true nulls) from data
+
+:::::: {.columns}
+::: {.column width=.45}
+
+$$q(p_i) = \min_{j:p_j \ge p_i} \frac{\color{magenta}{\hat{\boldsymbol{\pi}}_0 \cdot \mathbf{m}} \cdot p_j}{j}$$
+
+:::
+::: {.column width=.45}
+
+\normalsize
+
+Compare to BH: 
+
+$$\textsf{BH}(p_i) = \min_{j:p_j \ge p_i} \frac{m \cdot p_j}{j}$$
+
+\normalsize
+
+:::
+::::::
+
+\normalsize
+
+\vfill
+
+When $\hat{\pi}_0 < 1$: q-value is **less conservative** than BH
+
+\normalsize
+
+## Estimating $\pi_0$ from p-value histogram
+
+```{r fig.width=5.5, fig.height=2.9}
+library(qvalue)
+
+pvals <- results$P.Value
+qobj <- qvalue(pvals)
+
+ggplot(data.table(p = pvals), aes(x = p)) +
+    geom_histogram(bins = 50, fill = "steelblue", color = "white", linewidth = 0.2) +
+    geom_hline(yintercept = length(pvals) * qobj$pi0 / 50,
+               color = "red", linewidth = 1, lty = 2) +
+    annotate("text", x = 0.7, y = length(pvals) * qobj$pi0 / 50 + 20,
+             label = paste0("Estimated pi0 = ", round(qobj$pi0, 3)),
+             color = "red", size = 4, vjust=0) +
+    labs(x = "p-value", y = "Count",
+         title = "P-value histogram: red line estimates null density")
+```
+
+## Comparing BH vs. q-value
+
+```{r fig.width=5.5, fig.height=2.9}
+qobj.pi05 <- qvalue(pvals, pi0 = 0.5)
+
+comparison <- data.table(
+    pvalue = pvals,
+    BH = p.adjust(pvals, method = "BH"),
+    qvalue = qobj$qvalues,
+    qvalue.pi05 = qobj.pi05$qvalues
+) %>% arrange(pvalue) %>% mutate(rank = 1:n())
+
+top.genes <- 1:min(200, nrow(comparison))
+comparison.zoom <- comparison[top.genes]
+
+qvalue_label <- paste0("q-value (pi0=", round(qobj$pi0, 2), ")")
+
+ggplot(comparison.zoom, aes(x = rank)) +
+    geom_line(aes(y = BH, color = "BH (pi0=1)"), linewidth = 1) +
+    geom_line(aes(y = qvalue, color = qvalue_label), linewidth = 1) +
+    geom_line(aes(y = qvalue.pi05, color = "q-value (pi0=0.5)"), linewidth = 1, lty = 2) +
+    scale_color_manual(values = setNames(c("coral", "steelblue", "darkgreen"),
+                                         c("BH (pi0=1)", qvalue_label, "q-value (pi0=0.5)"))) +
+    geom_hline(yintercept = 0.05, lty = 2, color = "red", linewidth = 0.5) +
+    annotate("text", x = max(comparison.zoom$rank) * 0.8, y = 0.055,
+             label = "FDR = 0.05", color = "red", size = 2.5) +
+    labs(x = "Rank (by p-value)", y = "Adjusted p-value",
+         title = "BH vs q-value with different pi0",
+         color = "Method") +
+    theme(legend.position = "top", legend.text = element_text(size = 8))
+```
+
+## Effect of different $\pi_0$ estimates
+
+```{r fig.width=5.5, fig.height=2.9}
+pi0.values <- c(0.3, 0.5, 0.7, qobj$pi0, 1.0)
+qval.comparison <- data.table()
+
+for(pi0 in pi0.values) {
+    qobj.pi0 <- qvalue(pvals, pi0 = pi0)
+    qval.comparison <- rbind(qval.comparison,
+        data.table(
+            pvalue = pvals,
+            qvalue = qobj.pi0$qvalues,
+            pi0 = paste0("pi0 = ", round(pi0, 3))
+        )
+    )
+}
+
+top.genes.idx <- order(pvals)[1:min(200, length(pvals))]
+qval.zoom <- qval.comparison[pvalue %in% pvals[top.genes.idx]]
+
+ggplot(qval.zoom, aes(x = pvalue, y = qvalue, color = pi0)) +
+    geom_line(linewidth = 0.8) +
+    geom_abline(slope = 1, intercept = 0, lty = 2, color = "gray50") +
+    scale_color_manual(values = c("darkred", "orange", "gold", "steelblue", "gray50")) +
+    labs(x = "Raw p-value", y = "q-value",
+         title = "Effect of pi0 on q-values",
+         color = "pi0 estimate") +
+    theme(legend.position = "right")
+```
+
+:::
+::::::
+
+## When to use Storey's q-value vs. BH?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**BH procedure:**
+
+* Conservative (assumes $\pi_0 = 1$)
+* No assumptions about null proportion
+* Valid (if independent)
+* Recommended as default
+
+:::
+::: {.column width=.5}
+
+**Storey's q-value:**
+
+* Less conservative when $\pi_0 < 1$
+* Estimates $\pi_0$ from data
+* More powerful when many true signals
+* Risk: $\pi_0$ estimation can be unstable with few tests
+
+:::
+::::::
+
+\vfill
+
+**Rule of thumb**: Use BH by default; consider q-value when you have $>1000$ tests with many expected signals
+
+# Beyond global FDR: gene-by-gene localized control
+
+## Local false discovery rate (Efron 2001)
+
+\large
+
+**FDR**: Expected proportion of false discoveries **among all rejections**
+
+**Local fdr**: Probability that **a specific test** is null
+
+$$\text{lfdr}(z_i) = P(H_0 \mid z_i) = \frac{\pi_0 f_0(z_i)}{f(z_i)}$$
+
+\vfill
+
+:::::: {.columns}
+::: {.column width=.48}
+
+**Numerator**: $\pi_0 f_0(z_i)$
+
+- Null contribution at $z_i$
+
+:::
+::: {.column width=.48}
+
+**Denominator**: $f(z_i)$
+
+- Total density at $z_i$
+
+:::
+::::::
+
+\vfill
+
+\normalsize
+
+Can estimate from empirical distribution of z-scores
+
+## Local fdr: DEG example
+
+```{r fig.width=5.5, fig.height=3.2}
+library(locfdr)
+
+## Extract effect sizes and standard errors from results
+betahat <- results$logFC
+sebetahat <- results$logFC / results$t
+
+## Compute z-scores
+z_scores <- betahat / sebetahat
+
+## Fit local fdr with built-in visualization
+## plot=1 shows histogram with null and alternative densities
+lfdr_res <- locfdr(z_scores, plot = 1, nulltype = 1)
+```
+
+## q-value vs. local fdr
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\normalsize
+
+**q-value (Storey)**
+
+$$q(p_i) = \min_{j:p_j \ge p_i} \frac{\pi_0 \cdot m \cdot p_j}{j}$$
+
+\vfill
+
+- Based on **p-values**
+- Ranks tests by p-value
+- Minimum FDR at threshold $p_i$
+- **Tail probability** interpretation
+
+:::
+::: {.column width=.48}
+
+\normalsize
+
+**Local fdr (Efron)**
+
+$$\text{lfdr}(z_i) = \frac{\pi_0 f_0(z_i)}{f(z_i)}$$
+
+\vfill
+
+- Based on **test statistics** (z-scores)
+- Density ratio at specific $z_i$
+- Posterior P(null $\mid$ $z_i$)
+- **Point-wise** interpretation
+
+:::
+::::::
+
+\vfill
+
+\normalsize
+
+Both use $\pi_0$, but q-value uses **cumulative** p-values; local fdr uses **density** at each point
+
+## What FDR doesn't tell us
+
+\large
+
+FDR controls the **expected proportion** of false discoveries
+
+But for each gene, we want to know:
+
+* Is this gene **truly differentially expressed**?
+* What is the **direction** of the effect?
+* What is the **magnitude** of the effect?
+
+\vfill
+
+::: {.alertblock}
+### The problem
+A small p-value tells us there's an effect, but not its direction or size with certainty
+:::
+
+\normalsize
+
+## Local False Sign Rate (lfsr)
+
+\large
+
+**Local fsr**: Probability that the **sign** of an effect is wrong
+
+$$\text{lfsr} = P(\text{sign}(\beta) \neq \text{sign}(\hat{\beta}) \mid \text{data})$$
+
+\vfill
+
+**Key idea**: Account for uncertainty in **both**:
+
+* Whether there's an effect ($\beta \neq 0$)
+* The direction of the effect (sign of $\beta$)
+
+\normalsize
+
+## Adaptive Shrinkage (ashr)
+
+\large
+
+**ashr** (Stephens 2017): Empirical Bayes approach
+
+\vfill
+
+**Key features:**
+
+1. Estimates effect size distribution from data
+2. Shrinks estimates toward zero (like in ridge regression)
+3. Provides posterior probabilities for sign and magnitude
+4. Computes local false sign rate (lfsr)
+
+\vfill
+
+More conservative than FDR for **directional claims**
+
+\normalsize
+
+## ashr: Estimating null vs alternative distributions
+
+```{r fig.width=5.5, fig.height=2.8}
+library(ashr)
+
+## Fit ashr model using effect sizes and standard errors
+betahat <- results$logFC
+sebetahat <- results$logFC / results$t
+ash_res <- ash(betahat, sebetahat, mixcompdist = "normal")
+
+## Extract fitted mixture components
+fitted_g <- ash_res$fitted_g
+
+## Use qvalue's pi0 estimate (more interpretable than ashr's)
+## qvalue estimates pi0 from p-value distribution
+pi0_for_plot <- qobj$pi0
+
+## Create data for plotting
+z_scores <- betahat / sebetahat
+density_data <- data.table(z = z_scores)
+
+## Calculate histogram for scaling
+hist_data <- hist(z_scores[abs(z_scores) <= 10], breaks = 100, plot = FALSE)
+scale_factor <- max(hist_data$density) / max(dnorm(0))
+
+## Pre-compute labels
+label_all_null <- "If all null (pi0=1)"
+label_null_component <- paste0("Null component (pi0=", round(pi0_for_plot, 2), ")")
+
+ggplot(density_data, aes(x = z)) +
+    geom_histogram(aes(y = after_stat(density)), bins = 100,
+                   fill = "steelblue", alpha = 0.3, color = "black", linewidth = 0.2) +
+    stat_function(fun = function(x) dnorm(x) * scale_factor,
+                  aes(color = label_all_null), linewidth = 1, lty = 2) +
+    stat_function(fun = function(x) pi0_for_plot * dnorm(x) * scale_factor,
+                  aes(color = label_null_component), linewidth = 1.2) +
+    scale_color_manual(values = setNames(c("gray50", "coral"),
+                                         c(label_all_null, label_null_component))) +
+    labs(x = "Z-score (effect size / SE)",
+         y = "Density",
+         title = "Observed vs null distribution",
+         color = "") +
+    xlim(-10, 10) +
+    theme(legend.position = "top")
+```
+
+## ashr: Different alternative distributions
+
+```{r fig.width=5.5, fig.height=2.8}
+## Fit ashr with different mixture distributions
+ash_normal <- ash(betahat, sebetahat, mixcompdist = "normal")
+ash_uniform <- ash(betahat, sebetahat, mixcompdist = "uniform")
+ash_halfuniform <- ash(betahat, sebetahat, mixcompdist = "halfuniform")
+
+## Compare lfsr for top genes
+lfsr_comparison <- data.table(
+    rank = 1:1000,
+    Normal = sort(ash_normal$result$lfsr)[1:1000],
+    Uniform = sort(ash_uniform$result$lfsr)[1:1000],
+    HalfUniform = sort(ash_halfuniform$result$lfsr)[1:1000]
+) %>% melt(id.vars = "rank", variable.name = "Method", value.name = "lfsr")
+
+ggplot(lfsr_comparison, aes(x = rank, y = lfsr, color = Method)) +
+    geom_line(linewidth = 0.6) +
+    geom_hline(yintercept = 0.05, lty = 2, color = "red", linewidth = 0.5) +
+    scale_color_manual(values = c("Normal" = "steelblue",
+                                   "Uniform" = "darkgreen",
+                                   "HalfUniform" = "coral"),
+                       labels = c("Normal mixture",
+                                  "Uniform mixture",
+                                  "Half-uniform (one-sided)")) +
+    labs(x = "Rank (by lfsr)",
+         y = "Local false sign rate",
+         title = "Effect of alternative distribution assumption",
+         color = "Alternative",
+         caption = paste0("Note: qvalue estimates pi0=", round(qobj$pi0, 2),
+                         " from p-values; ashr can give different estimates from effect sizes")) +
+    theme(legend.position = "top", legend.text = element_text(size = 8),
+          plot.caption = element_text(size = 6, hjust = 0))
+```
+
+## Why shrinkage?
+
+\large
+
+**Problem**: Raw effect size estimates are **noisy**
+
+:::::: {.columns}
+::: {.column width=.48}
+
+**Genes with large SE:**
+- Less precise measurements
+- Estimates unreliable
+- May be spuriously large
+
+:::
+::: {.column width=.48}
+
+**Genes with small SE:**
+- More precise measurements
+- Estimates more reliable
+- Should be trusted more
+
+:::
+::::::
+
+\vfill
+
+**Solution**: **Shrink** uncertain estimates toward zero
+
+- Small/noisy effects → shrunk more
+- Large/precise effects → preserved
+- **Borrows strength** across all genes
+
+\normalsize
+
+## ashr in action: Effect size shrinkage
+
+```{r fig.width=5.5, fig.height=2.8}
+## ash_res already fitted above
+
+## Compare original vs shrunken effect sizes
+shrinkage_df <- data.table(
+    original = betahat,
+    shrunken = ash_res$result$PosteriorMean,
+    lfsr = ash_res$result$lfsr
+)
+
+## Plot top genes (by abs original effect)
+top_idx <- order(abs(betahat), decreasing = TRUE)[1:3000]
+shrinkage_df_top <- shrinkage_df[top_idx]
+
+ggplot(shrinkage_df_top, aes(x = original, y = shrunken)) +
+    geom_point(aes(color = lfsr < 0.05), alpha = 0.3, size = 0.8) +
+    geom_abline(slope = 1, intercept = 0, lty = 2, color = "red") +
+    scale_color_manual(values = c("FALSE" = "gray", "TRUE" = "steelblue"),
+                       labels = c("lfsr >= 0.05", "lfsr < 0.05")) +
+    labs(x = "Original log fold-change",
+         y = "Shrunken log fold-change",
+         title = "Effect size shrinkage by ashr",
+         color = "Significance",
+         caption = "Points below diagonal: shrunk toward zero (less confident). Points near diagonal: preserved (more confident).") +
+    theme(legend.position = "top", plot.caption = element_text(size = 6, hjust = 0))
+```
+
+## ashr: local false sign rate vs q-value
+
+```{r fig.width=5.5, fig.height=2.8}
+## Compare lfsr with q-values
+comparison_ash <- data.table(
+    lfsr = ash_res$result$lfsr,
+    qvalue = qobj$qvalues,
+    abs_effect = abs(betahat)
+) %>% arrange(lfsr)
+
+## Zoom to top 100 for clarity
+comparison_ash_top <- comparison_ash[1:100]
+
+ggplot(comparison_ash_top, aes(x = 1:nrow(comparison_ash_top))) +
+    geom_line(aes(y = lfsr, color = "lfsr"), linewidth = 0.6) +
+    geom_line(aes(y = qvalue, color = "q-value"), linewidth = 0.6) +
+    geom_hline(yintercept = 0.05, lty = 2, color = "red", linewidth = 0.5) +
+    scale_color_manual(values = c("lfsr" = "darkgreen", "q-value" = "steelblue")) +
+    labs(x = "Rank (by lfsr)",
+         y = "Error rate",
+         title = "Local false sign rate vs q-value",
+         color = "Method") +
+    theme(legend.position = "top")
+```
+
+## Summary: Multiple testing methods
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\normalsize
+
+**Control FWER** (strict):
+
+- **Bonferroni**: $\alpha/m$
+  - Simple, conservative
+  - Use for small $m$ or independent tests
+
+- **Holm**: Sequential Bonferroni
+  - More powerful than Bonferroni
+  - Still controls FWER
+
+:::
+::: {.column width=.48}
+
+\normalsize
+
+**Control FDR** (flexible):
+
+- **Benjamini-Hochberg**: Assumes $\pi_0=1$
+  - Standard FDR control
+  - More discoveries than FWER
+
+- **Storey q-value**: Estimates $\pi_0$
+  - More powerful when $\pi_0 < 1$
+  - Uses p-values only
+
+- **ashr**: Uses effect sizes + SE
+  - Accounts for measurement precision
+  - `lfsr` for directions
+
+:::
+::::::
+
