@@ -1,0 +1,1496 @@
+---
+title: "Regulatory Genomics"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: regulatory-genomics.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+---
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/regulatory-genomics/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+
+theme_set(theme_classic() + theme(title = element_text(size=10)))
+```
+
+## Roadmap of STAT/BIOF/GSAT540 2026
+
+_data generation_ followed by _methodology_
+
+\vfill
+
+\large
+
+:::::: {.columns}
+::: {.column width=.45}
+
+3. Formulating biological questions
+
+5. RNA-seq data
+
+7. Experimental design
+
+8. Single-cell genomics
+
+9. Matrix factorization
+
+:::
+::: {.column width=.55}
+
+10. GWAS
+
+12. \textbf{\color{magenta} Regulatory genomics} (Today)
+
+13. Regression (for reg. genomics)
+
+14. Biological networks
+
+15. Clustering
+
+:::
+::::::
+
+\normalsize
+
+# Technologies for measuring regulatory activities
+
+## Chromatin Immunoprecipitation + Sequencing
+
+
+**Goal**: Identify where proteins (e.g., TFs) bind to DNA genome-wide
+
+**Experimental Protocols**:
+
+1. Cross-link proteins to DNA
+2. Fragment chromatin
+3. Immunoprecipitate with antibody
+4. Sequence DNA fragments
+5. Map reads to genome
+6. **Call peaks**
+
+<!-- \begin{center} -->
+<!-- \includegraphics[width=0.9\textwidth]{img/chipseq-protein.pdf} -->
+<!-- \end{center} -->
+
+## How ChIP-seq works
+
+:::::: {.columns}
+::: {.column width=.23}
+
+\includegraphics[width=\textwidth]{img/chipseq-protein.pdf}
+
+:::
+::: {.column width=.23}
+
+\onslide<2->{
+\includegraphics[width=\textwidth]{img/chipseq-histone.pdf}
+}
+
+:::
+::: {.column width=.23}
+
+\onslide<3->{
+\includegraphics[width=\textwidth]{img/chipseq-dnase.pdf}
+}
+
+:::
+::: {.column width=.2}
+
+* Binding
+
+* Sequencing
+
+$${}$$
+
+\flushright
+
+@Furey2012-ir
+
+:::
+::::::
+
+
+## How ChIP-seq works
+
+\only<1>{
+\centerline{\includegraphics[height=.78\textheight]{img/chipseq-park-2009.pdf}}
+}
+
+\only<2>{
+\centerline{\includegraphics[height=.78\textheight]{img/chipseq-park-2009-2.pdf}}
+}
+
+\flushright
+\scriptsize
+[@Park2009-bn]
+
+## Peak calling: signal vs. background
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Key idea**: Find genomic regions with more reads than expected by chance
+
+- Divide genome into bins (e.g., 200 bp)
+- Count reads in each bin
+- Compare ChIP vs Input (control)
+- Statistical test: Is enrichment significant?
+
+:::
+::: {.column width=.5}
+
+**Common approaches**:
+
+- **MACS2**: Poisson model, local background
+- **normR**: Binomial mixture model
+- **DiffBind**: Differential binding analysis
+
+**Multiple testing**: FDR correction across all bins!
+
+:::
+::::::
+
+## ChIP-seq Peak Calling Exercise {.allowframebreaks}
+
+```{r include=F}
+## Install Bioconductor packages (run once)
+## BiocManager::install(c("normr", "GenomicRanges", "rtracklayer",
+##                        "AnnotationHub", "Gviz"))
+library(normr)
+library(GenomicRanges)
+set.seed(42)
+```
+
+```{r chipseq-data, echo=TRUE, cache=FALSE, message=FALSE}
+library(AnnotationHub)
+library(rtracklayer)
+
+data_dir <- "../data/chipseq/"
+dir.create(data_dir, showWarnings = FALSE, recursive = TRUE)
+
+chr <- "chr21" # Focus on chr21 to keep data manageable
+
+# Download ENCODE CTCF ChIP peaks
+peaks_file <- paste0(data_dir, "ctcf_gm12878_peaks.rds")
+if.needed(peaks_file, {
+    cat("Downloading ENCODE CTCF peaks...\n")
+    ah <- AnnotationHub()
+    query_peaks <- query(ah, c("CTCF", "GM12878", "narrowPeak", "ENCODE"))
+    chip_peaks_all <- query_peaks[[1]]
+    chip_peaks <- chip_peaks_all[seqnames(chip_peaks_all) == chr]
+    saveRDS(chip_peaks, file = peaks_file)
+})
+chip_peaks <- readRDS(peaks_file)
+```
+
+```{r chipseq-data-2, echo=TRUE, cache=FALSE}
+# Download ENCODE DNase-seq peaks (open chromatin for comparison)
+dnase_file <- paste0(data_dir, "dnase_gm12878_peaks.rds")
+if (!file.exists(dnase_file)) {
+    cat("Downloading ENCODE DNase-seq data...\n")
+    ah <- AnnotationHub()
+    query_dnase <- query(ah, c("DNase", "GM12878", "narrowPeak", "ENCODE"))
+    if (length(query_dnase) > 0) {
+        dnase_peaks_all <- query_dnase[[1]]
+        dnase_peaks <- dnase_peaks_all[seqnames(dnase_peaks_all) == chr]
+        saveRDS(dnase_peaks, file = dnase_file)
+        cat(sprintf("Saved %d DNase peaks\n", length(dnase_peaks)))
+    } else {
+        cat("No DNase data found\n")
+        saveRDS(GRanges(), file = dnase_file)
+    }
+}
+dnase_peaks <- readRDS(dnase_file)
+```
+
+<!-- ```{r chipseq-data-3, echo=TRUE, cache=FALSE} -->
+<!-- cat(sprintf("Loaded %d DNase peaks on %s\n", length(dnase_peaks), chr)) -->
+<!-- cat(sprintf("Loaded %d CTCF peaks on %s\n", length(chip_peaks), chr)) -->
+<!-- ``` -->
+
+## Peak Calling with `normr` {.allowframebreaks}
+
+:::::: {.columns}
+::: {.column width=.65}
+
+```{r chipseq-peaks, echo=TRUE, eval=FALSE}
+## Create genomic bins
+binsize <- 1000
+bins <- GRanges(chr, IRanges(start = seq(1, 48e6, binsize),
+                             width = binsize))
+
+## Count reads in bins
+chip_counts <- countOverlaps(bins, chip_reads)
+dnase_counts <- countOverlaps(bins, dnase_reads)
+
+## Call peaks using normR
+fit <- normr::enrichR(treatment = chip_counts,
+                      control = dnase_counts,
+                      genome = bins,
+                      verbose = FALSE)
+
+## Get significant peaks (FDR < 0.05)
+peaks_called <- normr::getRanges(fit)
+peaks_sig <- peaks_called[peaks_called$qvalue < 0.05]
+```
+
+:::
+::: {.column width=.3}
+
+
+* Foreground (CTCF) vs. background (control, DNase)
+
+* Enrichment-based Binomial Tests
+
+* Input: piled signals
+
+* Output: genomic regions (BED)
+
+* Narrow vs. broad peaks
+
+
+
+:::
+::::::
+
+
+
+```{r include=F}
+peak_widths <- width(chip_peaks)
+peak_signals <- mcols(chip_peaks)$signalValue
+
+## cat(sprintf("ENCODE Peak Statistics:\n"))
+## cat(sprintf("  Number of peaks: %d\n", length(chip_peaks)))
+## cat(sprintf("  Median width: %d bp\n", median(peak_widths)))
+## cat(sprintf("  Mean width: %d bp\n", round(mean(peak_widths))))
+## cat(sprintf("  Median signal: %.2f\n", median(peak_signals, na.rm=TRUE)))
+
+# Create simulated coverage based on peaks
+set.seed(42)
+coverage_file <- paste0(data_dir, "ctcf_coverage.rds")
+
+if.needed(coverage_file, {
+    # Generate ChIP reads from peaks
+    chip_reads_list <- lapply(1:length(chip_peaks), function(i) {
+        peak <- chip_peaks[i]
+        signal <- mcols(peak)$signalValue
+        n_reads <- round(signal * 10)
+        if (n_reads == 0) return(GRanges())
+        peak_center <- start(peak) + width(peak)/2
+        read_pos <- rnorm(n_reads, mean = peak_center, sd = width(peak)/4)
+        read_pos <- round(pmax(start(peak), pmin(end(peak), read_pos)))
+        GRanges(chr, IRanges(read_pos, width = 36))
+    })
+    chip_reads <- do.call(c, chip_reads_list)
+
+    # Generate DNase reads (open chromatin)
+    if (length(dnase_peaks) > 0) {
+        dnase_reads_list <- lapply(1:length(dnase_peaks), function(i) {
+            peak <- dnase_peaks[i]
+            signal <- mcols(peak)$signalValue
+            n_reads <- round(signal * 3)
+            if (n_reads == 0) return(GRanges())
+            peak_center <- start(peak) + width(peak)/2
+            read_pos <- rnorm(n_reads, mean = peak_center, sd = width(peak)/3)
+            read_pos <- round(pmax(start(peak), pmin(end(peak), read_pos)))
+            GRanges(chr, IRanges(read_pos, width = 36))
+        })
+        dnase_reads <- do.call(c, dnase_reads_list)
+    } else {
+        dnase_reads <- GRanges()
+    }
+
+    saveRDS(list(chip = chip_reads, dnase = dnase_reads), file = coverage_file)
+})
+
+coverage_data <- readRDS(coverage_file)
+chip_reads <- coverage_data$chip
+dnase_reads <- coverage_data$dnase
+cat(sprintf("  Simulated %d CTCF ChIP reads\n", length(chip_reads)))
+cat(sprintf("  Simulated %d DNase reads\n", length(dnase_reads)))
+
+# Download ChromHMM chromatin state segmentation
+chromhmm_file <- paste0(data_dir, "chromhmm_gm12878.rds")
+
+if.needed(chromhmm_file, {
+    cat("Downloading ChromHMM data from ENCODE...\n")
+    url <- "http://hgdownload.soe.ucsc.edu/goldenPath/hg19/encodeDCC/wgEncodeBroadHmm/wgEncodeBroadHmmGm12878HMM.bed.gz"
+    temp_file <- tempfile(fileext = ".bed.gz")
+    download.file(url, temp_file, quiet = TRUE)
+    chromhmm_all <- import(temp_file, format = "bed")
+    chromhmm_chr21 <- chromhmm_all[seqnames(chromhmm_all) == chr]
+    saveRDS(chromhmm_chr21, file = chromhmm_file)
+})
+
+chromhmm <- readRDS(chromhmm_file)
+cat(sprintf("Loaded %d chromatin states on %s\n", length(chromhmm), chr))
+```
+
+## Visualizing CTCF Binding Sites (using `Gviz`)
+
+```{r chipseq-viz, echo=FALSE, cache=FALSE, fig.width=6, fig.height=3, message=FALSE, warning=FALSE}
+library(Gviz)
+
+# Find a region with multiple strong peaks
+peaks_sorted <- chip_peaks[order(mcols(chip_peaks)$signalValue, decreasing=TRUE)]
+top_peak <- peaks_sorted[3]
+region_start <- max(1, start(top_peak) - 100000)
+region_end <- start(top_peak) + 100000
+
+# Get peaks in this region
+region_peaks <- chip_peaks[start(chip_peaks) >= region_start &
+                           end(chip_peaks) <= region_end]
+
+# Bin reads for both CTCF ChIP and DNase
+bin_size <- 200
+bins <- seq(region_start, region_end, by = bin_size)
+
+# CTCF ChIP signal
+region_chip <- chip_reads[start(chip_reads) >= region_start &
+                          end(chip_reads) <= region_end]
+chip_counts <- countOverlaps(GRanges(chr, IRanges(bins, width = bin_size)), region_chip)
+chip_gr <- GRanges(chr, IRanges(bins, width = bin_size), score = chip_counts)
+
+# DNase signal (exaggerated 3x for visibility)
+region_dnase <- dnase_reads[start(dnase_reads) >= region_start &
+                            end(dnase_reads) <= region_end]
+dnase_counts <- countOverlaps(GRanges(chr, IRanges(bins, width = bin_size)), region_dnase)
+dnase_gr <- GRanges(chr, IRanges(bins, width = bin_size), score = dnase_counts * 3)
+
+# Create genome browser tracks
+axis_track <- GenomeAxisTrack()
+
+chip_track <- DataTrack(chip_gr, genome = "hg19", type = "histogram",
+                        chromosome = chr, name = "CTCF",
+                        fill = "darkblue", col.histogram = "darkblue")
+
+dnase_track <- DataTrack(dnase_gr, genome = "hg19", type = "histogram",
+                         chromosome = chr, name = "DNase (3x)",
+                         fill = "orange", col.histogram = "orange")
+
+peak_track <- AnnotationTrack(region_peaks, name = "CTCF Peaks",
+                              fill = "red", col = "red", stacking = "dense")
+
+## # ChromHMM chromatin state track
+## region_chromhmm <- chromhmm[start(chromhmm) >= region_start &
+##                             end(chromhmm) <= region_end]
+
+## # Define colors for chromatin states (ENCODE standard colors)
+## state_colors <- c("1_Active_Promoter" = "red",
+##                   "2_Weak_Promoter" = "orange",
+##                   "3_Poised_Promoter" = "purple",
+##                   "4_Strong_Enhancer" = "yellow",
+##                   "5_Strong_Enhancer" = "yellow",
+##                   "6_Weak_Enhancer" = "lightyellow",
+##                   "7_Weak_Enhancer" = "lightyellow",
+##                   "8_Insulator" = "green",
+##                   "9_Txn_Transition" = "darkgreen",
+##                   "10_Txn_Elongation" = "darkgreen",
+##                   "11_Weak_Txn" = "lightgreen",
+##                   "12_Repressed" = "gray",
+##                   "13_Heterochrom/lo" = "lightgray",
+##                   "14_Repetitive/CNV" = "lightgray",
+##                   "15_Repetitive/CNV" = "lightgray")
+
+## chromhmm_track <- AnnotationTrack(region_chromhmm,
+##                                   name = "ChromHMM",
+##                                   fill = state_colors[mcols(region_chromhmm)$name],
+##                                   col = state_colors[mcols(region_chromhmm)$name],
+##                                   stacking = "dense")
+
+# Plot with CTCF, DNase, peaks
+plotTracks(list(axis_track, chip_track, dnase_track, peak_track),
+           chromosome = chr, from = region_start, to = region_end,
+           main = sprintf("CTCF ChIP-seq on %s:%s-%s",
+                          chr,
+                          format(region_start, big.mark=","),
+                          format(region_end, big.mark=",")),
+           background.title = "white",
+           col.axis = "black",
+           col.title = "black",
+           fontsize = 8,
+           cex.title = 0.6,
+           cex.axis = 1,
+           cex.main = 0.7)
+```
+
+
+## Key Concepts from ChIP-seq Peak Calling
+
+- **Biological**: ChIP-seq identifies protein-DNA binding sites
+
+- **Statistical** models:
+  - Poisson/Binomial models for count data
+  - Local background estimation
+  - Multiple testing correction (FDR)
+
+- **Computational** pipeline:
+  - Millions of bins $\to$ massive multiple testing problem
+  - Need efficient algorithms (`MACS2`, `normr`)
+
+- **Quality control**:
+  - Peak width distribution (sharp vs broad)
+  - Fraction of reads in peaks (FRiP score)
+  - Replicate concordance
+
+
+## ChromHMM: Emission Probabilities
+
+```{r chromhmm-emissions, echo=FALSE, fig.width=5, fig.height=3, message=FALSE, warning=FALSE}
+library(reshape2)
+library(ggtext)
+
+# ChromHMM 15-state model emission probabilities
+# Each state is defined by presence/absence of histone marks
+emissions_file <- paste0(data_dir, "chromhmm_emissions.rds")
+
+if.needed(emissions_file, {
+    # Simplified emission matrix (15 states x key histone marks)
+    # Based on ENCODE Broad ChromHMM model
+    marks <- c("H3K4me3", "H3K4me1", "H3K36me3", "H3K27me3", "H3K9me3", "H3K27ac")
+    states <- c("Active_Promoter", "Weak_Promoter", "Poised_Promoter",
+                "Strong_Enhancer", "Weak_Enhancer",
+                "Insulator", "Transcribed", "Repressed", "Heterochromatin")
+
+    # Emission probabilities (simplified for teaching)
+    emissions <- matrix(c(
+        # H3K4me3, H3K4me1, H3K36me3, H3K27me3, H3K9me3, H3K27ac
+        1.0, 0.3, 0.2, 0.0, 0.0, 1.0,  # Active Promoter
+        0.8, 0.4, 0.1, 0.0, 0.0, 0.5,  # Weak Promoter
+        0.7, 0.3, 0.0, 0.8, 0.0, 0.2,  # Poised Promoter
+        0.2, 1.0, 0.1, 0.0, 0.0, 1.0,  # Strong Enhancer
+        0.1, 0.7, 0.1, 0.0, 0.0, 0.5,  # Weak Enhancer
+        0.5, 0.5, 0.1, 0.0, 0.0, 0.3,  # Insulator
+        0.1, 0.1, 1.0, 0.0, 0.0, 0.2,  # Transcribed
+        0.0, 0.0, 0.0, 1.0, 0.1, 0.0,  # Repressed
+        0.0, 0.0, 0.0, 0.1, 1.0, 0.0   # Heterochromatin
+    ), nrow = 9, ncol = 6, byrow = TRUE)
+
+    rownames(emissions) <- states
+    colnames(emissions) <- marks
+    saveRDS(emissions, file = emissions_file)
+})
+
+emissions <- readRDS(emissions_file)
+state_order <- rev(rownames(emissions))
+
+# ChromHMM colors
+state_colors <- c(
+    "Active_Promoter" = "#FF0000", "Weak_Promoter" = "#FF6969",
+    "Poised_Promoter" = "#CF0BC6", "Strong_Enhancer" = "#FFFF00",
+    "Weak_Enhancer" = "#FFFF99", "Insulator" = "#0ABEFE",
+    "Transcribed" = "#00B050", "Repressed" = "#808080",
+    "Heterochromatin" = "#C0C0C0"
+)
+
+# Prepare data with faceting
+emissions_long <- melt(emissions)
+colnames(emissions_long) <- c("State", "Mark", "Value")
+emissions_long$State <- factor(emissions_long$State, levels = state_order)
+emissions_long$Panel <- "Emission Probabilities"
+
+# Add color panel
+color_data <- data.frame(
+    State = factor(state_order, levels = state_order),
+    Mark = "State",
+    Value = 1,
+    Panel = "State"
+)
+
+plot_data <- rbind(emissions_long, color_data)
+plot_data$Panel <- factor(plot_data$Panel,
+                          levels = c("State", "Emission Probabilities"))
+
+ggplot(plot_data, aes(x = Mark, y = State)) +
+    geom_tile(data = subset(plot_data, Panel == "State"),
+              aes(fill = State), show.legend = FALSE, linewidth=.1, colour="gray20") +
+    geom_tile(data = subset(plot_data, Panel == "Emission Probabilities"),
+              aes(alpha = Value), fill = "red", linewidth=.1, colour="gray20") +
+    facet_grid(. ~ Panel, scales = "free_x", space = "free_x") +
+    scale_fill_manual(values = state_colors) +
+    scale_alpha_continuous(range = c(0, 1), name = "Probability") +
+    labs(x = "", y = "") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(size = 8, angle = 90, hjust = 1, vjust = 0.5),
+          axis.text.y = element_text(size = 7),
+          axis.title = element_text(size = 9),
+          plot.title = element_text(size = 10),
+          legend.position = "right",
+          strip.text = element_text(size = 8, face = "bold"),
+          panel.grid = element_blank(),
+          panel.spacing = unit(0.5, "lines"))
+```
+
+## ChromHMM: Integrating Multiple Histone Marks
+
+**How it works:**
+
+- Input: Multiple histone modification ChIP-seq signals
+- Model: Hidden Markov Model learns chromatin states
+- Each state defined by emission probabilities (previous slide)
+- Output: Genome segmented into functional states
+
+**In our genome browser:**
+
+- ChromHMM track shows where each state occurs
+- CTCF peaks often coincide with specific states (insulators, enhancers)
+
+
+
+## Visualizing CTCF Binding Sites (using `Gviz`)
+
+```{r chipseq-viz-chromhmm, echo=FALSE, cache=FALSE, fig.width=6, fig.height=3, message=FALSE, warning=FALSE}
+library(Gviz)
+
+# Find a region with multiple strong peaks
+peaks_sorted <- chip_peaks[order(mcols(chip_peaks)$signalValue, decreasing=TRUE)]
+top_peak <- peaks_sorted[3]
+region_start <- max(1, start(top_peak) - 100000)
+region_end <- start(top_peak) + 100000
+
+# Get peaks in this region
+region_peaks <- chip_peaks[start(chip_peaks) >= region_start &
+                           end(chip_peaks) <= region_end]
+
+# Bin reads for both CTCF ChIP and DNase
+bin_size <- 200
+bins <- seq(region_start, region_end, by = bin_size)
+
+# CTCF ChIP signal
+region_chip <- chip_reads[start(chip_reads) >= region_start &
+                          end(chip_reads) <= region_end]
+chip_counts <- countOverlaps(GRanges(chr, IRanges(bins, width = bin_size)), region_chip)
+chip_gr <- GRanges(chr, IRanges(bins, width = bin_size), score = chip_counts)
+
+# DNase signal (exaggerated 3x for visibility)
+region_dnase <- dnase_reads[start(dnase_reads) >= region_start &
+                            end(dnase_reads) <= region_end]
+dnase_counts <- countOverlaps(GRanges(chr, IRanges(bins, width = bin_size)), region_dnase)
+dnase_gr <- GRanges(chr, IRanges(bins, width = bin_size), score = dnase_counts * 3)
+
+# Create genome browser tracks
+axis_track <- GenomeAxisTrack()
+
+chip_track <- DataTrack(chip_gr, genome = "hg19", type = "histogram",
+                        chromosome = chr, name = "CTCF",
+                        fill = "darkblue", col.histogram = "darkblue")
+
+dnase_track <- DataTrack(dnase_gr, genome = "hg19", type = "histogram",
+                         chromosome = chr, name = "DNase (3x)",
+                         fill = "orange", col.histogram = "orange")
+
+# ChromHMM chromatin state track
+region_chromhmm <- chromhmm[start(chromhmm) >= region_start &
+                            end(chromhmm) <= region_end]
+
+# Define colors for chromatin states (ENCODE standard colors)
+state_colors <- c("1_Active_Promoter" = "red",
+                  "2_Weak_Promoter" = "orange",
+                  "3_Poised_Promoter" = "purple",
+                  "4_Strong_Enhancer" = "yellow",
+                  "5_Strong_Enhancer" = "yellow",
+                  "6_Weak_Enhancer" = "lightyellow",
+                  "7_Weak_Enhancer" = "lightyellow",
+                  "8_Insulator" = "green",
+                  "9_Txn_Transition" = "darkgreen",
+                  "10_Txn_Elongation" = "darkgreen",
+                  "11_Weak_Txn" = "lightgreen",
+                  "12_Repressed" = "gray",
+                  "13_Heterochrom/lo" = "lightgray",
+                  "14_Repetitive/CNV" = "lightgray",
+                  "15_Repetitive/CNV" = "lightgray")
+
+chromhmm_track <- AnnotationTrack(region_chromhmm,
+                                  name = "ChromHMM",
+                                  fill = state_colors[mcols(region_chromhmm)$name],
+                                  col = state_colors[mcols(region_chromhmm)$name],
+                                  stacking = "dense")
+
+# Plot with CTCF, DNase, peaks
+plotTracks(list(axis_track, chip_track, dnase_track, chromhmm_track),
+           chromosome = chr, from = region_start, to = region_end,
+           main = sprintf("CTCF ChIP-seq on %s:%s-%s",
+                          chr,
+                          format(region_start, big.mark=","),
+                          format(region_end, big.mark=",")),
+           background.title = "white",
+           col.axis = "black",
+           col.title = "black",
+           fontsize = 8,
+           cex.title = 0.6,
+           cex.axis = 1,
+           cex.main = 0.7)
+```
+
+
+
+
+
+## Assay for Transposase-Accessible Chromatin (ATAC)
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**Goal**: Map open chromatin regions genome-wide
+
+**Key insight**: \alert{No antibody needed!}
+
+**Protocol**:
+
+1. Tn5 transposase + DNA
+2. Cuts accessible chromatin preferentially
+3. Adds sequencing adapters
+4. Sequence DNA fragments
+5. Map reads to genome
+6. **Call peaks**
+
+:::
+::: {.column width=.5}
+
+**Advantages**:
+
+- Fast protocol (~3 hours)
+- Small cell numbers (500-50K cells)
+- No antibodies required
+- Genome-wide view
+
+:::
+::::::
+
+
+
+## ATAC-seq vs. ChIP-seq
+
+:::::: {.columns}
+::: {.column width=.5}
+
+**ATAC-seq**:
+
+- Measures \alert{chromatin accessibility}
+- All open regions (enhancers, promoters, etc.)
+- No protein specificity
+- No antibody needed
+- Cheaper, faster
+
+**Use cases**:
+
+- Map all regulatory elements
+- Compare cell states
+- Find active enhancers
+- TF footprinting
+
+:::
+::: {.column width=.5}
+
+**ChIP-seq**:
+
+- Measures \alert{protein-DNA binding}
+- Specific protein of interest
+- Requires good antibody
+- More expensive
+
+**Use cases**:
+
+- Find TF binding sites
+- Map histone modifications
+- Validate ATAC peaks
+- Mechanistic studies
+
+:::
+::::::
+
+## ATAC-seq produces regular fragment sizes
+
+\only<1>{\centerline{\includegraphics[height=.75\textheight]{img/atac_seq_buenrostro-tn5.pdf}}
+\textbf{Tn5}: {\color{teal} \textbf{cuts}} open DNA and {\color{magenta}\textbf{insert}} adapter sequence.}
+
+\only<2>{\centerline{\includegraphics[height=.8\textheight]{img/atac_seq_buenrostro-2.pdf}}}
+
+\only<3>{\vfill\centerline{\includegraphics[width=.8\textwidth]{img/atac_seq_buenrostro-3.pdf}}}
+
+\only<4>{\vfill\centerline{\includegraphics[width=.8\textwidth]{img/atac_seq_buenrostro-4.pdf}}
+\textbf{ATAC}-seq enriches known gene regulatory elements in genome}
+
+\vfill
+
+\flushright
+\scriptsize
+[@Buenrostro2013-qd]
+
+
+## Differential Accessibility Analysis {.smaller}
+
+```{r atacseq-demo, echo=TRUE, eval=FALSE}
+# After peak calling, create count matrix
+# Rows = genomic bins, Columns = samples
+count_matrix <- matrix(...)  # Read counts per bin per sample
+
+colData <- data.frame( # Set up experimental design
+    condition = factor(c(rep("Control", 3), rep("Treatment", 3)))
+)
+
+dds <- DESeqDataSetFromMatrix(countData = count_matrix, # Run differential accessibility
+                               colData = colData,       #  (same as RNA-seq!)
+                               design = ~ condition)
+dds <- DESeq(dds)
+results <- results(dds, contrast = c("condition", "Treatment", "Control"))
+
+sig_regions <- results[results$padj < 0.05, ] # Get significant regions (FDR < 0.05)
+```
+
+**Key point**: Same statistical framework as RNA-seq (DESeq2)!
+
+
+## ATAC-seq Applications
+
+:::::: {.columns}
+::: {.column width=.4}
+
+**1. Identify regulatory elements**
+
+- Promoters (at TSS)
+- Enhancers (distal peaks)
+- Silencers
+- Insulators
+
+**2. Compare cell types/states**
+
+- Development
+- Differentiation
+- Disease vs healthy
+
+:::
+::: {.column width=.55}
+
+**3. TF footprinting**
+
+- Bound TF → protected DNA
+- Dip in signal at TF motif
+- Infer active TFs
+
+**4. Integration**
+
+- ATAC + RNA-seq → **link enhancers to genes**
+- ATAC + ChIP-seq → TF binding
+- ATAC + GWAS → **functional variants**
+
+:::
+::::::
+
+##
+
+
+
+
+
+
+# DNA Methylation (credit: Keegan Korthauer)
+
+## What is DNA Methylation?
+
+:::::: {.columns}
+::: {.column width=.5}
+
+* **5-methylcytosine (5mC)**: a methyl group added to cytosine at CpG dinucleotides
+
+* **Heritable**: copied faithfully during DNA replication (by DNMT1)
+
+* **Regulatory role**:
+  * CpG islands at promoters → gene silencing when methylated
+  * Enhancer activity correlates with hypomethylation
+  * Imprinting, X-inactivation
+
+:::
+::: {.column width=.48}
+
+\includegraphics[width=\textwidth]{img/5mC.pdf}
+
+\scriptsize\textit{epigentek.com}
+
+\vspace{0.2em}
+
+\includegraphics[width=\textwidth]{img/copymeth.pdf}
+
+\scriptsize\textit{slideplayer.com}
+
+:::
+::::::
+
+## DNA Methylation and Gene Regulation
+
+:::::: {.columns}
+::: {.column width=.58}
+\includegraphics[width=\textwidth]{img/genereg.pdf}
+:::
+::: {.column width=.4}
+\includegraphics[width=\textwidth]{img/5thbase.pdf}
+:::
+::::::
+
+## Measuring DNA Methylation
+
+:::::: {.columns}
+::: {.column width=.48}
+
+\centering
+\includegraphics[width=\textwidth]{img/bisulfite-conversion.pdf}
+
+\scriptsize Bisulfite conversion (\textit{diagenode.com})
+
+:::
+::: {.column width=.5}
+
+\centering
+\includegraphics[width=\textwidth]{img/methassays.pdf}
+
+\scriptsize [@Laird2010-xv]
+
+:::
+::::::
+
+## Bisulfite Sequencing
+
+\centerline{\includegraphics[width=.9\textwidth]{img/methylation-bisulfite.pdf}}
+
+## Beta ($\beta$) values
+
+* Combine two measurements for each CpG probe, measure level of methylation:
+
+$$\beta = \frac{\text{methylated intensity}}{(\text{methylated intensity} + \text{unmethylated intensity})}$$
+
+* Range from 0 to 1
+
+* Easily interpretable as a **methylation proportion**
+
+* Best used for **visualization**
+
+## M-values
+
+* Transformed $\beta$ values:
+
+$$M= \log_2\!\left(\frac{\text{methylated intensity}}{\text{unmethylated intensity}}\right) = \log_2\!\left(\frac{\beta}{1-\beta}\right)$$
+
+* The *logit* transformation — maps a proportion onto the real line
+
+* Alleviates heteroscedasticity of $\beta$ values
+  (recall: $\text{Binomial}(n,p)$ variance $= np(1-p)$)
+
+* Best used for **statistical testing**
+
+\vfill
+\scriptsize [@Du2010-bm]
+
+## Comparing $\beta$ and M values
+
+```{r meth-density, echo=FALSE, cache=FALSE, fig.width=5.5, fig.height=2.8, message=FALSE, warning=FALSE}
+library(minfi)
+library(RColorBrewer)
+
+mSet <- readRDS("../data/methylation/mSet.rds")
+targets <- readRDS("../data/methylation/targets.rds")
+
+bVals <- getBeta(mSet)
+mVals <- getM(mSet)
+
+par(mfrow=c(1,2), cex=0.55, mar=c(4,4,2,1))
+
+densityPlot(bVals,
+            sampGroups = targets$Sample_Group,
+            main = expression(beta~values),
+            legend = FALSE,
+            xlab = expression(beta~values))
+legend("top",
+       legend = levels(factor(targets$Sample_Group)),
+       text.col = brewer.pal(8, "Dark2"),
+       cex = 0.8)
+
+densityPlot(mVals,
+            sampGroups = targets$Sample_Group,
+            main = "M-values",
+            legend = FALSE,
+            xlab = "M values")
+legend("topleft",
+       legend = levels(factor(targets$Sample_Group)),
+       text.col = brewer.pal(8, "Dark2"),
+       cex = 0.8)
+```
+
+## Methylation Array Analysis Workflow
+
+* Analysis strategy: **linear regression on M-values** (limma)
+
+* Key R packages:
+  * `minfi` — preprocessing and normalization of array data
+  * `limma` — differentially methylated cytosines (DMC)
+  * `dmrseq` / `bumphunter` — differentially methylated **regions** (DMR)
+
+* Example dataset: sorted T cells [@Zhang2013-kd]
+  * Naive vs. activated naive T cells
+  * [GEO: GSE49667](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE49667)
+
+## Differentially Methylated Cytosines (DMC)
+
+```{r meth-dmc, echo=TRUE, cache=FALSE, message=FALSE, warning=FALSE, size="tiny"}
+library(limma)
+cellType  <- factor(targets$Sample_Group)
+individual <- factor(targets$Sample_Source)
+design <- model.matrix(~ cellType + individual, data = targets)
+
+## Fit one linear model per CpG probe
+mfit <- lmFit(mVals, design)
+cfit <- eBayes(mfit)
+
+## Top differentially methylated CpGs (naive vs. act_naive)
+topTable(cfit, coef = "cellTypenaive", number = 5)
+```
+
+## DMCs vs DMRs
+
+* Individual CpG tests → **differentially methylated cytosines (DMCs)**
+
+* Methylation of nearby CpGs is **correlated** and regulated in tandem
+
+* Grouping nearby significant CpGs → **differentially methylated regions (DMRs)**
+
+\vfill
+
+\centering
+\includegraphics[width=.9\textwidth]{img/dmc1.pdf}
+
+## DMCs vs DMRs
+
+:::::: {.columns}
+::: {.column width=.49}
+\centering
+\includegraphics[width=\textwidth]{img/dmc2.pdf}
+
+\scriptsize CpG 1
+:::
+::: {.column width=.49}
+\centering
+\includegraphics[width=\textwidth]{img/dmc3.pdf}
+
+\scriptsize CpG 2
+:::
+::::::
+
+## FDR at the Region Level
+
+:::::: {.columns}
+::: {.column width=.55}
+\includegraphics[width=\textwidth]{img/fdr2.pdf}
+
+\vspace{0.3em}
+
+\includegraphics[width=\textwidth]{img/fdr3.pdf}
+:::
+::: {.column width=.43}
+
+\vspace{1em}
+
+* Grouping significant CpGs post-hoc **inflates FDR**
+
+$$FDR_{CpG} = \frac{2}{10} = 0.20$$
+
+$$FDR_{DMR} = \frac{1}{2} = 0.50$$
+
+* Need to model region-level signal directly
+
+\vfill
+\scriptsize `BSmooth` [@Hansen2012-bw], `DSS` [@Park2016-rq]
+
+:::
+::::::
+
+## Accurate DMR Inference: `dmrseq`
+
+:::::: {.columns}
+::: {.column width=.75}
+\includegraphics[width=\textwidth]{img/2stage.pdf}
+:::
+::: {.column width=.2}
+
+\vspace{1em}
+
+* Model correlated methylation signal over region
+
+* Permutation for accurate FDR control
+
+\vspace{0.5em}
+\flushright
+\includegraphics[width=.5\textwidth]{img/dmrseqhex.pdf}
+
+\vfill
+\scriptsize [@Korthauer2019-dm]
+
+:::
+::::::
+
+## `dmrseq` Output
+
+\centering
+\includegraphics[width=.85\textwidth]{img/exdmr.pdf}
+
+\vfill
+
+* *De novo* regions with FDR estimate
+* Ranked by effect size of methylation difference
+* Can adjust for covariates
+
+## Summary: DNA Methylation Analysis
+
+* **Data**: Illumina arrays → per-CpG $\beta$ values (proportions)
+
+* **Model**: linear regression on logit-transformed M-values
+  * Same `limma` framework as gene expression microarrays
+  * Additive models, interactions, paired designs all apply
+
+* **Output**:
+  * **DMC** analysis: per-probe test (limma)
+  * **DMR** analysis: region-level modelling (dmrseq/bumphunter)
+
+* **Back-transform** estimates to $\beta$ scale for biological interpretation:
+$$\hat{\beta} = \frac{2^{\hat{M}}}{1 + 2^{\hat{M}}}$$
+
+# Multiomic Data Integration with Regulatory Genomics 
+
+## From DMRs to Biological Meaning
+
+We found differentially methylated regions — now what?
+
+\vfill
+
+\alert{Key questions}:
+
+- Which **genes** are near these regions?
+- Which **biological processes** are affected?
+
+\vfill
+
+**Workflow**:
+
+$$\text{DMRs} \xrightarrow{\text{proximity}} \text{genes} \xrightarrow{\text{enrichment}} \text{pathways / GO terms}$$
+
+\vfill
+
+This generalises to \textbf{any} set of genomic regions: ATAC peaks, ChIP peaks, GWAS loci
+
+## Standard Enrichment: A Problem
+
+**Naive approach**: map each region to its nearest gene, collect gene list, run hypergeometric test
+
+\vfill
+
+\alert{Why this fails}:
+
+- Gene-dense regions contribute many genes → \textbf{inflated hits}
+- Distal enhancers (>5 kb) are silently ignored
+- Background is "all genes", not "all genomic space"
+
+\vfill
+
+Example: a peak between a 50-gene cluster and an intergenic desert → the cluster dominates
+
+## Regions → Enrichment Directly 
+
+`GREAT` [@McLean2010-ou]. Each gene gets a **regulatory domain**:
+
+\vfill
+
+\textbf{Basal domain}: $\pm$ 5 kb around TSS (always kept)
+
+\textbf{Extended domain}: expands up to 1 Mb, until the next gene's basal boundary
+
+\vfill
+
+\vspace{0.5em}
+\begin{tikzpicture}[scale=0.72, every node/.style={font=\tiny}]
+  % Chromosome bar
+  \draw[thick] (0,0) -- (9,0);
+  % Gene A body
+  \draw[fill=gray!40, draw=gray] (1.5,-.15) rectangle (3.5,.15);
+  \node at (2.5, 0) {Gene A};
+  \draw[->, thick] (2.5,.15) -- (2.5,.45) node[above] {TSS$_A$};
+  % Gene B body
+  \draw[fill=gray!40, draw=gray] (5.8,-.15) rectangle (8,.15);
+  \node at (6.9, 0) {Gene B};
+  \draw[->, thick] (5.8,.15) -- (5.8,.45) node[above] {TSS$_B$};
+  % Basal A
+  \draw[thick, blue, |-|] (1.8,-.6) -- (3.2,-.6);
+  \node[blue] at (2.5,-.85) {basal A};
+  % Basal B
+  \draw[thick, blue, |-|] (5.1,-.6) -- (6.5,-.6);
+  \node[blue] at (5.8,-.85) {basal B};
+  % Extended A
+  \draw[thick, teal, |-|] (0.2,-1.3) -- (5.1,-1.3);
+  \node[teal] at (2.65,-1.55) {extended A};
+  % Extended B
+  \draw[thick, teal, |-|] (5.1,-1.3) -- (8.8,-1.3);
+  \node[teal] at (6.95,-1.55) {extended B};
+  % Peak
+  \draw[fill=red!70, draw=red] (3.6,-1.15) rectangle (3.9,-.45);
+  \node[red] at (3.75,-.25) {peak};
+  \draw[->, red, dashed] (3.75,-.45) -- (3.75,-1.15);
+  \node[red] at (5.2,-1.9) {$\rightarrow$ linked to Gene A};
+\end{tikzpicture}
+
+\vfill
+
+A region can be linked to **multiple** genes; background = all genomic space
+
+## GREAT: Why It Works Better
+
+| | Standard | GREAT |
+|---|---|---|
+| Input | gene list | genomic regions |
+| Background | all genes | all genome |
+| Long-range | ignored | up to 1 Mb |
+| Gene density bias | yes | corrected |
+
+\vfill
+
+Useful for: ATAC peaks, ChIP peaks, DMRs, GWAS loci
+
+## GREAT Step 1: Prepare Input Regions
+
+```{r great-input, echo=TRUE, cache=FALSE, message=FALSE}
+library(rGREAT)
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+
+## chip_peaks loaded earlier — keep standard chromosomes
+std_chrs <- paste0("chr", c(1:22, "X", "Y"))
+ctcf_gr  <- GRanges(as.character(seqnames(chip_peaks)),
+                    IRanges(start(chip_peaks), end(chip_peaks)))
+ctcf_gr  <- ctcf_gr[as.character(seqnames(ctcf_gr)) %in% std_chrs]
+cat(length(ctcf_gr), "CTCF peaks ready\n")
+```
+
+* Regions = CTCF ChIP-seq peaks (GM12878, whole genome)
+* Same syntax for DMRs, ATAC peaks, or GWAS loci
+
+## GREAT Step 2: Run Enrichment
+
+```{r great-run, echo=TRUE, message=FALSE}
+great_file <- "../data/great_ctcf_gobp.rds"
+if.needed(great_file, {
+    great_res <- great(ctcf_gr,
+                       gene_sets  = "GO:BP",
+                       tss_source = "TxDb.Hsapiens.UCSC.hg19.knownGene",
+                       verbose    = FALSE)
+    saveRDS(great_res, great_file)
+})
+great_res <- readRDS(great_file)
+```
+
+* `gene_sets`: `"GO:BP"`, `"GO:MF"`, `"KEGG"`, `"MSigDB:H"`, …
+* `tss_source`: genome-specific gene model
+* Returns a `GreatObject` (region–gene links + enrichment)
+
+## GREAT Step 3: Inspect Results
+
+```{r great-table, echo=TRUE, cache=FALSE}
+tb <- getEnrichmentTable(great_res)
+cols <- c("description", "observed_region_hits",
+          "fold_enrichment", "p_adjust")
+head(tb[order(tb$p_adjust), cols], 6)
+```
+
+* `fold_enrichment`: observed / expected overlap, `p_adjust`: BH-corrected p-value
+
+## GREAT Step 4: Visualize Top Terms
+
+```{r great-plot, echo=FALSE, cache=FALSE, fig.width=5.5, fig.height=2.8, message=FALSE}
+top <- head(tb[tb$p_adjust < 0.05, ][order(tb$p_adjust[tb$p_adjust < 0.05]), ], 15)
+top$description <- factor(top$description,
+                          levels = rev(top$description))
+ggplot(top, aes(x = description,
+                y = -log10(p_adjust),
+                fill = fold_enrichment)) +
+    geom_bar(stat = "identity") +
+    geom_hline(yintercept = -log10(0.05),
+               linetype = "dashed", colour = "red") +
+    coord_flip() +
+    scale_fill_gradient(low = "steelblue", high = "darkred",
+                        name = "Fold\nenrichment") +
+    labs(x = "", y = expression(-log[10](p[adj])),
+         title = "Top GO:BP terms — CTCF peaks") +
+    theme(axis.text.y = element_text(size = 7),
+          legend.key.size = unit(0.4, "cm"))
+```
+
+## GWAS Variants Are Mostly Non-Coding
+
+Disease GWAS identifies thousands of associated variants
+
+\vfill
+
+**The puzzle**: >90% of hits fall outside protein-coding exons
+
+\vfill
+
+\alert{Key questions}:
+
+- Where do these variants **act**?
+- Which **cell types** are disease-relevant?
+
+\vfill
+
+**Strategy**: overlap GWAS loci with cell-type-specific epigenetic annotations
+
+## GWAS → Epigenetic States: The Approach
+
+1. Collect GWAS summary statistics (SNPs with $P < 5 \times 10^{-8}$)
+
+2. Download cell-type-specific chromatin annotations
+   (e.g., Roadmap Epigenomics: 127 cell/tissue types)
+
+3. For each cell type: test whether GWAS SNPs are **enriched** in active enhancers
+
+4. The most enriched cell type = likely disease-relevant tissue
+
+\vfill
+
+\textbf{Statistical test}: Fisher's exact test (or LD-score regression)
+
+## GWAS Step 1: Fetch RA Loci from GWAS Catalog
+
+```{r gwas-fetch, echo=TRUE, cache=FALSE, message=FALSE}
+library(gwasrapidd)
+ra_file <- "../data/ra_gwas_hits.rds"
+if (!file.exists(ra_file)) {
+    assoc    <- get_associations(study_id = "GCST90132222")
+    variants <- get_variants(study_id    = "GCST90132222")
+    ra <- merge(assoc@risk_alleles[, c("association_id","variant_id")],
+                variants@variants[, c("variant_id","chromosome_name",
+                                      "chromosome_position")],
+                by = "variant_id")
+    ra$CHR <- paste0("chr", ra$chromosome_name)
+    saveRDS(ra, ra_file)
+}
+ra <- readRDS(ra_file)
+cat(nrow(ra), "genome-wide significant RA loci (GCST90132222)\n")
+```
+
+* Study: 22,350 European ancestry samples [@Okada2014-oa]
+* Coordinates: hg19 / GRCh37
+
+## GWAS Step 2: Build Locus Windows
+
+```{r gwas-loci, echo=TRUE, cache=FALSE, message=FALSE}
+## Expand each index SNP ±50 kb (covers typical LD block)
+sig_gr <- GRanges(ra$CHR,
+                  IRanges(ra$chromosome_position - 50000,
+                          ra$chromosome_position + 50000))
+sig_gr <- sig_gr[start(sig_gr) > 0]
+
+## Chromosome-proportional random background (hg19)
+set.seed(42)
+chr_sizes <- seqlengths(BSgenome.Hsapiens.UCSC.hg19::
+                            BSgenome.Hsapiens.UCSC.hg19)[paste0("chr",1:22)]
+chr_s <- sample(names(chr_sizes), 5e4, replace = TRUE,
+                prob = chr_sizes / sum(chr_sizes))
+pos_s <- mapply(function(ch) sample(chr_sizes[ch] - 1e5, 1) + 50000, chr_s)
+bg_gr <- GRanges(chr_s, IRanges(pos_s - 50000, pos_s + 50000))
+cat(length(sig_gr), "locus windows,", length(bg_gr), "background windows\n")
+```
+
+## GWAS Step 3: Load Roadmap H3K27ac Enhancers
+
+```{r gwas-enh, echo=TRUE, cache=FALSE, message=FALSE}
+enh_dir    <- "../data/roadmap/"
+enh_labels <- c(CD4_Naive  = "AH43615", CD4_Memory = "AH43684",
+                CD19_Bcell = "AH44900", CD14_Mono  = "AH44890",
+                Adult_Liver= "AH43458", Brain      = "AH43501")
+
+## Load from locally cached RDS files (downloaded once via AnnotationHub)
+enhancers <- lapply(names(enh_labels), function(ct)
+    readRDS(paste0(enh_dir, ct, "_H3K27ac.rds")))
+names(enhancers) <- names(enh_labels)
+immune_cells <- c("CD4_Naive","CD4_Memory","CD19_Bcell","CD14_Mono")
+sapply(enhancers, length)   # peaks per cell type
+```
+
+* H3K27ac = active enhancer / promoter mark
+* Roadmap Epigenomics: 127 reference human epigenomes [@Kundaje2015-cy]
+
+## GWAS Step 4: Fisher's Exact Test per Cell Type
+
+```{r gwas-fisher, echo=TRUE, message=FALSE}
+enr_file <- "../data/gwas_ra_enrichment.rds"
+if.needed(enr_file, {
+    enr <- do.call(rbind, lapply(names(enhancers), function(ct) {
+        enh <- enhancers[[ct]]
+        a <- sum(countOverlaps(sig_gr, enh) > 0)
+        b <- length(sig_gr) - a
+        c <- sum(countOverlaps(bg_gr,  enh) > 0)
+        d <- length(bg_gr)  - c
+        ft <- fisher.test(matrix(c(a, b, c, d), 2))
+        data.frame(cell_type = ct, OR = ft$estimate,
+                   pval = ft$p.value, frac = a / length(sig_gr))
+    }))
+    enr$fdr      <- p.adjust(enr$pval, "BH")
+    enr$category <- ifelse(enr$cell_type %in% immune_cells, "Immune", "Non-immune")
+    saveRDS(enr, enr_file)
+})
+enr <- readRDS(enr_file)
+enr$cell_type <- factor(enr$cell_type, levels = enr$cell_type[order(enr$OR)])
+```
+
+## GWAS Enrichment: Odds Ratio
+
+```{r gwas-plot1, echo=FALSE, cache=FALSE, fig.width=5.5, fig.height=2.8, message=FALSE}
+ggplot(enr, aes(cell_type, OR, fill = category)) +
+    geom_bar(stat = "identity", alpha = .8) +
+    geom_hline(yintercept = 1, linetype = "dashed", colour = "red") +
+    geom_text(aes(label = ifelse(fdr < .05, "*", "")),
+              vjust = -.3, size = 5, colour = "red") +
+    coord_flip() +
+    scale_fill_manual(values = c(Immune = "#d73027", `Non-immune` = "#4575b4")) +
+    labs(x = NULL, y = "Odds Ratio",
+         title = "RA loci enriched in immune cell enhancers",
+         subtitle = "* FDR < 0.05    |    Roadmap H3K27ac peaks") +
+    theme(legend.position = "bottom")
+```
+
+## GWAS Enrichment: Statistical Significance
+
+```{r gwas-plot2, echo=FALSE, cache=FALSE, fig.width=5.5, fig.height=2.8, message=FALSE}
+enr$nlp <- -log10(enr$pval)
+ggplot(enr, aes(cell_type, nlp, fill = category)) +
+    geom_bar(stat = "identity", alpha = .8) +
+    geom_hline(yintercept = -log10(.05 / nrow(enr)),
+               linetype = "dashed", colour = "red") +
+    coord_flip() +
+    scale_fill_manual(values = c(Immune = "#d73027", `Non-immune` = "#4575b4")) +
+    labs(x = NULL, y = expression(-log[10](p)),
+         title = "Statistical significance of enrichment",
+         subtitle = "dashed = Bonferroni threshold") +
+    theme(legend.position = "bottom")
+```
+
+## GWAS Enrichment: Overlap Fraction
+
+```{r gwas-plot3, echo=FALSE, cache=FALSE, fig.width=5.5, fig.height=2.8, message=FALSE}
+ggplot(enr, aes(cell_type, frac * 100, fill = category)) +
+    geom_bar(stat = "identity", alpha = .8) +
+    coord_flip() +
+    scale_fill_manual(values = c(Immune = "#d73027", `Non-immune` = "#4575b4")) +
+    labs(x = NULL, y = "% RA loci overlapping enhancers",
+         title = "Fraction of RA loci in cell-type enhancers") +
+    theme(legend.position = "bottom")
+```
+
+## Limitation: Fisher's Test Ignores LD
+
+**The problem**: nearby SNPs are correlated through **linkage disequilibrium (LD)**
+
+\vfill
+
+Two significant SNPs 20 kb apart may represent \alert{one causal signal}, not two
+
+$\Rightarrow$ overlapping the same enhancer window gets double-counted
+
+\vfill
+
+**Consequence**: Fisher's test \alert{inflates enrichment} in gene-dense, LD-rich regions
+
+\vfill
+
+**Better approaches**:
+
+* **Stratified LD score regression** (S-LDSC) — partitions heritability by annotation, models LD [@Finucane2015-qr]
+* **GARFIELD** — permutation matching on MAF, distance to TSS, LD
+* **GoShifter** — circular permutation within LD blocks
+
+## Real-World GWAS–Epigenome Findings (examples)
+
+\large
+
+\textbf{Rheumatoid arthritis} $\to$ CD4$^+$ T cells \hfill \textit{adaptive immunity}
+
+\vspace{0.4em}
+\textbf{IBD} $\to$ gut immune cells \hfill \textit{mucosal inflammation}
+
+\vspace{0.4em}
+\textbf{Type 2 diabetes} $\to$ pancreatic islets \hfill \textit{$\beta$-cell dysfunction}
+
+\vspace{0.4em}
+\textbf{Schizophrenia} $\to$ neurons \hfill \textit{brain circuit defects}
+
+\vspace{0.4em}
+\textbf{Height} $\to$ chondrocytes \hfill \textit{cartilage growth plates}
+
+\normalsize
+\vfill
+\flushright\scriptsize [@Kundaje2015-cy]
+
+## Why GWAS–Epigenome Integration Matters
+
+**Identify disease-relevant cell types**
+
+- Guides which cells to study experimentally
+- 90% of hits are non-coding — context is everything
+
+\vfill
+
+**Mechanistic insight**
+
+- Variant disrupts an enhancer → changes TF binding → alters gene expression
+
+\vfill
+
+**Therapeutic direction**
+
+- Target the right cell type, not just the right gene
+
+\vfill
+
+**Links to scRNA-seq**
+
+- Fine-map to specific cell states within a tissue
+
+
+
+
+
+##
+
+## Reference {.allowframebreaks}
