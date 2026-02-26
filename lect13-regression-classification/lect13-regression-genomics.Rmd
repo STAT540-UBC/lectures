@@ -1158,6 +1158,9 @@ Predicting expression from genotypes is a high-dimensional problem:
 
 $$Y_{i} = \sum_{j=1}^{p} X_{ij} \theta_{j} + \epsilon$$
 
+\small
+where $\theta_{j}$ are the **multivariate/joint effects** (cf. $\beta_{j}$ for univariate GWAS effects)
+
 \large
 
 \begin{itemize}[<+-|alert@+>]
@@ -1277,28 +1280,22 @@ sumstat.dt <- fread(.file.mr)
 
 **Two-stage approach**:
 
-1. **Training stage**: Build expression prediction model
+1. **Training**: Build expression prediction model
    $$\hat{E}_g = \sum_{j} X_{j} \beta_{j}^{(g)}$$
    using LASSO/Elastic Net on eQTL reference panel
 
-2. **Association stage**: Test predicted expression with trait
+2. **Prediction**: Test predicted expression with trait
    $$Y \sim \hat{E}_g + \textsf{covariates}$$
-
-\vfill
-
-**Why penalized regression?** Need to select causal eQTL variants from many correlated candidates
 
 \vfill
 
 \tiny
 Gamazon et al. (2015) Nature Genetics
 
-## Lasso, a linear regression with Laplace prior (L1)
+## Lasso: a linear regression with L1 [@Tibshirani1996-hc]
 
 Prior distribution
-$$
-p(\boldsymbol{\theta}) = \textsf{Laplace}(\boldsymbol{\theta}| \lambda) \propto \exp\left(-\lambda\|\boldsymbol{\theta}\|_{1}\right)
-$$
+\centerline{$p(\boldsymbol{\theta}) = \textsf{Laplace}(\boldsymbol{\theta}| \lambda) \propto \exp\left(-\lambda\|\boldsymbol{\theta}\|_{1}\right)$}
 where
 \large
 $$\|\boldsymbol{\theta}\|_{1} = \sum_{j=1}^{p} |\theta_{j}|,\,\textsf{\color{blue}L1-norm}.$$
@@ -1317,21 +1314,18 @@ $$
 + \lambda \|\boldsymbol{\theta}\|_{1}
 $$
 
-\vfill
 
-(Tibshirani, 1996)
+## `glmnet` [@Friedman2010-kx] solves this opt. problem 
 
-## `glmnet` solves this regularized optimization problem
-
-Goal (by variable-by-variable updates):\centerline{$\min_{\boldsymbol{\beta}} \quad
-\overbrace{(\mathbf{y} - X\boldsymbol{\beta})^{\top}(\mathbf{y} - X\boldsymbol{\beta})}^{\textsf{\color{blue} RSS}} + \underbrace{\lambda \alpha \|\boldsymbol{\beta}\|_{1}}_{\textsf{\color{red} variable selection}} + \underbrace{\lambda (1 - \alpha) \|\boldsymbol{\beta}\|_{2}}_{\textsf{\color{magenta} shrinkage}}$}
+Goal (by variable-by-variable updates):\centerline{$\min_{\boldsymbol{\theta}} \quad
+\overbrace{(\mathbf{y} - X\boldsymbol{\theta})^{\top}(\mathbf{y} - X\boldsymbol{\theta})}^{\textsf{\color{blue} RSS}} + \underbrace{\lambda \alpha \|\boldsymbol{\theta}\|_{1}}_{\textsf{\color{red} variable selection}} + \underbrace{\lambda (1 - \alpha) \|\boldsymbol{\theta}\|_{2}}_{\textsf{\color{magenta} shrinkage}}$}
 
 \onslide<2->{
-For each $\beta_{j}$,
+For each $\theta_{j}$,
 }
 
 \only<2>{$$
-\hat{\beta}_{j}^{\textsf{glmnet}} \gets
+\hat{\theta}_{j}^{\textsf{glmnet}} \gets
 \frac{S\left(
 \sum_{i=1}^{n} X_{ij} (y_{i} - \hat{y}_{i}^{(-j)}),
 \lambda\alpha
@@ -1343,10 +1337,10 @@ Friedman {\it et al.}, Regularization Paths for Generalized Linear Models via Co
 }
 
 \only<3>{$$
-\hat{\beta}_{j} \gets
+\hat{\theta}_{j} \gets
 \frac{\overset{\textsf{\color{red} threshold}}{S}
 \left(
-\sum_{i=1}^{n} X_{ij} \overbrace{(y_{i} - y_{i}^{(-j)})}^{\textsf{\color{red} residual w/o the variable } \beta_{j} },
+\sum_{i=1}^{n} X_{ij} \overbrace{(y_{i} - y_{i}^{(-j)})}^{\textsf{\color{red} residual w/o the variable } \theta_{j} },
 \lambda\alpha
 \right)}
 { \sum_{i=1}^{n} X_{ij}^{2} + \underbrace{\lambda (1- \alpha)}_{\textsf{\color{magenta} shrinkage}}}
@@ -1376,7 +1370,8 @@ where $\sum_{j=1}^{p} \alpha_{j}^{(l)} = 1$ for each layer $l$.
 
 \small
 
-Wang .. Stephens, _Journal of the Royal Statistical Society_ (2020)
+[@Wang2020-qu]
+
 
 ## Ideas behind SuSiE
 
@@ -1404,7 +1399,7 @@ susie.dt <-
     mutate(susie = 1:n())
 ```
 
-```{r fig.width=3, fig.height=2.8, echo = FALSE}
+```{r fig.width=5, fig.height=2.8, echo = FALSE}
 ggplot(susie.dt, aes(susie, pip, fill=as.factor(l))) +
     theme(legend.position = c(1,1)) +
     theme(legend.justification = c(1,1)) +
@@ -1418,7 +1413,7 @@ ggplot(susie.dt, aes(susie, pip, fill=as.factor(l))) +
 
 ## SuSiE provides credible sets
 
-```{r fig.width=6, fig.height=3.5, echo = FALSE}
+```{r fig.width=6, fig.height=2.5, echo = FALSE}
 susie_plot(susie.out, y = "PIP", add_bar = TRUE, add_legend = TRUE)
 ```
 
@@ -1427,6 +1422,141 @@ susie_plot(susie.out, y = "PIP", add_bar = TRUE, add_legend = TRUE)
 Each color represents one independent signal (one "layer" in the model)
 
 
+## Geometric intuition: L2, L1, and SuSiE
+
+\centerline{$\mathbf{y} = \mathbf{x}_{1} \theta_{1} + \mathbf{x}_{2} \theta_{2} + \epsilon$}
+
+```{r echo=FALSE, include=FALSE}
+# Generate elliptical contours for RSS (centered at OLS solution)
+theta <- seq(0, 2*pi, length.out = 100)
+
+# OLS solution (unconstrained minimum)
+ols_theta1 <- 1.2
+ols_theta2 <- 0.5
+
+# Create contour data for RSS
+make_ellipse <- function(a, b, cx, cy) {
+  data.frame(
+    theta1 = cx + a * cos(theta),
+    theta2 = cy + b * sin(theta)
+  )
+}
+
+contours <- rbind(
+  make_ellipse(0.3, 0.2, ols_theta1, ols_theta2) %>% mutate(level = "1"),
+  make_ellipse(0.6, 0.4, ols_theta1, ols_theta2) %>% mutate(level = "2"),
+  make_ellipse(0.9, 0.6, ols_theta1, ols_theta2) %>% mutate(level = "3")
+)
+
+# L2 constraint (circle)
+l2_radius <- 0.8
+l2_constraint <- data.frame(
+  theta1 = l2_radius * cos(theta),
+  theta2 = l2_radius * sin(theta)
+)
+l2_solution <- data.frame(theta1 = 0.64, theta2 = 0.48)
+
+# L1 constraint (diamond)
+l1_lambda <- 1.0
+l1_constraint <- data.frame(
+  theta1 = c(l1_lambda, 0, -l1_lambda, 0, l1_lambda),
+  theta2 = c(0, l1_lambda, 0, -l1_lambda, 0)
+)
+l1_solution <- data.frame(theta1 = 1.0, theta2 = 0)
+
+# L0 constraint (SuSiE: axes with sum-to-one constraint)
+l0_lambda <- 1.0
+l0_constraint <- data.frame(
+  theta1 = c(-l0_lambda, l0_lambda, NA, 0, 0),
+  theta2 = c(0, 0, NA, -l0_lambda, l0_lambda)
+)
+l0_solution <- data.frame(theta1 = 1.0, theta2 = 0)
+
+# L2 penalty plot
+p1 <- ggplot() +
+  geom_path(data = contours, aes(theta1, theta2, group = level),
+            color = "steelblue", linewidth = 0.8, alpha = 0.6) +
+  geom_polygon(data = l2_constraint, aes(theta1, theta2),
+               fill = "coral", alpha = 0.2, color = "coral", linewidth = 1) +
+  geom_point(data = l2_solution, aes(theta1, theta2),
+             color = "red", size = 3) +
+  geom_point(aes(ols_theta1, ols_theta2), color = "blue", size = 3, shape = 4, stroke = 2) +
+  coord_fixed(xlim = c(-1.5, 1.5), ylim = c(-1.5, 1.5)) +
+  labs(x = expression(theta[1]), y = expression(theta[2]),
+       title = bquote(L[2]~"(Ridge): "~sum(theta[j]^2) < lambda)) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(hjust = 0.5, size = 9))
+
+# L1 penalty plot
+p2 <- ggplot() +
+  geom_path(data = contours, aes(theta1, theta2, group = level),
+            color = "steelblue", linewidth = 0.8, alpha = 0.6) +
+  geom_polygon(data = l1_constraint, aes(theta1, theta2),
+               fill = "coral", alpha = 0.2, color = "coral", linewidth = 1) +
+  geom_point(data = l1_solution, aes(theta1, theta2),
+             color = "red", size = 3) +
+  geom_point(aes(ols_theta1, ols_theta2), color = "blue", size = 3, shape = 4, stroke = 2) +
+  coord_fixed(xlim = c(-1.5, 1.5), ylim = c(-1.5, 1.5)) +
+  labs(x = expression(theta[1]), y = expression(theta[2]),
+       title = bquote(L[1]~"(LASSO): "~sum(abs(theta[j])) < lambda)) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(hjust = 0.5, size = 9))
+
+# L0 penalty plot (SuSiE)
+p3 <- ggplot() +
+  geom_path(data = contours, aes(theta1, theta2, group = level),
+            color = "steelblue", linewidth = 0.8, alpha = 0.6) +
+  geom_path(data = l0_constraint, aes(theta1, theta2),
+            color = "coral", linewidth = 2) +
+  geom_point(data = l0_solution, aes(theta1, theta2),
+             color = "red", size = 3) +
+  geom_point(aes(ols_theta1, ols_theta2), color = "blue", size = 3, shape = 4, stroke = 2) +
+  coord_fixed(xlim = c(-1.5, 1.5), ylim = c(-1.5, 1.5)) +
+  labs(x = expression(theta[1]), y = expression(theta[2]),
+       title = bquote(L[0]~"(SuSiE): "~sum(I(theta[j] != 0)) == 1)) +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(hjust = 0.5, size = 9))
+
+```
+
+:::::: {.columns}
+::: {.column width=.32}
+
+```{r fig.width=2, fig.height=2.8, echo=FALSE, onslide.plot="1-"}
+p1
+```
+
+:::
+::: {.column width=.32}
+
+```{r fig.width=2, fig.height=2.8, echo=FALSE, onslide.plot="2-"}
+p2
+```
+
+:::
+::: {.column width=.32}
+
+```{r fig.width=2, fig.height=2.8, echo=FALSE, onslide.plot="3"}
+p3
+```
+
+:::
+::::::
+
+\scriptsize
+
+Blue cross (×): OLS solution; Red dot: Constrained solution; Blue contours: RSS levels
+
+
+## Transcriptome-wide association study (TWAS)
+
+Using eQTL, we can understand GWAS mechanisms... [@Gamazon2015-pc]
+
+\centerline{\includegraphics[width=\textwidth]{img/GWAS_blackbox_TWAS.pdf}}
+
+\vfill
+
+$$\mathbf{m}_{g} \sim X \boldsymbol{\alpha}_{g} + \boldsymbol{\epsilon}_{g} \quad \implies \quad \mathbf{y}_{\textsf{GWAS}} = \sum_{g \in \textsf{causal genes}} \mathbf{m}_{g} \beta_{g} + \boldsymbol{\epsilon}_{y}$$
 
 ## Mendelian Randomization
 
@@ -1600,7 +1730,7 @@ ggplot(sumstat.dt, aes(physical.pos, -log10(pmax(pv.0, 1e-20)))) +
 
 ## MR measures mediation effects of $X$ to $Y$
 
-\textsf{\color{teal} Given that $G$ is a valid instrumental variable...}
+<!-- \textsf{\color{teal} Given that $G$ is a valid instrumental variable...} -->
 
 :::::: {.columns}
 ::: {.column width=.48}
@@ -1659,8 +1789,6 @@ The answer is as simple as
 \frac{{\color{magenta}\boldsymbol{\gamma}}}
 {{\color{teal}\boldsymbol{\alpha}}}
 \end{eqnarray*}
-
-We will revisit this problem in the GWAS lectures
 }
 :::
 ::::::
@@ -1915,21 +2043,7 @@ p2 <- ggplot(.ss, aes(physical.pos, pip.cis)) +
 p1 / p2
 ```
 
-## Statistical test: coloc with SuSiE
-
-Using coloc.susie [@Wallace2021-xd] to test for co-localization:
-
-```{r echo=T}
-## PTRS vs OGD (should co-localize)
-coloc.ptrs.ogd$summary
-```
-
-```{r echo=T}
-## PTRS vs CIS (should NOT co-localize)
-coloc.ptrs.cis$summary
-```
-
-## Interpreting coloc results
+## `coloc.susie` compare two SuSiE results
 
 \large
 
@@ -1949,6 +2063,25 @@ coloc.ptrs.cis$summary
 
 \small
 coloc.susie allows for multiple causal variants per trait
+
+
+## Statistical test: coloc with SuSiE
+
+Using coloc.susie [@Wallace2021-xd] to test for co-localization:
+
+```{r echo=T}
+## PTRS vs OGD (should co-localize)
+coloc.ptrs.ogd$summary
+```
+
+## Statistical test: coloc with SuSiE
+
+Using coloc.susie [@Wallace2021-xd] to test for co-localization:
+
+```{r echo=T}
+## PTRS vs CIS (should NOT co-localize)
+coloc.ptrs.cis$summary
+```
 
 ## Summary: Visual + Statistical evidence
 
@@ -2065,27 +2198,46 @@ Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014)
 
 \vfill
 
-**Method**: Stratified LD score regression [@Finucane2015-qr]
+\only<1>{
+\centerline{\includegraphics[width=.85\textwidth]{img/GWAS_herit_partition.pdf}}
+}
 
-* Partition genome by annotations (enhancers, promoters, histone marks)
-* Test which annotations are enriched for heritability
-* Uses summary statistics + LD information
+\only<2>{
+Partition heritability across $C$ genomic annotations:
+
+\Large
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] = n \sum_{c=1}^{C} \ell_{j,c} \tau_{c} + 1$$
+
+\normalsize
+
+where:
+
+- $\ell_{j,c}$: LD score for variant $j$ with respect to annotation $c$
+- $\tau_{c}$: per-SNP heritability in annotation $c$
+}
 
 \vfill
+\scriptsize
+ [@Finucane2015-qr]
 
-**Tool**: [`ldsc` Python package](https://github.com/bulik/ldsc) from Broad Institute
+## S-LDSC $\to$ tissue/cell type contexts of GWAS
+
+\centerline{\includegraphics[height=.75\textheight]{img/sLDSC.pdf}}
+
+\vfill
+\scriptsize
+
+[@Finucane2015-bn]
 
 ## Take-home messages
 
 \Large
 
-1. Summary statistics enable powerful analyses without individual-level data
+1. Methods like SuSiE, coloc, and TWAS integrate multiple data types
 
 2. LD score regression connects GWAS signals to heritability
 
-3. Methods like SuSiE, coloc, and TWAS integrate multiple data types
-
-4. Regression is fundamental to understanding genetic architecture
+3. Regression is fundamental to dissecting regulatory genomic mechanisms
 
 
 ## Reference {.allowframebreaks}

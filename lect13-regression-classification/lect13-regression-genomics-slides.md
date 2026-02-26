@@ -1,7 +1,7 @@
 ---
 title: "Regression for Regulatory Genomics"
 author: "Yongjin Park"
-date: "25 February 2026"
+date: "26 February 2026"
 classoption: "aspectratio=169"
 fontsize: 12pt
 bibliography: regulatory-genomics.bib
@@ -1203,6 +1203,9 @@ Predicting expression from genotypes is a high-dimensional problem:
 
 $$Y_{i} = \sum_{j=1}^{p} X_{ij} \theta_{j} + \epsilon$$
 
+\small
+where $\theta_{j}$ are the **multivariate/joint effects** (cf. $\beta_{j}$ for univariate GWAS effects)
+
 \large
 
 \begin{itemize}[<+-|alert@+>]
@@ -1241,28 +1244,22 @@ $$Y_{i} = \sum_{j=1}^{p} X_{ij} \theta_{j} + \epsilon$$
 
 **Two-stage approach**:
 
-1. **Training stage**: Build expression prediction model
+1. **Training**: Build expression prediction model
    $$\hat{E}_g = \sum_{j} X_{j} \beta_{j}^{(g)}$$
    using LASSO/Elastic Net on eQTL reference panel
 
-2. **Association stage**: Test predicted expression with trait
+2. **Prediction**: Test predicted expression with trait
    $$Y \sim \hat{E}_g + \textsf{covariates}$$
-
-\vfill
-
-**Why penalized regression?** Need to select causal eQTL variants from many correlated candidates
 
 \vfill
 
 \tiny
 Gamazon et al. (2015) Nature Genetics
 
-## Lasso, a linear regression with Laplace prior (L1)
+## Lasso: a linear regression with L1 [@Tibshirani1996-hc]
 
 Prior distribution
-$$
-p(\boldsymbol{\theta}) = \textsf{Laplace}(\boldsymbol{\theta}| \lambda) \propto \exp\left(-\lambda\|\boldsymbol{\theta}\|_{1}\right)
-$$
+\centerline{$p(\boldsymbol{\theta}) = \textsf{Laplace}(\boldsymbol{\theta}| \lambda) \propto \exp\left(-\lambda\|\boldsymbol{\theta}\|_{1}\right)$}
 where
 \large
 $$\|\boldsymbol{\theta}\|_{1} = \sum_{j=1}^{p} |\theta_{j}|,\,\textsf{\color{blue}L1-norm}.$$
@@ -1281,21 +1278,18 @@ $$
 + \lambda \|\boldsymbol{\theta}\|_{1}
 $$
 
-\vfill
 
-(Tibshirani, 1996)
+## `glmnet` [@Friedman2010-kx] solves this opt. problem 
 
-## `glmnet` solves this regularized optimization problem
-
-Goal (by variable-by-variable updates):\centerline{$\min_{\boldsymbol{\beta}} \quad
-\overbrace{(\mathbf{y} - X\boldsymbol{\beta})^{\top}(\mathbf{y} - X\boldsymbol{\beta})}^{\textsf{\color{blue} RSS}} + \underbrace{\lambda \alpha \|\boldsymbol{\beta}\|_{1}}_{\textsf{\color{red} variable selection}} + \underbrace{\lambda (1 - \alpha) \|\boldsymbol{\beta}\|_{2}}_{\textsf{\color{magenta} shrinkage}}$}
+Goal (by variable-by-variable updates):\centerline{$\min_{\boldsymbol{\theta}} \quad
+\overbrace{(\mathbf{y} - X\boldsymbol{\theta})^{\top}(\mathbf{y} - X\boldsymbol{\theta})}^{\textsf{\color{blue} RSS}} + \underbrace{\lambda \alpha \|\boldsymbol{\theta}\|_{1}}_{\textsf{\color{red} variable selection}} + \underbrace{\lambda (1 - \alpha) \|\boldsymbol{\theta}\|_{2}}_{\textsf{\color{magenta} shrinkage}}$}
 
 \onslide<2->{
-For each $\beta_{j}$,
+For each $\theta_{j}$,
 }
 
 \only<2>{$$
-\hat{\beta}_{j}^{\textsf{glmnet}} \gets
+\hat{\theta}_{j}^{\textsf{glmnet}} \gets
 \frac{S\left(
 \sum_{i=1}^{n} X_{ij} (y_{i} - \hat{y}_{i}^{(-j)}),
 \lambda\alpha
@@ -1307,10 +1301,10 @@ Friedman {\it et al.}, Regularization Paths for Generalized Linear Models via Co
 }
 
 \only<3>{$$
-\hat{\beta}_{j} \gets
+\hat{\theta}_{j} \gets
 \frac{\overset{\textsf{\color{red} threshold}}{S}
 \left(
-\sum_{i=1}^{n} X_{ij} \overbrace{(y_{i} - y_{i}^{(-j)})}^{\textsf{\color{red} residual w/o the variable } \beta_{j} },
+\sum_{i=1}^{n} X_{ij} \overbrace{(y_{i} - y_{i}^{(-j)})}^{\textsf{\color{red} residual w/o the variable } \theta_{j} },
 \lambda\alpha
 \right)}
 { \sum_{i=1}^{n} X_{ij}^{2} + \underbrace{\lambda (1- \alpha)}_{\textsf{\color{magenta} shrinkage}}}
@@ -1346,7 +1340,8 @@ where $\sum_{j=1}^{p} \alpha_{j}^{(l)} = 1$ for each layer $l$.
 
 \small
 
-Wang .. Stephens, _Journal of the Royal Statistical Society_ (2020)
+[@Wang2020-qu]
+
 
 ## Ideas behind SuSiE
 
@@ -1394,6 +1389,77 @@ Wang .. Stephens, _Journal of the Royal Statistical Society_ (2020)
 Each color represents one independent signal (one "layer" in the model)
 
 
+## Geometric intuition: L2, L1, and SuSiE
+
+\centerline{$\mathbf{y} = \mathbf{x}_{1} \theta_{1} + \mathbf{x}_{2} \theta_{2} + \epsilon$}
+
+
+
+:::::: {.columns}
+::: {.column width=.32}
+
+
+ \scriptsize
+
+\onslide<1->{
+
+
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-54-1} \end{center}
+
+
+}
+
+ \normalsize
+
+:::
+::: {.column width=.32}
+
+
+ \scriptsize
+
+\onslide<2->{
+
+
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-55-1} \end{center}
+
+
+}
+
+ \normalsize
+
+:::
+::: {.column width=.32}
+
+
+ \scriptsize
+
+\onslide<3>{
+
+
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-56-1} \end{center}
+
+
+}
+
+ \normalsize
+
+:::
+::::::
+
+\scriptsize
+
+Blue cross (×): OLS solution; Red dot: Constrained solution; Blue contours: RSS levels
+
+
+## Transcriptome-wide association study (TWAS)
+
+Using eQTL, we can understand GWAS mechanisms... [@Gamazon2015-pc]
+
+\centerline{\includegraphics[width=\textwidth]{img/GWAS_blackbox_TWAS.pdf}}
+
+\vfill
+
+$$\mathbf{m}_{g} \sim X \boldsymbol{\alpha}_{g} + \boldsymbol{\epsilon}_{g} \quad \implies \quad \mathbf{y}_{\textsf{GWAS}} = \sum_{g \in \textsf{causal genes}} \mathbf{m}_{g} \beta_{g} + \boldsymbol{\epsilon}_{y}$$
 
 ## Mendelian Randomization
 
@@ -1572,7 +1638,7 @@ In previous longitudinal studies, we found the following relationships.
  \scriptsize
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-59-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-63-1} \end{center}
 
  \normalsize
 
@@ -1584,7 +1650,7 @@ In previous longitudinal studies, we found the following relationships.
 \only<1>{
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-60-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-64-1} \end{center}
 
 
 }
@@ -1597,7 +1663,7 @@ In previous longitudinal studies, we found the following relationships.
 \only<2>{
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-61-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-65-1} \end{center}
 
 
 }
@@ -1610,7 +1676,7 @@ In previous longitudinal studies, we found the following relationships.
 \only<3>{
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-62-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-66-1} \end{center}
 
 
 }
@@ -1619,7 +1685,7 @@ In previous longitudinal studies, we found the following relationships.
 
 ## MR measures mediation effects of $X$ to $Y$
 
-\textsf{\color{teal} Given that $G$ is a valid instrumental variable...}
+<!-- \textsf{\color{teal} Given that $G$ is a valid instrumental variable...} -->
 
 :::::: {.columns}
 ::: {.column width=.48}
@@ -1678,8 +1744,6 @@ The answer is as simple as
 \frac{{\color{magenta}\boldsymbol{\gamma}}}
 {{\color{teal}\boldsymbol{\alpha}}}
 \end{eqnarray*}
-
-We will revisit this problem in the GWAS lectures
 }
 :::
 ::::::
@@ -1699,7 +1763,7 @@ Goal: Is PTRS $\to$ OGD or PTRS $\to$ CIS?
  \scriptsize
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-64-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-68-1} \end{center}
 
  \normalsize
 
@@ -1718,7 +1782,7 @@ Goal: Is PTRS $\to$ OGD or PTRS $\to$ CIS?
  \scriptsize
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-66-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-70-1} \end{center}
 
  \normalsize
 
@@ -1797,7 +1861,7 @@ Goal: Is PTRS $\to$ OGD or PTRS $\to$ CIS?
  \scriptsize
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-69-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-73-1} \end{center}
 
  \normalsize
 
@@ -1807,9 +1871,31 @@ Goal: Is PTRS $\to$ OGD or PTRS $\to$ CIS?
  \scriptsize
 
 
-\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-70-1} \end{center}
+\begin{center}\includegraphics{../Fig/regression-classification/unnamed-chunk-74-1} \end{center}
 
  \normalsize
+
+## `coloc.susie` compare two SuSiE results
+
+\large
+
+**Posterior probabilities (PP)** [@Wallace2021-xd]:
+
+* **PP.H0**: No association in either trait
+* **PP.H1**: Association with trait 1 only
+* **PP.H2**: Association with trait 2 only
+* **PP.H3**: Both associated, different causal variants
+* **PP.H4**: Both associated, **shared causal variant** (co-localization)
+
+\vfill
+
+**Rule of thumb**: PP.H4 > 0.8 suggests strong evidence for co-localization
+
+\vfill
+
+\small
+coloc.susie allows for multiple causal variants per trait
+
 
 ## Statistical test: coloc with SuSiE
 
@@ -1843,6 +1929,10 @@ coloc.ptrs.ogd$summary
 
  \normalsize
 
+## Statistical test: coloc with SuSiE
+
+Using coloc.susie [@Wallace2021-xd] to test for co-localization:
+
 
  \scriptsize
 
@@ -1857,27 +1947,6 @@ coloc.ptrs.cis$summary
 ```
 
  \normalsize
-
-## Interpreting coloc results
-
-\large
-
-**Posterior probabilities (PP)** [@Wallace2021-xd]:
-
-* **PP.H0**: No association in either trait
-* **PP.H1**: Association with trait 1 only
-* **PP.H2**: Association with trait 2 only
-* **PP.H3**: Both associated, different causal variants
-* **PP.H4**: Both associated, **shared causal variant** (co-localization)
-
-\vfill
-
-**Rule of thumb**: PP.H4 > 0.8 suggests strong evidence for co-localization
-
-\vfill
-
-\small
-coloc.susie allows for multiple causal variants per trait
 
 ## Summary: Visual + Statistical evidence
 
@@ -1994,27 +2063,46 @@ Bulik-Sullivan *et al.*, \emph{Nature Genetics} (2014)
 
 \vfill
 
-**Method**: Stratified LD score regression [@Finucane2015-qr]
+\only<1>{
+\centerline{\includegraphics[width=.85\textwidth]{img/GWAS_herit_partition.pdf}}
+}
 
-* Partition genome by annotations (enhancers, promoters, histone marks)
-* Test which annotations are enriched for heritability
-* Uses summary statistics + LD information
+\only<2>{
+Partition heritability across $C$ genomic annotations:
+
+\Large
+$$\mathbb{E}\!\left[\chi^{2}_{j}\right] = n \sum_{c=1}^{C} \ell_{j,c} \tau_{c} + 1$$
+
+\normalsize
+
+where:
+
+- $\ell_{j,c}$: LD score for variant $j$ with respect to annotation $c$
+- $\tau_{c}$: per-SNP heritability in annotation $c$
+}
 
 \vfill
+\scriptsize
+ [@Finucane2015-qr]
 
-**Tool**: [`ldsc` Python package](https://github.com/bulik/ldsc) from Broad Institute
+## S-LDSC $\to$ tissue/cell type contexts of GWAS
+
+\centerline{\includegraphics[height=.75\textheight]{img/sLDSC.pdf}}
+
+\vfill
+\scriptsize
+
+[@Finucane2015-bn]
 
 ## Take-home messages
 
 \Large
 
-1. Summary statistics enable powerful analyses without individual-level data
+1. Methods like SuSiE, coloc, and TWAS integrate multiple data types
 
 2. LD score regression connects GWAS signals to heritability
 
-3. Methods like SuSiE, coloc, and TWAS integrate multiple data types
-
-4. Regression is fundamental to understanding genetic architecture
+3. Regression is fundamental to dissecting regulatory genomic mechanisms
 
 
 ## Reference {.allowframebreaks}
