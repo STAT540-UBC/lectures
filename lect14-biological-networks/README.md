@@ -50,21 +50,18 @@
 
 ## 3. Cell-cell communication networks
 
-### A. Ligand-receptor signaling foundations
+### A. Review
 
-- **Ramilowski et al.** (2015) [*Nat Commun* 6:7866](https://www.nature.com/articles/ncomms8866). FANTOM5 L-R connectome: 1,894 ligand-receptor pairs across 144 human cell types. The foundational catalog.
+- **Armingol et al.** (2021) [*Nat Rev Genet* 22:71-88](https://www.nature.com/articles/s41576-020-00292-x). Definitive review of cell-cell communication biology and how we study it.
 
 ### B. Cell-cell communication in tissue context
 
 - **Vento-Tormo et al.** (2018) [*Nature* 563:347-353](https://www.nature.com/articles/s41586-018-0698-6). Single-cell atlas of the maternal-fetal interface — mapped L-R interactions between immune, stromal, and trophoblast cells in the decidua.
 
-### C. In silico perturbation
+### B. In silico perturbation
 
 - **Kamimoto et al.** (2023) [*Nature* 614:742-751](https://www.nature.com/articles/s41586-023-05688-9). CellOracle: in silico transcription factor perturbation using GRNs inferred from single-cell multi-omics.
 
-### Further reading
-
-- **Armingol et al.** (2021) [*Nat Rev Genet* 22:71-88](https://www.nature.com/articles/s41576-020-00292-x). Definitive review of cell-cell communication biology and how we study it.
 
 
 

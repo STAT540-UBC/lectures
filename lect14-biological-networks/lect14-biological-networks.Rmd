@@ -1,0 +1,1714 @@
+---
+title: "Biological Networks"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: network.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: pdflatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{shapes.geometric,arrows,positioning}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+---
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/biological-networks/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(igraph)
+
+theme_set(theme_minimal())
+
+## Helper functions for network visualization
+find.nice.layout <- function(G, layout.file) {
+    if(!file.exists(layout.file)){
+        layout.dt <- layout_nicely(G) %>% as.data.table()
+        saveRDS(layout.dt, layout.file)
+    }
+    readRDS(layout.file)
+}
+
+apply.layout.dt <- function(G, .name){
+    .out.file <- str_c(fig.dir,"/",.name,".rds")
+    .out <- find.nice.layout(G, .out.file) %>%
+        dplyr::mutate(v = 1:dplyr::n())
+    as_long_data_frame(G) %>%
+        as.data.table %>%
+        merge(.out, by.x= "from", by.y="v") %>%
+        merge(.out, by.x= "to", by.y="v", suffixes=c(".from",".to"))
+}
+
+plot.layout.dt <- function(.dt, .palette="Paired", .palette.e = "Set2",
+                           .esize = .5, .vsize = 5, .add.lab=TRUE){
+    if(!("k.from" %in% colnames(.dt))) .dt[, k.from := 1]
+    if(!("k.to" %in% colnames(.dt))) .dt[, k.to := 1]
+    .rename <- function(xx) { colnames(xx) <- c("v","V1","V2","k"); xx }
+    .dt.v <- rbind(.dt[, .(`from`, `V1.from`, `V2.from`, `k.from`)] %>% .rename(),
+                   .dt[, .(`to`, `V1.to`, `V2.to`, `k.to`)] %>% .rename()) %>%
+        dplyr::mutate(k = as.factor(k)) %>% unique
+    .aes.e <- aes(V1.from, V2.from, xend=V1.to, yend=V2.to)
+    if("k.edge" %in% colnames(.dt)) {
+        .aes.e <- aes(V1.from, V2.from, xend=V1.to, yend=V2.to, colour=as.factor(k.edge))
+    }
+    plt <- ggplot() + theme_void()
+    if("k.edge" %in% colnames(.dt)) {
+        plt <- plt + geom_segment(.aes.e, data = .dt, size = .esize) +
+            scale_colour_brewer(palette=.palette.e, na.value="grey", guide="none")
+    } else {
+        plt <- plt + geom_segment(.aes.e, data = .dt, size = .esize, colour="gray")
+    }
+    plt <- plt +
+        geom_point(aes(V1, V2, fill=k), data = .dt.v, pch=21, stroke=.1, size = .vsize) +
+        scale_fill_brewer(palette = .palette, guide="none")
+    if(.add.lab){ plt <- plt + geom_text(aes(V1, V2, label=v), data = .dt.v, size = 3) }
+    return(plt)
+}
+```
+
+## Why do we study biological networks?
+
+- Genes and proteins function through **interactions** with each other
+- Understanding interactions helps us:
+  - Map cellular pathways and processes
+  - Identify disease mechanisms
+  - Predict gene function
+  - Design targeted therapies
+
+## Why networks matter in cancer biology
+
+Challenge in cancer therapy:
+
+- Tumour cells develop resistance to single-target drugs
+- Genetic redundancy provides backup pathways
+- Need to hit multiple targets simultaneously
+
+Network solution:
+
+- Synthetic lethality: exploit genetic interactions
+- Target pairs of genes that are lethal together
+- Example: BRCA1/2 mutations + PARP inhibitors
+
+## Networks of oncogene and inhibition intertwined
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\includegraphics[width=\textwidth]{img/1_how_to_build/cancer_genetic_interaction_review-1.pdf}
+
+* Oncogenes may regulate other genes
+
+* Which one should be suppressed?
+
+* Which one can be?
+
+:::
+::: {.column width=.55}
+
+\includegraphics[width=\textwidth]{img/1_how_to_build/cancer_genetic_interaction_review-2.pdf}
+
+:::
+::::::
+
+\tiny
+\flushright
+
+[@Kaelin2005-sl]
+
+
+## Cancer treatment may need to deal with multiple genes...
+
+\centering
+\includegraphics[width=0.8\textwidth]{img/1_how_to_build/cancer_genetic_interaction_review-3.pdf}
+
+\tiny
+\flushright
+
+[@Kaelin2005-sl]
+
+
+
+# How do we measure protein/gene interaction networks?
+
+## Y2H to capture protein-protein interactions
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\centering
+\includegraphics[height=0.85\textheight]{img/1_how_to_build/ppi_fields_song.pdf}
+
+:::
+::: {.column width=.6}
+
+* Yeast Two Hybrid
+
+* GAL4-lacZ reporter system
+
+* Transcription factors have two separable domains: DNA-binding (BD) and activation (AD)
+
+* Fuse BD to "bait" protein, AD to "prey" protein
+
+* If they interact $\implies$ reconstitute functional TF $\implies$ reporter gene ON
+
+$${}$$
+
+\footnotesize
+[@Fields1989-yh]
+
+:::
+::::::
+
+
+## Synthesize TF binding sites with reporter genes
+
+\centering
+\begin{tikzpicture}[scale=1.4, every node/.style={font=\footnotesize}]
+
+% DNA alone
+\draw[thick] (0, 0) -- (8, 0);
+\draw[thick] (0, 0.4) -- (8, 0.4);
+\draw[fill=green!20, rounded corners] (1, 0) rectangle (2, 0.4);
+\node[anchor=north, font=\scriptsize] at (1.5, -0.1) {Binding site};
+\draw[->, thick] (2.5, 0.2) -- (3.5, 0.2);
+\draw[fill=yellow!40, rounded corners] (4, -0.2) rectangle (7, 0.6);
+\node at (5.5, 0.2) {Reporter gene};
+
+% Separated domains - floating away - rectangles
+\draw[fill=blue!30, draw, rounded corners] (0.9, 1.2) rectangle (2.1, 1.9);
+\node[font=\scriptsize] at (1.5, 1.65) {DNA-binding};
+\node[font=\scriptsize] at (1.5, 1.45) {domain};
+
+\draw[fill=red!30, draw, rounded corners] (5.4, 1.5) rectangle (6.6, 2.2);
+\node[font=\scriptsize] at (6, 1.95) {Activation};
+\node[font=\scriptsize] at (6, 1.75) {domain};
+
+\end{tikzpicture}
+
+## Create fusion proteins
+
+\centering
+\begin{tikzpicture}[scale=1.2, every node/.style={font=\footnotesize}]
+
+% Fusion protein 1 - Bait on top of DNA-binding
+\node[anchor=south] at (2, 3.2) {Fusion protein 1};
+\node[ellipse, fill=green!50, draw, minimum width=2.5cm, minimum height=1cm] at (2, 2.3) {Bait protein};
+\draw[fill=blue!30, draw, rounded corners] (1.3, 1.3) rectangle (2.7, 1.9);
+\node[font=\scriptsize] at (2, 1.7) {DNA-binding};
+\node[font=\scriptsize] at (2, 1.5) {domain};
+
+% Fusion protein 2 - Prey on top of Activation
+\node[anchor=south] at (7, 3.2) {Fusion protein 2};
+\node[ellipse, fill=orange!50, draw, minimum width=2.5cm, minimum height=1cm] at (7, 2.3) {Prey protein};
+\draw[fill=red!30, draw, rounded corners] (6.3, 1.3) rectangle (7.7, 1.9);
+\node[font=\scriptsize] at (7, 1.7) {Activation};
+\node[font=\scriptsize] at (7, 1.5) {domain};
+
+% DNA with binding site and reporter
+\draw[thick] (0.5, 0.2) -- (9, 0.2);
+\draw[thick] (0.5, 0.6) -- (9, 0.6);
+\draw[fill=green!20, rounded corners] (1, 0.2) rectangle (2, 0.6);
+\node[anchor=south, font=\scriptsize] at (1.5, 0.7) {Binding site};
+\draw[->, thick] (2.5, 0.4) -- (3.5, 0.4);
+\node[anchor=south, font=\scriptsize] at (6, 0.7) {Reporter gene};
+\draw[fill=yellow!40, rounded corners] (4.5, 0) rectangle (7.5, 0.8);
+\node at (6, 0.4) {Reporter};
+
+\end{tikzpicture}
+
+## Negative: No interaction between bait and prey
+
+\centering
+\begin{tikzpicture}[scale=1.2, every node/.style={font=\footnotesize}]
+
+% DNA with binding site and reporter
+\draw[thick] (0, 0) -- (7, 0);
+\draw[thick] (0, 0.4) -- (7, 0.4);
+\draw[fill=green!20, rounded corners] (0.5, 0) rectangle (1.5, 0.4);
+\draw[->, thick] (2, 0.2) -- (3, 0.2);
+\draw[fill=yellow!40, rounded corners] (3.5, -0.2) rectangle (6.5, 0.6);
+\node at (5, 0.2) {Reporter gene};
+
+% Fusion 1 bound to DNA - Bait on top of DNA-binding
+\node[ellipse, fill=green!50, draw, minimum width=2.2cm, minimum height=0.9cm] at (1.5, 1.6) {Bait protein};
+\draw[fill=blue!30, draw, rounded corners] (0.8, 0.5) rectangle (2.2, 1.1);
+\node[font=\scriptsize] at (1.5, 0.9) {DNA-binding};
+\node[font=\scriptsize] at (1.5, 0.7) {domain};
+
+% Fusion 2 floating away - Prey on top of Activation
+\node[ellipse, fill=orange!50, draw, minimum width=2.2cm, minimum height=0.9cm] at (9, 1.8) {Prey protein};
+\draw[fill=red!30, draw, rounded corners] (8.3, 0.9) rectangle (9.7, 1.5);
+\node[font=\scriptsize] at (9, 1.3) {Activation};
+\node[font=\scriptsize] at (9, 1.1) {domain};
+
+% No interaction
+\node[red, font=\normalsize] at (9, 0) {No interaction};
+\draw[->, red, very thick] (7.5, -0.5) -- (8.5, -0.5);
+\node[red, font=\normalsize] at (10, -0.5) {Reporter OFF};
+
+\end{tikzpicture}
+
+## Positive: Bait-prey interaction reconstitutes TF
+
+\centering
+\begin{tikzpicture}[scale=1.2, every node/.style={font=\footnotesize}]
+
+% DNA with binding site and reporter
+\draw[thick] (0, 0) -- (7, 0);
+\draw[thick] (0, 0.4) -- (7, 0.4);
+\draw[fill=green!20, rounded corners] (0.5, 0) rectangle (1.5, 0.4);
+\draw[->, thick] (2, 0.2) -- (3, 0.2);
+\draw[fill=yellow!40, rounded corners] (3.5, -0.2) rectangle (6.5, 0.6);
+\node at (5, 0.2) {Reporter gene};
+
+% Fusion 1 bound to DNA - Bait on top of DNA-binding
+\node[ellipse, fill=green!50, draw, minimum width=2.2cm, minimum height=0.9cm] at (1.5, 1.6) {Bait protein};
+\draw[fill=blue!30, draw, rounded corners] (0.8, 0.5) rectangle (2.2, 1.1);
+\node[font=\scriptsize] at (1.5, 0.9) {DNA-binding};
+\node[font=\scriptsize] at (1.5, 0.7) {domain};
+
+% Fusion 2 bound to bait - Prey on top of Activation
+\node[ellipse, fill=orange!50, draw, minimum width=2.2cm, minimum height=0.9cm] at (3.5, 1.6) {Prey protein};
+\draw[fill=red!30, draw, rounded corners] (2.8, 0.5) rectangle (4.2, 1.1);
+\node[font=\scriptsize] at (3.5, 0.9) {Activation};
+\node[font=\scriptsize] at (3.5, 0.7) {domain};
+
+% Interaction indicator between Bait and Prey
+\draw[<->, very thick, dashed, green!70!black] (2.4, 1.6) -- (2.6, 1.6);
+\node[anchor=south, green!70!black, font=\small] at (2.5, 2.2) {Bait-Prey interaction!};
+
+% Transcription happening
+\draw[->, ultra thick, green!70!black] (5, -0.5) -- (5, -1.2);
+\node[anchor=north, green!70!black] at (5, -1.3) {Transcription};
+
+% Result
+\draw[->, ultra thick, green!70!black] (8, 0.6) -- (9.5, 0.6);
+\node[fill=green!20, rounded corners, font=\normalsize] at (11, 0.6) {Reporter ON};
+
+\end{tikzpicture}
+
+
+## First genome-wide Y2H screen
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\only<1>{
+\includegraphics[width=\textwidth]{img/1_how_to_build/ppi_uetz_1.pdf}
+}
+
+\only<2>{
+\centering
+\includegraphics[width=\textwidth]{img/1_how_to_build/ppi_uetz_2.pdf}
+}
+
+:::
+::: {.column width=.4}
+
+* Array of ~6000 prey proteins (AD fusions)
+
+* Each bait (BD fusion) screened against entire array
+
+* 192 bait proteins tested
+
+* Growth on selective media = positive interaction
+
+:::
+::::::
+
+\footnotesize
+
+[@Uetz2000-ppi]
+
+## Affinity purification–mass spectrometry (AP-MS)
+
+<!-- - Y2H finds pairwise interactions -->
+<!-- - But proteins often work in larger complexes -->
+<!-- - Tag a protein → purify it + everything bound to it -->
+<!-- - Mass spec identifies co-purified proteins -->
+<!-- - Reveals multi-protein assemblies and stoichiometry -->
+<!-- - BioPlex: large-scale human AP-MS interactome -->
+
+\centerline{
+\includegraphics[width=.6\textwidth]{img/1_how_to_build/ppi_apms_gavin_1.pdf}
+}
+
+\vspace{0.3cm}
+
+TAP tag (Tandem Affinity Purification):
+
+* CBP (Calmodulin Binding Peptide) + Protein A (binds IgG).
+
+* Two-step purification $\to$ reduce background
+
+\footnotesize
+\flushright
+
+[@Gavin2002-apms]
+
+
+## AP-MS workflow [@Gavin2002-apms]
+
+\centering
+\includegraphics[height=0.8\textheight]{img/1_how_to_build/ppi_apms_gavin-2.pdf}
+
+## AP-MS network analysis
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**Purification**
+
+\includegraphics[width=\textwidth]{img/1_how_to_build/ppi_apms_gavin-3.pdf}
+
+:::
+::: {.column width=.45}
+
+**Mass Spec result:**
+
+\includegraphics[width=\textwidth]{img/1_how_to_build/ppi_apms_gavin-4.pdf}
+
+:::
+::::::
+
+\footnotesize
+
+[@Gavin2002-apms]
+
+## Y2H vs. AP-MS: True or False?
+
+**Question 1:** Y2H detects only direct binary protein-protein interactions, while AP-MS can identify both direct and indirect interactions within protein complexes.
+
+\pause
+
+\textcolor{teal}{TRUE} - Y2H requires direct physical contact between bait and prey to reconstitute the transcription factor. AP-MS co-purifies everything bound to the tagged protein, including indirect interactions mediated by other proteins in the complex.
+
+## Y2H vs. AP-MS: True or False?
+
+**Question 2:** Y2H is an in vivo method (interactions measured in living cells), while AP-MS is an in vitro method (interactions measured after cell lysis).
+
+\pause
+
+\textcolor{teal}{TRUE} - Y2H detects interactions in living yeast cells (in vivo, though in artificial nuclear context). AP-MS requires cell lysis before purification and mass spec analysis (in vitro).
+
+## AP-MS Challenge: True or False?
+
+**Question 3:** In AP-MS, any protein detected by mass spectrometry is definitely part of the protein complex.
+
+\pause
+
+\textcolor{red}{FALSE} - Need to distinguish true interactors from contaminants. Solutions: (1) Compare to negative controls, (2) Quantitative mass spec (abundance ratios), (3) Reciprocal tagging experiments, (4) Statistical scoring (e.g., hypergeometric p-value).
+
+
+## Genetic interaction networks — synthetic lethality
+
+<!-- - Y2H and AP-MS measure physical interactions -->
+<!--  -->
+<!-- - Synthetic lethality: double mutant lethal, singles viable -->
+<!-- - Indicates genes buffer each other (same or parallel pathways) -->
+<!-- -  (~23M combinations in yeast) -->
+<!-- - Basis for cancer synthetic lethality therapies -->
+
+:::::: {.columns}
+::: {.column width=.45}
+
+${}$
+
+\includegraphics[width=\textwidth]{img/1_how_to_build/SL_tong-1.pdf}
+
+- Genetic interactions reveal functional relationships
+
+- Most salient phenotype in yeast?
+
+- How many cells within each strain?
+
+${}$
+
+\footnotesize
+
+[@Tong2001-mz]
+
+
+:::
+::: {.column width=.4}
+
+\includegraphics[height=.8\textheight]{img/1_how_to_build/SL_tong-2.pdf}
+
+:::
+::::::
+
+## Synthetic Gene Array creates double mutants
+
+:::::: {.columns}
+::: {.column width=.45}
+
+\includegraphics[width=\textwidth]{img/1_how_to_build/SL_tong-3-a.pdf}
+
+\begin{itemize}
+\item<2-> Query mutation (bni1$\Delta$::natR) crossed against deletion array.
+\item<2-> Smaller colonies = synthetic lethal/sick
+\end{itemize}
+
+:::
+::: {.column width=.45}
+
+\onslide<2->{
+\includegraphics[width=\textwidth]{img/1_how_to_build/SL_tong-3-b.pdf}
+}
+
+\begin{itemize}
+\item<3> Tetrad analysis confirmation.
+\item<3> T=tetrad, NPD=non-parental ditype, PD=parental ditype.
+\item<3> Yellow arrows = double mutants with reduced growth.
+\end{itemize}
+
+:::
+::::::
+
+\vfill
+
+\footnotesize
+
+[@Tong2001-mz]
+
+## SGA reveals functional hub-and-spoke patterns
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\includegraphics[height=.8\textheight]{img/1_how_to_build/SL_tong-4.pdf}
+
+:::
+::: {.column width=.4}
+
+$${}$$
+
+* Hub-and-spoke architecture
+
+* Genes in same pathway cluster together
+
+* Hubs (e.g., BNI1, ARP2, RAD27) are functionally critical
+
+* Predict function of unknown genes by their neighbours
+
+$${}$$
+
+\footnotesize
+
+[@Tong2001-mz]
+
+:::
+::::::
+
+## How should we think of synthetic lethality?
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\onslide<1->{
+\includegraphics[width=\textwidth]{img/1_how_to_build/ye_bader_synthetic_lethal-1.pdf}
+}
+
+:::
+::: {.column width=.55}
+
+\onslide<2>{
+\includegraphics[width=\textwidth]{img/1_how_to_build/ye_bader_synthetic_lethal-2.pdf}
+}
+
+:::
+::::::
+
+\footnotesize
+
+[@Ye2005-ps]
+
+
+# How can we use network data?
+
+## Network is a data set
+
+Graph $G = (V, E)$:
+
+* **Vertices** (nodes): $V = \{v_1, v_2, \ldots, v_n\}$ — genes/proteins
+* **Edges**: $E = \{(v_i, v_j)\}$ — interactions between genes
+* **Adjacency matrix**: $A_{ij} = 1$ if edge exists, 0 otherwise
+* **Degree**: $d_v = \sum_u A_{uv}$ — number of neighbours
+
+Example:
+
+* BioGRID: $n \approx 18{,}000$ genes, $m \approx 500{,}000$ interactions
+* Sparse: most genes connect to few others (not all-to-all)
+* Scale-free: few hubs with many connections, most with few
+
+## We can use `igraph` in `R`
+
+```{r size = "large", echo = T}
+library(igraph)
+```
+
+* We can use `igraph` in `R` or `Python` or `C++`.
+
+## Let's take a look at some classic examples
+
+Download some from Mark Newman's website:
+
+\vspace{10pt}
+
+```{r size = "tiny", echo=TRUE}
+#' @param .src www location
+#' @param .dir downloading local directory
+#' @param .zip zip file name
+#' @param .tgt target gml file name
+.read.online <- function(.src,
+                         .dir="../data/network/",
+                         .zip = str_c(.dir,basename(.src)),
+                         .tgt = str_replace(.zip, "zip$", "gml")){
+    if.needed(.tgt, {
+        .gml <- basename(.tgt)                     # remove the dir name
+        download.file(.src, .zip)                  # download from the web
+        unzip(.zip, files=.gml, exdir = .dir)      # unzip
+    })
+    return(igraph::read_graph(.tgt, format="gml")) # read them into memory
+}
+```
+
+```{r size = "scriptsize", eval=TRUE, echo=TRUE}
+karate <- .read.online("http://www-personal.umich.edu/~mejn/netdata/karate.zip")
+polblog <- .read.online("http://www-personal.umich.edu/~mejn/netdata/polblogs.zip")
+netsci <- .read.online("http://www-personal.umich.edu/~mejn/netdata/netscience.zip")
+football <- .read.online("http://www-personal.umich.edu/~mejn/netdata/football.zip")
+condmat <- .read.online("http://www-personal.umich.edu/~mejn/netdata/cond-mat-2005.zip")
+```
+
+## Handy functions for visualizing a network
+
+We want to match graph vertices with the layout coordinates found by
+`igraph::layout_nicely` and make it easy to show in `ggplot` or something else.
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=TRUE, eval=FALSE}
+#' @param G igraph object
+#' @param layout.file local file
+find.nice.layout <-
+    function(G, layout.file) {
+
+    if(!file.exists(layout.file)){
+        layout.dt <-
+            layout_nicely(G) %>%
+            as.data.table()
+        saveRDS(layout.dt, layout.file)
+    }
+    readRDS(layout.file)
+}
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo=TRUE, eval=FALSE}
+#' @param G igraph object
+#' @param .name file header
+apply.layout.dt <- function(G, .name){
+  .out.file <-
+    str_c(fig.dir,"/",.name,".rds")
+
+  .out <-
+    find.nice.layout(G, .out.file) %>%
+    dplyr::mutate(v = 1:dplyr::n()) # index
+
+  as_long_data_frame(G) %>%
+    as.data.table %>%
+    merge(.out, by.x= "from", by.y="v") %>%
+    merge(.out, by.x= "to", by.y="v",
+        suffixes=c(".from",".to"))
+}
+```
+
+:::
+::::::
+
+## Plotting a graph with points and segments in `ggplot`
+
+```{r echo=TRUE, size = "tiny", eval=FALSE}
+plot.layout.dt <- function(.dt, .palette="Paired", .palette.e = "Set2", .esize = .5, .vsize = 5, .add.lab=TRUE){
+  if(!("k.from" %in% colnames(.dt))) .dt[, k.from := 1]                    # add membership
+  if(!("k.to" %in% colnames(.dt))) .dt[, k.to := 1]                        # add membership
+  .rename <- function(xx) { colnames(xx) <- c("v","V1","V2","k"); xx }     # Find a consolidated
+  .dt.v <-                                                                 # set of vertices
+    rbind(.dt[, .(`from`, `V1.from`, `V2.from`, `k.from`)] %>% .rename(),
+        .dt[, .(`to`, `V1.to`, `V2.to`, `k.to`)] %>% .rename()) %>%
+    dplyr::mutate(k = as.factor(k)) %>% unique
+
+  .aes.e <- aes(V1.from, V2.from, xend=V1.to, yend=V2.to)   # edge colours
+  if("k.edge" %in% colnames(.dt)) {
+    .aes.e <- aes(V1.from, V2.from, xend=V1.to, yend=V2.to, colour=as.factor(k.edge))
+  }
+  plt <- ggplot() + theme_void()                                           # show no axis
+  if("k.edge" %in% colnames(.dt)) {
+    plt <- plt +
+      geom_segment(.aes.e, data = .dt, size = .esize) +                    # draw edges
+      scale_colour_brewer(palette=.palette.e, na.value="grey", guide="none")
+  } else {
+    plt <- plt +
+      geom_segment(.aes.e, data = .dt, size = .esize, colour="gray")       # draw edges
+  }
+  plt <- plt +
+    geom_point(aes(V1, V2, fill=k), data = .dt.v, pch=21, stroke=.1, size = .vsize) + # vertices
+    scale_fill_brewer(palette = .palette, guide="none")                    # vertex colouring
+
+  if(.add.lab){ plt <- plt + geom_text(aes(V1, V2, label=v), data = .dt.v, size = 3) }
+  return(plt)
+}
+```
+
+## Social network examples
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
+.vv <- V(polblog)[degree(polblog) >= 3]
+polblog.sub <- induced_subgraph(polblog, .vv)
+apply.layout.dt(polblog.sub, "polblog.sub") %>%
+    plot.layout.dt(.add.lab=FALSE, .vsize=2, .esize=.2)
+```
+
+[@Adamic2005-pb]
+
+:::
+::: {.column width=.5}
+
+```{r echo = FALSE, fig.width=2, fig.height=1.75}
+.comp <- components(netsci)
+.vv <- V(netsci)[.comp$membership == which.max(.comp$csize)]
+netsci.sub <- induced_subgraph(netsci, .vv)
+
+apply.layout.dt(netsci.sub, "netsci.sub") %>%
+    plot.layout.dt(.add.lab=FALSE, .vsize=2, .esize=.2)
+```
+
+* Coauthorship network of scientists working on network theory and experiment
+
+* Showing only the largest component
+
+[@Newman2006-ev]
+
+:::
+::::::
+
+## More examples
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo = FALSE, fig.width=2, fig.height=1.6}
+.vv <- V(football)[degree(football) >= 3]
+football.sub <- induced_subgraph(football, .vv)
+apply.layout.dt(football.sub, "football.sub") %>%
+    plot.layout.dt(.add.lab=FALSE, .vsize=2, .esize=.2)
+```
+
+* Network of American football games between Division IA colleges during regular season Fall 2000.
+
+[@Girvan2002-cs]
+
+:::
+::: {.column width=.5}
+
+```{r echo = FALSE, fig.width=2, fig.height=1.8}
+G <- condmat
+
+apply.degree.cutoff <- function(G, .cutoff = 5) {
+    .sub <- G
+    .rr <- sum(degree(.sub) < .cutoff)
+    while(.rr > 0){
+        vv <- V(.sub)
+        .vv <- vv[degree(.sub) >= .cutoff]
+        .sub <- induced_subgraph(.sub, .vv)
+        .rr <- sum(degree(.sub) < .cutoff)
+    }
+    return(.sub)
+}
+
+condmat.sub <- apply.degree.cutoff(G)
+apply.layout.dt(condmat.sub, "condmat.sub") %>%
+    plot.layout.dt(.add.lab=FALSE, .vsize=.3)
+```
+
+[@Newman2001-sc]
+
+* Showing densely-connected part (iterative degree cutoff >= 5)
+
+:::
+::::::
+
+```{r include=FALSE}
+db.url <- "http://www.interactome-atlas.org"
+ppi.net.file <- "../data/HI-union.tsv.gz"
+.ppi.rds <- "../data/HI-union.G.rds"
+if(!file.exists(ppi.net.file)){
+    .file <- str_remove(ppi.net.file, "[.]gz$")
+    .url <- str_c(db.url,"/data/HI-union.tsv")
+    download.file(.url, destfile = .file)
+    R.utils::gzip(.file)
+}
+if.needed(.ppi.rds, {
+    ppi.pairs <- fread(ppi.net.file, header=FALSE, col.names=c("v1","v2")) %>%
+        filter(v1 != v2) %>% as.matrix
+    saveRDS(graph_from_edgelist(ppi.pairs, directed = FALSE), .ppi.rds)
+})
+G.ppi <- readRDS(.ppi.rds)
+n <- length(V(G.ppi))
+m <- length(E(G.ppi))
+```
+
+## Human Reference Protein-Protein interaction map
+
+:::::: {.columns}
+::: {.column width=.5}
+
+* Download the data from `interactome-atlas.org`
+
+```{r echo=TRUE, eval=FALSE}
+db.url <- "http://www.interactome-atlas.org"
+ppi.net.file <- "../data/HI-union.tsv.gz"
+if.needed(ppi.net.file,{
+    .file <- str_remove(ppi.net.file, "[.]gz$")
+    .url <- str_c(db.url,"/data/HI-union.tsv")
+    download.file(.url, destfile = .file)
+    R.utils::gzip(.file)
+})
+```
+
+* Build a network from a list of interacting pairs
+
+```{r echo=TRUE, eval=FALSE}
+ppi.pairs <-
+  fread(ppi.net.file, header=FALSE, col.names=c("v1","v2")) %>%
+  filter(v1 != v2) %>% as.matrix
+G.ppi <- graph_from_edgelist(ppi.pairs, directed = FALSE)
+```
+
+:::
+::: {.column width=.45}
+
+* Vertices: genes (or the resulting proteins)
+
+* Edges: two or multiple genes work together (could have many different meanings)
+
+```{r echo=TRUE, eval=FALSE}
+n <- length(V(G.ppi))
+m <- length(E(G.ppi))
+```
+
+* n = `r n` vertices
+
+* m = `r m` edges
+
+:::
+::::::
+
+## Human Reference Protein-Protein interaction map
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=FALSE, fig.width=3, fig.height=3}
+apply.layout.dt(G.ppi, "ppi") %>% plot.layout.dt(.add.lab=FALSE, .vsize=1, .esize=.1)
+```
+
+:::
+::: {.column width=.45}
+
+* Vertices: genes (or the resulting proteins)
+
+* Edges: two or multiple genes work together (could have many different meanings)
+
+```{r}
+n <- length(V(G.ppi))
+m <- length(E(G.ppi))
+```
+
+* n = `r n` vertices
+
+* m = `r m` edges
+
+Sources of biological networks:
+
+* High-throughput experiments
+
+* Co-expression analysis
+
+* Literature-based curation
+
+[@Luck2020-hu; @Rual2005-ls]
+
+:::
+::::::
+
+## Degree distribution (How many friends?)
+
+::: {.block}
+
+### Vertex degree
+
+For each vertex $v \in V(G)$: $d_{v} = \sum_{u} A_{uv}$
+
+:::
+
+* It is simple to calculate in `igraph`:
+
+```{r}
+deg.dt <- degree(G.ppi) %>%
+    (function(.d)
+        data.table(d=.d, v = names(.d))
+    )
+```
+
+* Degree distributions may teach us the underlying generative scheme
+
+* Power-law (almost linear slope in a log-log plot) may indicate a "rich-get-richer" phenomenon.
+
+* The majority with $< 10$ neighbours vs. hub nodes with $> 100$ neighbours
+
+* Poisson distribution if edges are drawn uniformly at random
+
+## Degree distribution (How many friends?)
+
+A handy one-liner:
+
+```{r}
+.dt <- deg.dt[, .(count=.N), by=.(d)]
+```
+
+Log-log plot:
+
+```{r fig.width=3, fig.height=2, echo=FALSE}
+.gg.plot(.dt, aes(x=`d`, y=`count`)) +
+    geom_point(stroke=0) +
+    scale_x_log10() +
+    scale_y_log10()
+```
+
+## Connected components and a giant component
+
+:::::: {.columns}
+::: {.column width=.6}
+
+```{r echo=FALSE, fig.width=3, fig.height=3}
+apply.layout.dt(G.ppi, "ppi") %>% plot.layout.dt(.add.lab=FALSE, .vsize=1, .esize=.1)
+```
+
+:::
+::: {.column width=.4}
+
+A (connected) component = a set of vertices reachable by hopping
+through edges.
+
+```{r}
+.comp <- components(G.ppi)
+```
+
+Found `r .comp$no` connected components
+
+```{r echo = FALSE, results="asis"}
+.dt <- data.table(n=.comp$csize);
+knitr::kable(.dt[, .(count=.N), by=.(`n`)])
+```
+
+* Can we take the giant one?
+
+```{r}
+k <- which.max(.comp$csize)
+.sub <- names(.comp$membership)[
+    .comp$membership==k]
+G.ppi.sub <- induced_subgraph(G.ppi, .sub)
+```
+
+:::
+::::::
+
+## Only the giant component in PPI
+
+:::::: {.columns}
+::: {.column width=.64}
+
+```{r echo=FALSE, fig.width=4, fig.height=3}
+apply.layout.dt(G.ppi.sub, "ppi-giant") %>% plot.layout.dt(.add.lab=FALSE, .vsize=1, .esize=.1)
+```
+
+:::
+::: {.column width=.35}
+
+* $n(G)$: `r length(V(G.ppi.sub))` (vs. `r length(V(G.ppi))`)
+
+* $m(G)$: `r length(E(G.ppi.sub))` (vs. `r length(E(G.ppi))`)
+
+* Degree distribution:
+
+```{r echo=FALSE, fig.width=2, fig.height=1.75}
+.dt <- data.table(d=degree(G.ppi.sub))
+.dt <- .dt[, .(count = .N), by = .(d)]
+.gg.plot(.dt, aes(x=d, y=count)) + geom_point(stroke=0) + scale_x_log10() + scale_y_log10()
+```
+
+:::
+::::::
+
+## Iterative degree cutoff to remove dangling vertices
+
+:::::: {.columns}
+::: {.column width=.5}
+
+We may consider this as a QC step:
+
+```{r}
+degree.cutoff <- function(G, .cutoff = 3) {
+    G.sub <- G
+    n.remove <- sum(degree(G.sub) < .cutoff)
+    while(n.remove > 0){
+        vv <- V(G.sub)
+        .retain <- vv[degree(G.sub) >= .cutoff]
+        G.sub <- induced_subgraph(G.sub, .retain)
+        n.remove <- sum(degree(G.sub) < .cutoff)
+    }
+    return(G.sub)
+}
+G.dc <- degree.cutoff(G.ppi.sub, 3)
+```
+
+Comparison with the raw PPI data:
+
+* $n(G)$: `r length(V(G.dc))` (vs. `r length(V(G.ppi))`)
+
+* $m(G)$: `r length(E(G.dc))` (vs. `r length(E(G.ppi))`)
+
+:::
+::: {.column width=.5}
+
+Will it look nicer?
+
+```{r echo=FALSE, fig.width=2, fig.height=1.5}
+apply.layout.dt(G.dc, "ppi-dc") %>% plot.layout.dt(.add.lab=FALSE, .vsize=1, .esize=.1)
+```
+
+:::
+::::::
+
+
+## Iterative degree cutoff to remove dangling vertices
+
+:::::: {.columns}
+::: {.column width=.5}
+
+Degree distribution:
+
+```{r echo=FALSE, fig.width=2, fig.height=1.75}
+.dt <- data.table(d=degree(G.dc))
+.dt <- .dt[, .(count = .N), by = .(d)]
+.gg.plot(.dt, aes(x=d, y=count)) + geom_point(stroke=0) + scale_x_log10() + scale_y_log10()
+```
+
+* $n(G)$: `r length(V(G.dc))` (vs. `r length(V(G.ppi))`)
+
+* $m(G)$: `r length(E(G.dc))` (vs. `r length(E(G.ppi))`)
+
+* Note: $d$ starts from `3`
+
+:::
+::: {.column width=.5}
+
+Will it look nicer?
+
+```{r echo=FALSE, fig.width=2, fig.height=1.5}
+apply.layout.dt(G.dc, "ppi-dc") %>% plot.layout.dt(.add.lab=FALSE, .vsize=1, .esize=.1)
+```
+
+* Rationale: no genes act alone. If some genes have significantly fewer edges connected, high-throughput experiments may not have covered them sufficiently.
+
+:::
+::::::
+
+
+
+## Random walks in network amplify associations
+
+\includegraphics[width=\textwidth]{img/2_network_application/app_network_propagation-1.pdf}
+
+\vfill
+
+Square "D" is the original hit $\implies$ found circled "D"
+
+\footnotesize
+
+[@Cowen2017-ka]
+
+## Propagation amplifies disease associations
+
+\includegraphics[width=\textwidth]{img/2_network_application/app_network_propagation-2.pdf}
+
+Network propagation strengthens weak genetic signals by spreading information across interacting genes.
+
+\footnotesize
+
+[@Cowen2017-ka]
+
+
+## Network Propagation as natural data integration
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\includegraphics[height=.6\textheight]{img/2_network_application/app_network_propagation-3.pdf}
+
+:::
+::: {.column width=.4}
+
+* Different data types (mutations, expression, pathways) mapped onto network
+
+* Network propagation combines signals across data sources
+
+* Unified mathematical framework for genetic discovery
+
+:::
+::::::
+
+\footnotesize
+
+[@Cowen2017-ka]
+
+
+## Example: Gene prioritisation in Multiple Sclerosis
+
+Challenge:
+
+* GWAS identifies ~100 MS-associated genes
+* But these represent only a fraction of disease biology
+* Many relevant genes may not show strong GWAS signal
+* How to find additional disease-relevant genes?
+
+Solution: Network propagation
+
+* Start with MS GWAS genes as seeds
+* Propagate signal through protein-protein interaction network
+* Genes frequently "visited" by random walks are prioritised
+
+## Random walk on PPI network
+
+Mathematical framework:
+
+$$\mathbf{p}^{(t)} \gets \gamma W \mathbf{p}^{(t-1)} + (1- \gamma) \mathbf{p}^{(0)}$$
+
+* $\mathbf{p}^{(0)}$: initial probability (1 for MS genes, 0 otherwise)
+* $W$: transition matrix from adjacency matrix
+* $\gamma$: restart probability (typically 0.85)
+* Iterate until convergence
+
+Result:
+
+* Genes close to MS seeds in network receive high scores
+* Captures functional relationships beyond direct interactions
+
+## Step 1: Download MS GWAS genes
+
+```{r include=FALSE}
+.file <- "gwas-catalog-download-associations-alt-full.tsv"
+if.needed(file.path("../data", .file), {
+    .url <- "https://ftp.ebi.ac.uk/pub/databases/gwas/releases/2026/02/17/gwas-catalog-associations_ontology-annotated-full.zip"
+    .zip <- "../data/gwas_catalog.zip"
+    download.file(.url, destfile = .zip, mode = "wb")
+    unzip(.zip, exdir = "../data/")
+    file.remove(.zip)
+})
+
+.gwas.dt <- fread(file.path("../data",.file), sep="\t", quote="")
+is.ms <- function(x) str_detect(x, "[Mm]ultiple sclerosis")
+ms.genes <- .gwas.dt[is.ms(`DISEASE/TRAIT`),] %>%
+    filter(str_length(`MAPPED_GENE`) > 2) %>%
+    select(`MAPPED_GENE`) %>% na.omit %>% unlist %>%
+    str_split(pattern="[ ,;]+") %>% unlist %>% unique
+```
+
+* Download GWAS Catalog from NHGRI-EBI
+* Extract genes associated with "Multiple Sclerosis"
+* **Result:** `r length(ms.genes)` MS-associated genes
+
+## Step 2: Load human PPI network
+
+```{r include=FALSE}
+.biogrid.file <- list.files("../data", pattern="BIOGRID-ALL.*tab3.txt$",
+                            full.names=TRUE)
+if(length(.biogrid.file) == 0) {
+    .url <- "https://downloads.thebiogrid.org/Download/BioGRID/Latest-Release/BIOGRID-ALL-LATEST.tab3.zip"
+    .zip <- "../data/biogrid-all.zip"
+    download.file(.url, destfile = .zip, mode = "wb")
+    unzip(.zip, exdir = "../data/")
+    file.remove(.zip)
+    .biogrid.file <- list.files("../data", pattern="BIOGRID-ALL.*tab3.txt$",
+                                full.names=TRUE)
+}
+.biogrid.rds <- "../data/biogrid-human.G.rds"
+if.needed(.biogrid.rds, {
+    biogrid <- fread(.biogrid.file[1], sep="\t", quote="") %>%
+        filter(`Organism ID Interactor A` == 9606,
+               `Organism ID Interactor B` == 9606) %>%
+        select(`Official Symbol Interactor A`, `Official Symbol Interactor B`) %>%
+        filter(`Official Symbol Interactor A` != `Official Symbol Interactor B`)
+    saveRDS(graph_from_edgelist(biogrid %>% as.matrix, directed = FALSE),
+            .biogrid.rds)
+})
+G.ppi <- readRDS(.biogrid.rds)
+```
+
+* BioGRID human protein-protein interactions
+* Uses gene symbols (not Ensembl IDs)
+* **Result:** `r num.int(length(V(G.ppi)))` genes, `r num.int(length(E(G.ppi)))` interactions
+
+## Step 3: Map MS genes to network
+
+```{r include=FALSE}
+# Match MS genes to network (both use gene symbols)
+vtot <- V(G.ppi)
+gene.names <- names(vtot)
+ms.idx <- which(gene.names %in% ms.genes)
+```
+
+* BioGRID uses gene symbols - direct matching with MS genes
+* **Result:** `r length(ms.idx)` of `r length(ms.genes)` MS genes found in network
+* **`r round(100*length(ms.idx)/length(V(G.ppi)), 1)`%** of network genes
+* Need to expand beyond direct hits via propagation
+
+## Step 4: Random walk with restart
+
+```{r include=FALSE}
+if.needed(str_c(fig.dir, "/ms_propagation.rds"), {
+    A <- as_adjacency_matrix(G.ppi)
+    W <- sweep(A, 2, degree(G.ppi), `/`)
+    n <- length(V(G.ppi))
+    pr <- pr.0 <- matrix(0, n, 1)
+    pr.0[ms.idx, 1] <- 1 / length(ms.idx)
+    gamma <- 0.85
+
+    # Store intermediate steps
+    P <- matrix(NA, n, 101)
+    P[, 1] <- as.numeric(pr.0)
+    pr <- pr.0
+
+    for(t in 1:100) {
+        pr <- gamma * W %*% pr + (1 - gamma) * pr.0
+        pr <- pr / sum(pr)
+        P[, t + 1] <- as.numeric(pr)
+    }
+    saveRDS(list(P=P, pr.0=pr.0, idx=ms.idx), str_c(fig.dir, "/ms_propagation.rds"))
+})
+.result <- readRDS(str_c(fig.dir, "/ms_propagation.rds"))
+P <- .result$P
+pr.0 <- .result$pr.0
+```
+
+* Initialize: MS genes = 1, others = 0
+* Iterate: $\mathbf{p}^{(t)} \gets 0.85 \times W \mathbf{p}^{(t-1)} + 0.15 \times \mathbf{p}^{(0)}$
+* Run 100 iterations until convergence
+* **Result:** All genes ranked by propagation score
+
+## Probability spreads through network over iterations
+
+```{r echo=FALSE, fig.width=6, fig.height=1.5, only.plot="1"}
+.dt <- data.table(v=as.integer(V(G.ppi)), pr=P[,1])
+.gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(0)") + xlab("vertices")
+```
+
+```{r echo=FALSE, fig.width=6, fig.height=1.5, only.plot="2"}
+.dt <- data.table(v=as.integer(V(G.ppi)), pr=P[,2])
+.gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(1)") + xlab("vertices")
+```
+
+```{r echo=FALSE, fig.width=6, fig.height=1.5, only.plot="3"}
+.dt <- data.table(v=as.integer(V(G.ppi)), pr=P[,11])
+.gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(10)") + xlab("vertices")
+```
+
+```{r echo=FALSE, fig.width=6, fig.height=1.5, only.plot="4"}
+.dt <- data.table(v=as.integer(V(G.ppi)), pr=P[,51])
+.gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(50)") + xlab("vertices")
+```
+
+```{r echo=FALSE, fig.width=6, fig.height=1.5, only.plot="5"}
+.dt <- data.table(v=as.integer(V(G.ppi)), pr=P[,101])
+.gg.plot(.dt, aes(v,pr)) + geom_line() + ylab("p(100)") + xlab("vertices")
+```
+
+## Top 50 propagation genes + all MS genes in network
+
+```{r echo=FALSE, fig.width=4, fig.height=3}
+vtot <- V(G.ppi)
+gene.names <- names(vtot)
+
+# Top 50 by propagation score
+top.idx <- order(P[,101], decreasing=TRUE)[1:50]
+
+# All MS genes in network
+ms.in.net <- which(gene.names %in% ms.genes)
+
+# Union of both sets
+all.idx <- union(top.idx, ms.in.net)
+v.all <- vtot[all.idx]
+G.sub <- induced_subgraph(G.ppi, v.all)
+
+# Three categories:
+# 1 = MS gene recaptured in top 50
+# 2 = MS gene NOT in top 50
+# 3 = top 50 gene, not MS (discovered by propagation)
+# Use Fruchterman-Reingold with more spread
+.layout.file <- str_c(fig.dir, "/ppi_ms_full.rds")
+if(!file.exists(.layout.file)){
+    layout.dt <- layout_with_fr(G.sub, niter=1000) %>%
+        as.data.table()
+    saveRDS(layout.dt, .layout.file)
+}
+.out <- readRDS(.layout.file) %>% dplyr::mutate(v = 1:dplyr::n())
+.dt <- as_long_data_frame(G.sub) %>%
+    as.data.table %>%
+    merge(.out, by.x="from", by.y="v") %>%
+    merge(.out, by.x="to", by.y="v", suffixes=c(".from",".to"))
+.sub.names <- names(v.all)
+.cat <- ifelse(.sub.names %in% ms.genes & (all.idx %in% top.idx), 1,
+        ifelse(.sub.names %in% ms.genes, 2, 3))
+
+for(i in seq_along(.cat)) {
+    .dt[`from` == i, k.from := .cat[i]]
+    .dt[`to` == i, k.to := .cat[i]]
+}
+
+# Build vertex table with categories
+.rename <- function(xx) { colnames(xx) <- c("v","V1","V2","k"); xx }
+.dt.v <- rbind(.dt[, .(`from`, `V1.from`, `V2.from`, `k.from`)] %>% .rename(),
+               .dt[, .(`to`, `V1.to`, `V2.to`, `k.to`)] %>% .rename()) %>%
+    dplyr::mutate(k = as.integer(k)) %>% unique
+
+# Split into layers: propagation (3) bottom, MS (1,2) on top
+.dt.prop <- .dt.v %>% filter(k == 3)
+.dt.ms.miss <- .dt.v %>% filter(k == 2)
+.dt.ms.hit <- .dt.v %>% filter(k == 1)
+
+.aes.e <- aes(V1.from, V2.from, xend=V1.to, yend=V2.to)
+ggplot() + theme_void() +
+    geom_segment(.aes.e, data = .dt, size = .3, colour="gray80") +
+    geom_point(aes(V1, V2), data = .dt.prop,
+               pch=21, fill=alpha("#4DAF4A", .5), stroke=.1, size=2) +
+    geom_point(aes(V1, V2), data = .dt.ms.miss,
+               pch=21, fill=alpha("#377EB8", .5), stroke=.2, size=3) +
+    geom_point(aes(V1, V2), data = .dt.ms.hit,
+               pch=21, fill=alpha("#E41A1C", .5), stroke=.2, size=3)
+```
+
+Red = MS gene in top 50, Blue = MS gene not in top 50, Green = discovered by propagation
+
+## Are we just finding high-degree vertices?
+
+```{r echo=FALSE, fig.width=3, fig.height=2.5}
+.dt <- data.table(v=as.integer(V(G.ppi)),
+                  d=degree(G.ppi),
+                  pr=P[,101])
+
+.dt.top <- .dt %>% arrange(desc(pr)) %>% head(100)
+
+.gg.plot(.dt, aes(d,pr)) +
+    geom_hex(aes(fill = stat(log10(count)))) +
+    geom_point(data = .dt.top, colour="red", pch=21) +
+    geom_smooth(method="lm", se=FALSE, size=.5, colour="black", lty=2) +
+    scale_fill_distiller("count", direction = 1, labels=function(x) round(10^x)) +
+    theme(legend.key.width=unit(.2, "lines")) +
+    theme(legend.key.height=unit(.5, "lines")) +
+    scale_x_log10() +
+    scale_y_log10() +
+    ylab("p(100)") +
+    xlab("degree")
+```
+
+Red dots: top 100 genes
+
+## Network propagation summary
+
+- Start with seed genes (e.g., from GWAS, mutations)
+- Propagate signal through the network
+- Neighbors of seed genes receive scores based on network distance
+- Discover related genes not in original list
+- Aggregates weak signals across pathways
+- Applications: disease gene prioritization, drug target discovery
+
+
+## Integrate PPI with tumour expression profiles
+
+\centerline{\includegraphics[width=.8\textwidth]{img/2_network_application/app_network_brca_classifier-1.pdf}}
+
+\footnotesize
+
+@Chuang2007-ti
+
+## Subnetwork activity aggregates coordinated gene expression
+
+\includegraphics[width=\textwidth]{img/2_network_application/app_network_brca_classifier-2.pdf}
+
+\footnotesize
+
+@Chuang2007-ti
+
+
+## Search for subnetworks maximally discriminative of phenotype
+
+\includegraphics[width=\textwidth]{img/2_network_application/app_network_brca_classifier-3.pdf}
+
+\footnotesize
+
+@Chuang2007-ti
+
+## Significant subnetworks $\implies$ a feature matrix for classification of many relevant genes
+
+\centerline{\includegraphics[width=.6\textwidth]{img/2_network_application/app_network_brca_classifier-4.pdf}}
+
+\footnotesize
+
+@Chuang2007-ti
+
+## Subnetworks centre on TP53 and ERBB2 hubs
+
+\includegraphics[width=\textwidth]{img/2_network_application/app_network_brca_classifier-5.pdf}
+
+\footnotesize
+
+@Chuang2007-ti
+
+
+## Subnetworks recover more known susceptibility genes than single-gene markers
+
+\includegraphics[width=\textwidth]{img/2_network_application/app_network_brca_classifier-6.pdf}
+
+\footnotesize
+
+@Chuang2007-ti
+
+
+
+## Most cancer genes are rarely mutated
+
+\onslide<1->{\includegraphics[height=.5\textheight]{img/2_network_application/app_pancancer-1.pdf}}
+\onslide<2>{~\includegraphics[height=.5\textheight]{img/2_network_application/app_pancancer-2.pdf}}
+
+\footnotesize
+
+@Leiserson2015-sw
+
+
+## HotNet2: heat diffusion through PPI finds connected altered subnetworks
+
+\onslide<1->{\includegraphics[height=.5\textheight]{img/2_network_application/app_pancancer-3.pdf}}
+\onslide<2>{~\includegraphics[height=.5\textheight]{img/2_network_application/app_pancancer-4.pdf}}
+
+\footnotesize
+
+@Leiserson2015-sw
+
+## Subnetworks map to known pathways and show co-occurrence patterns across cancer types
+
+\centerline{\includegraphics[height=.65\textheight]{img/2_network_application/app_pancancer-5.pdf}}
+
+\footnotesize
+
+@Leiserson2015-sw
+
+## SWI/SNF chromatin remodelling complex altered in 16.8\% of pan-cancer samples
+
+\centerline{\includegraphics[height=.7\textheight]{img/2_network_application/app_pancancer-6.pdf}}
+
+\footnotesize
+
+@Leiserson2015-sw
+
+
+
+## Pan-cancer network analysis
+
+- Cancer is driven by pathways, not just individual genes
+- Challenge: different patients have mutations in different genes
+- Solution: project mutations onto PPI network, find mutated subnetworks
+- HotNet2 identifies altered pathways and protein complexes
+- Reveals cancer driver pathways missed by single-gene analysis
+
+# New frontiers: cell-cell communication and regulatory perturbation
+
+## Cells communicate with one another
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\centerline{\includegraphics[height=.7\textheight]{img/3_cell_cell_network/cell_cell_review-1.pdf}}
+
+:::
+::: {.column width=.4}
+
+**Autocrine**: cell signals to itself
+
+**Paracrine**: signals to nearby cells
+
+**Endocrine**: signals via bloodstream to distant cells
+
+**Juxtacrine**: signals through direct membrane contact
+
+:::
+::::::
+
+\footnotesize
+
+[@Armingol2021-tu]
+
+## Cell-cell communication shapes development, tissue homeostasis, and disease
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_cell_review-2.pdf}}
+
+\footnotesize
+
+[@Armingol2021-tu]
+
+## Maternal-fetal interface $\iff$ cell-cell interactions
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\centerline{\includegraphics[height=.7\textheight]{img/3_cell_cell_network/cell_cell_communication_fetal-2.pdf}}
+
+\tiny
+[@Vento-Tormo2018-wn]
+
+:::
+::: {.column width=.6}
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_cell_communication_fetal-5.pdf}}
+
+Decidual^[pregnant uterine lining] NK cells coordinate trophoblast recruitment and tissue remodelling
+
+:::
+::::::
+
+
+## Single-cell atlas reveals diverse cell types at the maternal-fetal interface
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_cell_communication_fetal-1.pdf}}
+
+\footnotesize
+
+[@Vento-Tormo2018-wn]
+
+<!-- ## Ligand-receptor connectome -->
+
+<!-- - Cells communicate via secreted ligands binding to receptors -->
+<!-- - FANTOM5: catalogue of 1,894 ligand-receptor pairs across 144 human cell types -->
+<!-- - Defines potential communication channels -->
+<!-- - Tissue context determines which interactions are active -->
+
+## CellPhoneDB scores ligand-receptor pairs using mean expression and permutation testing
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_cell_communication_fetal-6.pdf}}
+
+:::
+::: {.column width=.6}
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_cell_communication_fetal-7.pdf}}
+
+:::
+::::::
+
+\footnotesize
+
+[@Vento-Tormo2018-wn]
+
+## Inferring cell-cell communication from scRNA-seq
+
+\centerline{\includegraphics[height=.7\textheight]{img/3_cell_cell_network/cell_cell_review-3.pdf}}
+
+\footnotesize
+
+[@Armingol2021-tu]
+
+## Visualizing cell-cell communication scores across ligand-receptor pairs and cell types
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_cell_review-4.pdf}}
+
+\footnotesize
+
+[@Armingol2021-tu]
+
+## Decidual NK subsets modulate immune tolerance via HLA-C/KIR and checkpoint interactions
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_cell_communication_fetal-3.pdf}}
+
+\footnotesize
+
+[@Vento-Tormo2018-wn]
+
+## Cell-cell communication in tissues
+
+- Single-cell atlas of maternal-fetal interface (early pregnancy)
+- Mapped ligand-receptor interactions between immune, stromal, and trophoblast cells
+- Revealed communication networks maintaining pregnancy
+- Showed how immune tolerance is established at the maternal-fetal boundary
+
+## CellOracle: from multi-omics to GRN to in silico TF perturbation
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_perturb_kamimoto-1.pdf}}
+
+\footnotesize
+
+[@Kamimoto2023-yf]
+
+## Chromatin accessibility defines the regulatory wiring
+
+- scATAC-seq open chromatin defines $\mathcal{R}(j)$: which TFs can regulate gene $j$
+
+$$\hat{x}_j = \sum_{i \in \mathcal{R}(j)} \beta_{ij}\, x_i$$
+
+- KO of TF $k$: set $x_k = 0$ $\to$ propagates through GRN $\to$ genome-wide $\Delta\mathbf{x}$
+- Cell fate shift: cosine similarity between $\Delta\mathbf{x}_i$ and $(\mathbf{x}_j - \mathbf{x}_i)$ for each neighbor $j$
+
+\footnotesize
+
+[@Kamimoto2023-yf]
+
+## Simulated differentiation flow recapitulates hematopoietic lineage trajectories
+
+\centerline{\includegraphics[height=.6\textheight]{img/3_cell_cell_network/cell_perturb_kamimoto-2.pdf}}
+
+\footnotesize
+
+[@Kamimoto2023-yf]
+
+## In silico TF knockdown shifts cells toward erythroid/megakaryocyte fate
+
+\centerline{\includegraphics[height=.7\textheight]{img/3_cell_cell_network/cell_perturb_kamimoto-3.pdf}}
+
+\tiny
+
+[@Kamimoto2023-yf]
+
+## Opposing TF knockdown promotes granulocyte-monocyte differentiation
+
+\centerline{\includegraphics[height=.7\textheight]{img/3_cell_cell_network/cell_perturb_kamimoto-4.pdf}}
+
+\tiny
+
+[@Kamimoto2023-yf]
+
+## Spi1 KO: loss of a myeloid driver redirects cells toward erythroid fate
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\centerline{\includegraphics[height=.65\textheight]{img/3_cell_cell_network/cell_perturb_kamimoto-5.pdf}}
+
+:::
+::: {.column width=.4}
+
+- Spi1 (PU.1) normally promotes GM/myeloid differentiation
+- KO: GM lineage inhibited (magenta), MEP differentiation promoted (green)
+- PS = perturbation score: signed measure of fate shift
+
+:::
+::::::
+
+\footnotesize
+
+[@Kamimoto2023-yf]
+
+## Gata1 KO has the opposite effect: ME inhibited, GMP promoted
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\centerline{\includegraphics[height=.65\textheight]{img/3_cell_cell_network/cell_perturb_kamimoto-6.pdf}}
+
+:::
+::: {.column width=.4}
+
+- Gata1 normally promotes erythroid/ME differentiation
+- KO: ME lineage inhibited (magenta), GMP differentiation promoted (green)
+- Spi1 and Gata1 are mutual antagonists at the MEP/GMP branch point (Fig. 1g)
+
+:::
+::::::
+
+\footnotesize
+
+[@Kamimoto2023-yf]
+
+<!-- ## In silico gene perturbation (CellOracle) -->
+<!-- - GRN nodes = genes; edges = TF $\to$ target, weighted by $\beta_{ij}$ from regression -->
+<!-- - scATAC-seq constrains which TFs can regulate each gene (motif accessibility) -->
+<!-- - In silico KO: set TF $\to$ 0, propagate $\Delta x_j$ through GRN -->
+<!-- - Project $\Delta \mathbf{x}$ into embedding $\to$ cell fate transition vector -->
+<!-- - Not a cell-cell network: operates entirely within individual cell states -->
+
+## Networks $\implies$ context for interpreting genomic data
+
+**Measuring networks:**
+
+- Physical interactions:  Y2H, AP-MS
+- Genetic interactions: synthetic lethality
+
+**Network analysis:**
+
+- Propagation: amplify signals across network
+- Modules: disease genes cluster together
+
+**Cell-cell communication** (CellPhoneDB):
+
+<!-- - Nodes = cell types; edges = significant ligand-receptor pairs -->
+- scRNA-seq + curated L-R database → who signals to whom
+
+**Intracellular GRN + perturbation** (CellOracle):
+
+<!-- - Nodes = genes; edges = TF $\to$ target (constrained by scATAC-seq) -->
+- In silico TF KO $\to$ predict cell fate shift
+
+##
+
+<!-- intentional blank -->
+
+## References {.allowframebreaks}
