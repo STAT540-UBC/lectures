@@ -883,20 +883,25 @@ $$Q_\gamma = \frac{1}{2m} \sum_{ij} \left[ A_{ij} - {\color{magenta}\gamma} \fra
 
 ## Clustering a single population finds spurious clusters
 
-\includegraphics[height=.7\textheight]{img/grabski_irizarry_signficance-2.pdf}
+\includegraphics[height=.6\textheight]{img/grabski_irizarry_signficance-2.pdf}
 
 \vfill
+
+Simulated data with **no true subpopulations**. PCA (left) shows one blob; Leiden (right) still finds clusters. 
+
+\vfill
+
 \tiny
 
-Simulated data with **no true subpopulations**. PCA (left) shows one blob; Leiden (right) still finds clusters. [@Grabski2023-vy]
+[@Grabski2023-vy]
 
 
-## Higher resolution keeps splitting --- but are the splits real?
+## Higher resolution keeps splitting, but are they real?
 
 :::::: {.columns}
 ::: {.column width=.6}
 
-\includegraphics[width=.9\textwidth]{img/grabski_irizarry_signficance-3.pdf}
+\includegraphics[height=.7\textheight]{img/grabski_irizarry_signficance-3.pdf}
 
 :::
 ::: {.column width=.35}
@@ -956,7 +961,7 @@ Top: two real populations $\to$ observed $w$ far from null ($P < 0.001$). Bottom
 <!-- sc-SHC demo removed: testClusters() too slow for live build -->
 
 
-## Over-clustering [@DenAdel2025-ed]
+## RECALL combats against an over-clustering problem
 
 **Problem**: Leiden with a high resolution parameter $\to$ too many clusters $\to$ spurious DE genes
 
@@ -976,10 +981,20 @@ Top: two real populations $\to$ observed $w$ far from null ($P < 0.001$). Bottom
 
 Works with any clustering algorithm that has a resolution parameter.
 
-## Default clustering over-clusters; RECALL calibrates [@DenAdel2025-ed]
+\vfill
+\tiny
 
-\centerline{\includegraphics[height=.8\textheight]{img/artificial_var_over_cluster-1.pdf}}
+[@DenAdel2025-ed]
 
+## Default clustering over-clusters
+
+\centerline{\includegraphics[height=.75\textheight]{img/artificial_var_over_cluster-1.pdf}}
+
+\vfill
+\tiny
+\flushright
+
+[@DenAdel2025-ed]
 
 ## RECALL: iteratively reduce resolution until calibrated
 
@@ -1267,6 +1282,14 @@ Given what we learned today, what could go wrong with this approach?
 \vspace{0.5em}
 
 **Hint 2:** But L-R genes may not overlap with the genes that ...
+
+## Discussion
+
+\Large
+
+What will be the underlying generative model?
+
+\normalsize
 
 ## Can we fix this? Could count splitting help?
 
