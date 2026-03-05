@@ -1,0 +1,1451 @@
+---
+title: "Clustering and Differential Analysis"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: network.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: pdflatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \usetikzlibrary{positioning,fit,shapes,calc}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+---
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/clustering-differential-analysis/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+dir.create("../data/network", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+library(igraph)
+
+theme_set(theme_minimal())
+
+## --- Network helper functions (from lect14) ---
+
+.read.online <- function(.src,
+                         .dir="../data/network/",
+                         .zip = str_c(.dir,basename(.src)),
+                         .tgt = str_replace(.zip, "zip$", "gml")){
+    if.needed(.tgt, {
+        .gml <- basename(.tgt)
+        download.file(.src, .zip)
+        unzip(.zip, files=.gml, exdir = .dir)
+    })
+    return(igraph::read_graph(.tgt, format="gml"))
+}
+
+find.nice.layout <- function(G, layout.file) {
+    if(!file.exists(layout.file)){
+        layout.dt <- layout_nicely(G) %>% as.data.table()
+        saveRDS(layout.dt, layout.file)
+    }
+    readRDS(layout.file)
+}
+
+apply.layout.dt <- function(G, .name){
+    .out.file <- str_c(fig.dir,"/",.name,".rds")
+    .out <- find.nice.layout(G, .out.file) %>%
+        dplyr::mutate(v = 1:dplyr::n())
+    as_long_data_frame(G) %>%
+        as.data.table %>%
+        merge(.out, by.x= "from", by.y="v") %>%
+        merge(.out, by.x= "to", by.y="v", suffixes=c(".from",".to"))
+}
+
+plot.layout.dt <- function(.dt, .palette="Paired", .palette.e = "Set2",
+                           .esize = .5, .vsize = 5, .add.lab=TRUE){
+    if(!("k.from" %in% colnames(.dt))) .dt[, k.from := 1]
+    if(!("k.to" %in% colnames(.dt))) .dt[, k.to := 1]
+    .rename <- function(xx) { colnames(xx) <- c("v","V1","V2","k"); xx }
+    .dt.v <- rbind(.dt[, .(`from`, `V1.from`, `V2.from`, `k.from`)] %>% .rename(),
+                   .dt[, .(`to`, `V1.to`, `V2.to`, `k.to`)] %>% .rename()) %>%
+        dplyr::mutate(k = as.factor(k)) %>% unique
+    .aes.e <- aes(V1.from, V2.from, xend=V1.to, yend=V2.to)
+    if("k.edge" %in% colnames(.dt)) {
+        .aes.e <- aes(V1.from, V2.from, xend=V1.to, yend=V2.to, colour=as.factor(k.edge))
+    }
+    plt <- ggplot() + theme_void()
+    if("k.edge" %in% colnames(.dt)) {
+        plt <- plt + geom_segment(.aes.e, data = .dt, size = .esize) +
+            scale_colour_brewer(palette=.palette.e, na.value="grey", guide="none")
+    } else {
+        plt <- plt + geom_segment(.aes.e, data = .dt, size = .esize, colour="gray")
+    }
+    plt <- plt +
+        geom_point(aes(V1, V2, fill=k), data = .dt.v, pch=21, stroke=.1, size = .vsize) +
+        scale_fill_brewer(palette = .palette, guide="none")
+    if(.add.lab){ plt <- plt + geom_text(aes(V1, V2, label=v), data = .dt.v, size = 3) }
+    return(plt)
+}
+```
+
+
+## Roadmap: From biology to methodology
+
+:::::: {.columns}
+::: {.column width=.45}
+
+**14: Biological Networks**
+
+* Protein-protein, genetic interactions
+
+* Cell-cell interaction networks
+
+* Network as a tool: propagation
+
+:::
+::: {.column width=.45}
+
+**15: Clustering**
+
+* Graph-based clustering
+
+* Single-cell example
+
+* When clustering goes wrong
+
+:::
+::::::
+
+# Graph-based clustering
+
+## Last time: networks encode relationships
+
+* We learned how to build and visualize networks
+
+* Protein-protein interactions, genetic interactions, cell-cell communication
+
+* Today: how do we find **groups** within a network?
+
+## Recap: `igraph` in R
+
+```{r echo=TRUE, eval=FALSE}
+library(igraph)
+```
+
+```{r echo=TRUE}
+karate <- .read.online("http://www-personal.umich.edu/~mejn/netdata/karate.zip")
+karate
+```
+
+* $n = |V|$: number of vertices, $m = |E|$: number of edges
+
+* $d_v$: degree of vertex $v$ (how many neighbours?)
+
+
+
+
+
+## A classic example: Karate club [@Zachary1977-rm]
+
+:::::: {.columns}
+::: {.column width=.4}
+
+* 34 members, edges = friendships
+
+* The club split into two factions after a dispute
+
+* Can we recover this split from the network alone?
+
+* Who are the "influencers"?
+
+	* **1**: the instructor ("Mr. Hi")
+
+	* **34**: the president (John A.)
+
+:::
+::: {.column width=.55}
+
+```{r echo=FALSE, fig.width=3, fig.height=2.5}
+.karate.dt <- apply.layout.dt(karate, "karate")
+plot.layout.dt(.karate.dt)
+```
+
+:::
+::::::
+
+## Idea: split the network by cutting edges
+
+:::::: {.columns}
+::: {.column width=.4}
+
+
+* Consider two groups — find a set of edges to cut so the graph splits into two disconnected components
+
+* **Min-cut**: the fewest edges to remove
+
+$${}$$
+
+A trivial solution?
+
+:::
+::: {.column width=.55}
+
+```{r trivial-mincut, echo=FALSE, fig.width=3, fig.height=2.5}
+.dt <- apply.layout.dt(karate, "karate")
+.dt[, k.from := 1]
+.dt[, k.to := 1]
+.dt[`from` == 12, k.from := 2]
+.dt[`to` == 12, k.to := 2]
+plot.layout.dt(.dt)
+```
+
+:::
+::::::
+
+
+
+## Split $G$ by the fewest edges between two parties
+
+```{r echo=TRUE, size="large"}
+.cuts <-
+    as.directed(karate) %>%
+    st_min_cuts(source = "1", target = c("33","34"))
+.cuts$value / 2  # number of edges to cut
+```
+
+## Min-cut partitions from source to target
+
+```{r mincut-partitions, echo=FALSE, fig.width=6, fig.height=1.5}
+.sets <- .cuts[["partition1s"]] %>% lapply(as.character)
+
+plots <- lapply(seq_along(.sets)[1:min(3, length(.sets))], function(i) {
+    .dt <- apply.layout.dt(karate, "karate")
+    .dt[, k.from := ifelse(`from` %in% .sets[[i]], 2, 1)]
+    .dt[, k.to := ifelse(`to` %in% .sets[[i]], 2, 1)]
+    plot.layout.dt(.dt, .vsize=2, .add.lab=FALSE) +
+        ggtitle(paste0("Partition ", i, " (", length(.sets[[i]]), " members)")) +
+        theme(title=element_text(size=6))
+})
+wrap_plots(plots, ncol=3)
+```
+
+* Multiple solutions with the same min-cut = `r .cuts$value/2` edges
+
+* But min-cut requires knowing **source and target** — can we find groups without labels?
+
+## The network as an adjacency matrix $A$
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r fig.width=2.8, fig.height=2.8}
+A <- as_adjacency_matrix(karate)
+.matshow(A, .scale=FALSE, .lab = 0)
+```
+
+:::
+::: {.column width=.5}
+
+$${}$$
+
+* Row/column: a member
+
+* Non-zero element: friendship
+
+* Can you see group structures?
+
+$$A_{ij} = 
+\left\{
+\begin{array}{ll}
+1 & i,j \text{ connected}\\
+0 & \text{otherwise}
+\end{array}
+\right.$$
+
+:::
+::::::
+
+## Stochastic block model: a generative model of $A$?
+
+* An adjacency matrix $A$ can be **data**
+
+$$A_{ij} \sim \text{Bernoulli}\left(\sum_{k,k'}\theta_{kk'} Z_{ik} Z_{jk}\right)$$
+
+where
+$$Z_{ik} =
+\left\{
+\begin{array}{ll}
+1 & i \in \text{ cluster/block/membership } k\\
+0 & \text{otherwise}
+\end{array}
+\right.$$
+and
+$$\theta_{kk'} = P(A=1|\text{between communities } k \text{ and } k')$$
+
+
+* **Goal**: factorize $A \approx Z^{\top} \Theta Z$
+
+## Fitting the stochastic block model
+
+```{r echo=TRUE}
+library(hsblock)
+.out <- fit.hsblock(A, "bernoulli", vbiter=100,
+                    inner.iter=10, verbose=FALSE)
+Z <- as.matrix(.out$Z)
+```
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r echo=TRUE, size="scriptsize"}
+n <- ncol(Z)
+Edges <- 0.5 * Z %*% A %*% t(Z)
+.ones <- matrix(1,n,n)
+diag(.ones) <- 0
+Tot <- Z %*% .ones %*% t(Z)/2
+Theta <- Edges / Tot
+```
+
+:::
+::: {.column width=.45}
+
+* **Z**: `r nrow(Z)` clusters × `r ncol(Z)` vertices
+* $\Theta$: edge probabilities
+
+:::
+::::::
+
+## Matrix factorization view: $A \approx Z^{\top} \Theta Z$
+
+```{r echo=FALSE, fig.width=6, fig.height=2.2}
+.p.eq <- ggplot() + theme_void() + geom_text(aes(x=1,y=1,label="≈"), size=10)
+.p.data <- .matshow(A, .scale=FALSE, .lab = 0)
+.p.z <- .matshow(Z, .scale=FALSE, .lab = 0)
+.p.zt <- .matshow(t(Z), .scale=FALSE, .lab = 0)
+.p.theta <- .matshow(Theta, .scale=TRUE, .lab = 0)
+.p0 <- ggplot() + theme_void()
+
+wrap_plots(.p.data, .p0, .p.eq, .p0, .p.zt, .p0,
+           wrap_plots(.p.theta, .p0, ncol=1, heights=c(1,9)),
+           .p0,
+           wrap_plots(.p.z, .p0, ncol=1, heights=c(1,9)),
+           nrow = 1,
+           widths=c(4, .01, .5, .05, .5, .05, .5, .05, 4))
+```
+
+## Reordering by cluster reveals the block structure
+
+```{r echo=FALSE, fig.width=6, fig.height=2}
+oo <- order(apply(Z,2,which.max), decreasing=TRUE)
+
+.p.data <- .matshow(A[oo,oo], .scale=FALSE, .lab = 0)
+.p.z <- .matshow(Z[,oo], .scale=FALSE, .lab = 0)
+.p.zt <- .matshow(t(Z[,oo]), .scale=FALSE, .lab = 0)
+
+wrap_plots(.p.data, .p0, .p.eq, .p0, .p.zt, .p0,
+           wrap_plots(.p.theta, .p0, ncol=1, heights=c(1,9)),
+           .p0,
+           wrap_plots(.p.z, .p0, ncol=1, heights=c(1,9)),
+           nrow = 1,
+           widths=c(4, .01, .5, .05, .5, .05, .5, .05, 4))
+```
+
+* Sorting vertices by cluster membership makes the block structure visible
+* Each block shows edge density within/between groups
+
+## How do we know clustering is good enough?
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\includegraphics[width=\textwidth]{img/newman_modularity-1.pdf}
+
+$${}$$
+
+* cluster $\approx$ densely connected subgraph
+
+* but how dense?
+
+:::
+::: {.column width=.4}
+
+\includegraphics[width=\textwidth]{img/newman_modularity-2.pdf}
+
+It's not always as perfect as this...
+
+:::
+::::::
+
+## In a dendrogram of clusters, where should we cut?
+
+:::::: {.columns}
+::: {.column width=.4}
+
+${}$
+
+\includegraphics[width=\textwidth]{img/newman_modularity-4.pdf}
+
+${}$
+
+This is perhaps what happened after the split...
+
+:::
+::: {.column width=.2}
+
+\includegraphics[height=.8\textheight]{img/newman_modularity-5.pdf}
+
+:::
+::: {.column width=.25}
+
+$${}$$
+
+* **What will be the proper score?**
+
+* The underlying combinatorial optimization is one of the hardest CS problems.
+
+:::
+::::::
+
+
+
+## What is modularity? [@Newman2004-fa]
+
+Given a partition of vertices into groups, **modularity** $Q$ measures how many more edges fall *within* groups than expected by chance:
+
+$$Q = \frac{1}{2m} \sum_{ij} \left[ {\color{teal} \mathbf{A}_{ij}} - {\color{magenta} \frac{d_i d_j}{2m} } \right] \delta(c_i, c_j)$$
+
+* $A_{ij}$: adjacency matrix, $d_i$: degree of vertex $i$, $m$: total edges
+
+* $\delta(c_i, c_j) = 1$ if vertices $i,j$ are in the same group
+
+* $Q \in [-0.5, 1]$; higher = stronger community structure
+
+* The null model: edges are distributed proportionally to degree
+
+## Why $d_i d_j / 2m$?
+
+* Each vertex $i$ has $d_i$ "stubs" (half-edges). Total stubs: $\sum_i d_i = 2m$.
+
+* Pick a stub from $i$. It connects to one of $2m - 1 \approx 2m$ other stubs.
+
+* Vertex $j$ has $d_j$ stubs, so:
+
+$$Pr(\text{stub from } i \text{ lands on } j) = \frac{d_j}{2m}$$
+
+* Vertex $i$ has $d_i$ stubs, so the expected number of edges between $i$ and $j$:
+
+$$\mathbb{E}[A_{ij}] = \frac{d_i \, d_j}{2m}$$
+
+
+## Louvain: Greedy optimization of the modularity score
+
+:::::: {.columns}
+::: {.column width=.45}
+
+${}$
+
+\includegraphics[width=\textwidth]{img/louvain_leiden-1.pdf}
+
+\scriptsize
+
+[@Blondel2008-fk]:
+
+:::
+::: {.column width=.45}
+
+1. Each vertex starts as its own community
+2. Move vertices to neighbour's community if it increases $Q$
+3. Aggregate communities into super-nodes
+4. Repeat until $Q$ converges
+
+:::
+::::::
+
+
+## Louvain algorithm: vertices $\to$ "super" nodes
+
+\centerline{\includegraphics[height=.75\textheight]{img/louvain_leiden-2.pdf}}
+
+\scriptsize
+
+[@Blondel2008-fk]
+
+## Louvain deals with the "colours" of "super" nodes
+
+\centerline{\includegraphics[width=.8\textwidth]{img/louvain_leiden-5.pdf}}
+
+\vfill
+
+**Key idea**: Keep coarsening a large graph into a smaller one
+
+\vfill
+
+\scriptsize
+
+[@Traag2019-ua]
+
+## Louvain can easily scale up to a million vertices
+
+\centerline{\includegraphics[height=.75\textheight]{img/louvain_leiden-3-belgian-telephone.pdf}}
+
+\vfill
+
+\scriptsize
+
+[@Blondel2008-fk]
+
+
+## Louvain's supernode with disconnected components
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\centerline{\includegraphics[width=\textwidth]{img/louvain_leiden-4.pdf}}
+
+:::
+::: {.column width=.6}
+
+\centerline{\includegraphics[width=\textwidth]{img/louvain_leiden-6.pdf}}
+
+:::
+::::::
+
+\vfill
+
+\scriptsize
+
+[@Traag2019-ua]
+
+## Leiden "refines" to ensure connected within a cluster
+
+\only<1>{\includegraphics[width=.6\textwidth]{img/louvain_leiden-move-1.pdf}}
+
+\only<2>{\includegraphics[width=.9\textwidth]{img/louvain_leiden-move-2.pdf}}
+
+\only<3>{\includegraphics[width=.6\textwidth]{img/louvain_leiden-move-3.pdf}}
+
+\only<4>{\includegraphics[width=.9\textwidth]{img/louvain_leiden-move-4.pdf}}
+
+\vfill
+
+\scriptsize
+
+[@Traag2019-ua]
+
+## Leiden vs. Louvain
+
+```{r echo=TRUE, size="large"}
+cl.louvain <- cluster_louvain(karate)
+cl.leiden  <- cluster_leiden(karate,
+    objective_function = "modularity")
+```
+
+## Leiden vs. Louvain
+
+```{r echo=FALSE, fig.width=5.5, fig.height=2.5}
+.dt <- apply.layout.dt(karate, "karate")
+.dt[, k.from := membership(cl.louvain)[`from`]]
+.dt[, k.to := membership(cl.louvain)[`to`]]
+p1 <- plot.layout.dt(.dt, .vsize=3, .add.lab=FALSE) +
+    ggtitle(paste0("Louvain Q=", round(modularity(cl.louvain),3)))
+
+.dt[, k.from := membership(cl.leiden)[`from`]]
+.dt[, k.to := membership(cl.leiden)[`to`]]
+p2 <- plot.layout.dt(.dt, .vsize=3, .add.lab=FALSE) +
+    ggtitle(paste0("Leiden Q=", round(modularity(karate, membership(cl.leiden)),3)))
+
+p1 + p2 + plot_layout(ncol=2)
+```
+
+## What should we learn from Louvain/Leiden?
+
+\large
+
+When $n$ is large...
+
+\vfill
+
+* What shall we do?
+
+* Any counter examples for Leiden?
+
+
+## Side note: The resolution parameter matters
+
+```{r echo=FALSE, fig.width=5, fig.height=3}
+res.vals <- c(0.5, 1.0, 1.5, 2.0)
+plots <- lapply(res.vals, function(r) {
+    cl <- cluster_leiden(karate, objective_function="modularity",
+                         resolution=r)
+    .dt <- apply.layout.dt(karate, "karate")
+    .dt[, k.from := membership(cl)[`from`]]
+    .dt[, k.to := membership(cl)[`to`]]
+    plot.layout.dt(.dt, .vsize=2, .add.lab=FALSE) +
+        ggtitle(paste0("res=", r, " (k=", max(membership(cl)), ")")) +
+        theme(title=element_text(size=6))
+})
+wrap_plots(plots, ncol=2)
+```
+
+
+<!-- * Both Louvain and Leiden have a **resolution** parameter -->
+
+<!-- * Higher resolution $\to$ more, smaller clusters -->
+
+<!-- * Lower resolution $\to$ fewer, larger clusters -->
+
+
+
+# Single-cell clustering in practice
+
+## Recall: the standard single-cell workflow
+
+\centerline{\includegraphics[width=.8\textwidth]{img/scRNA_overview/Karchenko_1.pdf}}
+
+\centerline{\includegraphics[width=.8\textwidth]{img/scRNA_overview/Karchenko_2.pdf}}
+
+\vfill
+
+\flushright
+\tiny
+[@Kharchenko2021-wr]
+
+
+
+## Clustering the PDAC data
+
+```{r load-seurat, message=FALSE, warning=FALSE}
+library(Seurat)
+```
+
+```{r load-pdac, include=FALSE}
+pdac.rds <- "../data/GSE155698_PDAC_Steele2020/pdac_tissue1_processed.rds"
+if.needed(pdac.rds, {
+    data.dir <- "../data/GSE155698_PDAC_Steele2020/PDAC_TISSUE_1/"
+    pdac <- Read10X(data.dir = data.dir)
+    pdac <- CreateSeuratObject(counts = pdac,
+                               project = "PDAC_TISSUE_1",
+                               min.cells = 3,
+                               min.features = 200)
+    pdac[["percent.mt"]] <- PercentageFeatureSet(pdac, pattern = "^MT-")
+    pdac <- subset(pdac,
+                   nFeature_RNA > 200 &
+                   nFeature_RNA < 6000 &
+                   percent.mt < 20)
+    pdac <- pdac |>
+        NormalizeData() |>
+        FindVariableFeatures(nfeatures = 2000) |>
+        ScaleData() |>
+        RunPCA(npcs = 30) |>
+        FindNeighbors(dims = 1:20) |>
+        RunUMAP(dims = 1:20)
+    saveRDS(pdac, pdac.rds)
+})
+pdac <- readRDS(pdac.rds)
+```
+
+```{r show-pdac-pipeline, eval=FALSE, echo=TRUE}
+pdac <- Read10X(data.dir = data.dir)
+pdac <- CreateSeuratObject(counts = pdac,
+    project = "PDAC_TISSUE_1",
+    min.cells = 3, min.features = 200)
+
+pdac <- pdac |>
+    NormalizeData() |>
+    FindVariableFeatures(nfeatures = 2000) |>
+    ScaleData() |>
+    RunPCA(npcs = 30) |>
+    FindNeighbors(dims = 1:20) |>
+    RunUMAP(dims = 1:20)
+```
+
+* Same PDAC Tissue 1 dataset from Lecture 8 [@Steele2020-tq]
+
+* `FindNeighbors()` builds the **KNN** and **SNN** graphs in PCA space
+
+## Building the KNN graph
+
+```{r pdac-knn-prep, include=FALSE}
+knn.mat <- pdac@graphs$RNA_nn
+snn.mat <- pdac@graphs$RNA_snn
+
+set.seed(42)
+n.sub <- 500
+cells.sub <- sample(colnames(pdac), n.sub)
+umap.coords <- Embeddings(pdac, "umap")[cells.sub, ]
+```
+
+:::::: {.columns}
+::: {.column width=.45}
+
+```{r pdac-knn-show, echo=TRUE, eval=FALSE, size="large"}
+knn.mat <- pdac@graphs$RNA_nn
+dim(knn.mat)
+```
+
+```{r pdac-knn-dim, echo=FALSE}
+dim(knn.mat)
+```
+
+* `FindNeighbors(dims = 1:20)` connects each cell to its $k=20$ nearest neighbours in PCA space
+
+* $A_{ij} = 1$ if cell $j$ is among $k$-NN of cell $i$
+
+:::
+::: {.column width=.5}
+
+```{r pdac-knn-igraph, echo=FALSE, fig.width=2.8, fig.height=2.7}
+knn.sub <- knn.mat[cells.sub, cells.sub]
+G.knn <- graph_from_adjacency_matrix(knn.sub, mode = "undirected", diag = FALSE)
+
+.dt.knn <- data.table(
+    x = umap.coords[,1], y = umap.coords[,2],
+    v = seq_len(n.sub))
+.el <- as_edgelist(G.knn)
+.edge.dt <- data.table(
+    x = umap.coords[.el[,1], 1], y = umap.coords[.el[,1], 2],
+    xend = umap.coords[.el[,2], 1], yend = umap.coords[.el[,2], 2])
+
+ggplot(.edge.dt) +
+    geom_segment(aes(x, y, xend=xend, yend=yend),
+                 colour="grey70", linewidth=0.1, alpha=0.3) +
+    geom_point(aes(x, y), data=.dt.knn,
+               size=0.5, colour="steelblue") +
+    labs(x = "UMAP 1", y = "UMAP 2")
+```
+
+:::
+::::::
+
+## Shared neighbours graph
+
+:::::: {.columns}
+::: {.column width=.45}
+
+* **SNN**: weight edges by shared neighbour overlap (Jaccard index)
+
+$$w_{ij} = \frac{|N_i \cap N_j|}{|N_i \cup N_j|}$$
+
+* Cells sharing many neighbours get stronger connections
+
+* This is what Leiden/Louvain clusters on
+
+:::
+::: {.column width=.5}
+
+```{r pdac-snn-igraph, echo=FALSE, fig.width=2.8, fig.height=2.7}
+snn.sub <- snn.mat[cells.sub, cells.sub]
+G.snn <- graph_from_adjacency_matrix(snn.sub, mode = "undirected",
+                                     weighted = TRUE, diag = FALSE)
+.el.s <- as_edgelist(G.snn)
+.ew <- E(G.snn)$weight
+.ew <- .ew / max(.ew)
+
+.edge.snn <- data.table(
+    x = umap.coords[.el.s[,1], 1], y = umap.coords[.el.s[,1], 2],
+    xend = umap.coords[.el.s[,2], 1], yend = umap.coords[.el.s[,2], 2],
+    w = .ew)
+
+ggplot(.edge.snn) +
+    geom_segment(aes(x, y, xend=xend, yend=yend, alpha=w),
+                 colour="grey30", linewidth=0.1) +
+    scale_alpha_identity() +
+    geom_point(aes(x, y), data=.dt.knn,
+               size=0.5, colour="steelblue") +
+    labs(x = "UMAP 1", y = "UMAP 2")
+```
+
+:::
+::::::
+
+<!-- ## From KNN to SNN: the Jaccard index -->
+<!-- **Seurat** uses binary KNN ($A_{ik} \in \{0,1\}$, each cell has exactly $k$ neighbours): -->
+<!-- $$w_{ij} = \frac{|N_i \cap N_j|}{|N_i \cup N_j|} = \frac{(A A^\top)_{ij}}{k + k - (A A^\top)_{ij}}$$ -->
+<!-- **Weighted KNN** ($A_{ik} \geq 0$): the **weighted Jaccard** generalizes this -->
+<!-- $$w_{ij} = \frac{\sum_\ell \min(A_{i\ell},\, A_{j\ell})}{\sum_\ell \max(A_{i\ell},\, A_{j\ell})}$$ -->
+<!-- * When $A$ is binary: $\min = \text{AND}$, $\max = \text{OR}$ $\to$ recovers standard Jaccard -->
+<!-- * E.g., BBKNN [@Polanski2020-ck] produces a weighted KNN across batches -->
+<!-- This gives a **weighted adjacency** where cross-batch edges are explicitly encouraged. -->
+
+## Clustering the PDAC data
+
+```{r pdac-leiden, include=FALSE}
+pdac.clust.rds <- "../data/GSE155698_PDAC_Steele2020/pdac_tissue1_clustered.rds"
+if.needed(pdac.clust.rds, {
+    pdac <- FindClusters(pdac, algorithm = 4, resolution = 0.5)
+    saveRDS(pdac, pdac.clust.rds)
+})
+pdac <- readRDS(pdac.clust.rds)
+```
+
+:::::: {.columns}
+::: {.column width=.4}
+
+```{r pdac-leiden-show, eval=FALSE, echo=TRUE, size="normalsize"}
+pdac <- FindClusters(
+    pdac,
+    algorithm = 4,
+    resolution = 0.5)
+```
+
+* Leiden on the SNN graph
+
+* `r length(unique(Idents(pdac)))` clusters found
+
+* Resolution = 0.5
+
+:::
+::: {.column width=.55}
+
+```{r pdac-umap, echo=FALSE, fig.width=3.5, fig.height=3}
+DimPlot(pdac, reduction = "umap", pt.size = 0.2) +
+    NoLegend() +
+    labs(title = "PDAC Tissue 1: Leiden clustering") +
+    theme(plot.title = element_text(size = 9))
+```
+
+:::
+::::::
+
+## Effect of the resolution parameter
+
+```{r pdac-resolution, echo=FALSE, fig.width=5.5, fig.height=3}
+pdac.res.rds <- "../data/GSE155698_PDAC_Steele2020/pdac_tissue1_resolution_plots.rds"
+if.needed(pdac.res.rds, {
+    res.vals <- c(0.2, 0.5, 1.0, 2.0)
+    plots <- lapply(res.vals, function(r) {
+        pdac <- FindClusters(pdac, algorithm = 4, resolution = r, verbose = FALSE)
+        DimPlot(pdac, reduction = "umap", pt.size = 0.15) +
+            NoLegend() +
+            labs(title = paste0("res=", r, " (k=", length(unique(Idents(pdac))), ")")) +
+            theme(plot.title = element_text(size = 7),
+                  axis.title = element_text(size = 6),
+                  axis.text = element_text(size = 5))
+    })
+    saveRDS(plots, pdac.res.rds)
+})
+plots <- readRDS(pdac.res.rds)
+wrap_plots(plots, ncol = 2)
+```
+
+## The resolution parameter in the modularity score
+
+The **resolution parameter** $\gamma$ scales the null model:
+
+$$Q_\gamma = \frac{1}{2m} \sum_{ij} \left[ A_{ij} - {\color{magenta}\gamma} \frac{d_i d_j}{2m} \right] \delta(c_i, c_j)$$
+
+* $\gamma > 1$: penalizes large clusters more $\to$ **more, smaller** clusters
+
+* $\gamma < 1$: tolerates sparser communities $\to$ **fewer, larger** clusters
+
+* $\gamma = 1$: standard modularity
+
+
+
+# When clustering goes wrong
+
+
+
+
+
+## Are clusters real or artifacts of the algorithm?
+
+\centerline{\includegraphics[width=.7\textwidth]{img/grabski_irizarry_signficance-1.pdf}}
+
+\tiny
+\flushright
+
+[@Grabski2023-vy]
+
+## Clustering a single population finds spurious clusters
+
+\includegraphics[height=.7\textheight]{img/grabski_irizarry_signficance-2.pdf}
+
+\vfill
+\tiny
+
+Simulated data with **no true subpopulations**. PCA (left) shows one blob; Leiden (right) still finds clusters. [@Grabski2023-vy]
+
+
+## Higher resolution keeps splitting --- but are the splits real?
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\includegraphics[width=.9\textwidth]{img/grabski_irizarry_signficance-3.pdf}
+
+:::
+::: {.column width=.35}
+
+Each node = a cluster at a given resolution. Arrows show how cells redistribute as resolution increases.
+
+\vspace{1em}
+
+Thin arrows = small proportion of cells moving $\to$ potentially spurious splits.
+
+:::
+::::::
+
+\vfill
+\tiny
+
+[@Grabski2023-vy]
+
+
+## sc-SHC: recursively test each split for significance
+
+\includegraphics[width=.9\textwidth]{img/grabski_irizarry_signficance-4.pdf}
+
+\vfill
+\tiny
+
+[@Grabski2023-vy]
+
+## Can we compute the p-value of each split?
+
+\includegraphics[height=.7\textheight]{img/grabski_irizarry_signficance-5.pdf}
+
+\vfill
+\tiny
+
+Top: two real populations $\to$ observed $w$ far from null ($P < 0.001$). Bottom: one population $\to$ $w$ typical under null ($P = 0.97$). [@Grabski2023-vy]
+
+
+## Capillary aerocytes are a distinct subtype
+
+\includegraphics[width=.9\textwidth]{img/grabski_irizarry_signficance-6.pdf}
+
+\vfill
+\tiny
+
+[@Grabski2023-vy]
+
+## Not all splits are real: capillary subtypes overlap
+
+\includegraphics[width=.9\textwidth]{img/grabski_irizarry_signficance-7.pdf}
+
+\vfill
+\tiny
+
+[@Grabski2023-vy]
+
+<!-- sc-SHC demo removed: testClusters() too slow for live build -->
+
+
+## Over-clustering [@DenAdel2025-ed]
+
+**Problem**: Leiden with a high resolution parameter $\to$ too many clusters $\to$ spurious DE genes
+
+**RECALL** (calibrated clustering with artificial variables):
+
+1. **Augment** the expression matrix with **artificial null genes** — synthetic variables that match the data distribution but have no association with cell types
+
+2. **Cluster** cells using both real and artificial genes
+
+3. **Test for DE** between clusters, for both real and artificial genes
+
+4. Since artificial genes are known nulls, their test statistics reveal the **double-dipping effect**
+
+5. If real genes are not more significant than artificial ones $\to$ **merge** those clusters
+
+6. Repeat until clusters are well-calibrated
+
+Works with any clustering algorithm that has a resolution parameter.
+
+## Default clustering over-clusters; RECALL calibrates [@DenAdel2025-ed]
+
+\centerline{\includegraphics[height=.8\textheight]{img/artificial_var_over_cluster-1.pdf}}
+
+
+## RECALL: iteratively reduce resolution until calibrated
+
+\centerline{\includegraphics[width=\textwidth]{img/artificial_var_over_cluster-2.pdf}}
+
+
+## RECALL correctly identifies true clusters
+
+\centerline{\includegraphics[height=.7\textheight]{img/artificial_var_over_cluster-3.pdf}}
+
+\vfill
+\tiny
+
+B--C: one population --- Seurat finds about 5, RECALL finds 1. D--E: three populations --- both recover 3. [@DenAdel2025-ed]
+
+
+## RECALL outperforms alternatives on real tissue data
+
+\centerline{\includegraphics[height=.65\textheight]{img/artificial_var_over_cluster-4.pdf}}
+
+\vfill
+\tiny
+
+Diaphragm and limb muscle datasets. ARI and V-measure vs curated labels. [@DenAdel2025-ed]
+
+
+## Seurat default over-splits; RECALL matches cell ontology
+
+\centerline{\includegraphics[height=.7\textheight]{img/artificial_var_over_cluster-5.pdf}}
+
+\vfill
+\tiny
+
+Limb muscle: Seurat finds 11 clusters, RECALL finds 6 matching the 6 annotated cell types. Heatmaps show cleaner marker gene blocks. [@DenAdel2025-ed]
+
+
+## How does RECALL generate artificial null genes?
+
+For each gene $j$, fit a **zero-inflated Poisson** (ZIP) to the observed counts:
+
+$$P(X_j = 0) = \pi_{0j} + (1 - \pi_{0j})\, e^{-\lambda_j}, \quad P(X_j = x) = (1 - \pi_{0j})\, \frac{\lambda_j^x\, e^{-\lambda_j}}{x!}$$
+
+Estimate parameters from the data:
+
+* $\hat{\lambda}_j$ from the mean $\bar{x}_j$ and zero-fraction $r_{0j}$ via the Lambert $W$ function
+
+* $\hat{\pi}_{0j} = 1 - \bar{x}_j / \hat{\lambda}_j$
+
+Then sample synthetic null genes: $\tilde{x}_j \sim \text{ZIP}(\hat{\pi}_{0j},\, \hat{\lambda}_j)$
+
+Each null gene matches the **marginal** distribution (mean, zero-inflation) of the real gene.
+
+<!-- If real genes are not more significant than null genes $\to$ the cluster split is **spurious**. -->
+
+## RECALL on the PDAC data
+
+```{r recall-run, include=FALSE}
+recall.rds <- "../data/GSE155698_PDAC_Steele2020/pdac_tissue1_recall.rds"
+if.needed(recall.rds, {
+    library(recall)
+    pdac.recall <- FindClustersRecall(pdac,
+                                      algorithm = "leiden",
+                                      resolution_start = 0.5,
+                                      dims = 1:20,
+                                      cores = 10,
+                                      verbose = TRUE)
+    saveRDS(pdac.recall, recall.rds)
+})
+pdac.recall <- readRDS(recall.rds)
+```
+
+```{r recall-show, eval=FALSE, echo=TRUE, size="normalsize"}
+library(recall)
+pdac.recall <- FindClustersRecall(pdac,
+    algorithm = "leiden",
+    resolution_start = 0.5, dims = 1:20)
+```
+
+```{r recall-plot, echo=FALSE, fig.width=5.5, fig.height=2.7}
+p1 <- DimPlot(pdac, reduction = "umap", pt.size = 0.15) +
+    NoLegend() +
+    labs(title = paste0("Leiden res=0.5 (",
+         length(unique(Idents(pdac))), " clusters)")) +
+    theme(plot.title = element_text(size = 7),
+          axis.title = element_text(size = 6),
+          axis.text = element_text(size = 5))
+
+p2 <- DimPlot(pdac.recall, reduction = "umap", pt.size = 0.15) +
+    NoLegend() +
+    labs(title = paste0("RECALL (",
+         length(unique(Idents(pdac.recall))), " clusters)")) +
+    theme(plot.title = element_text(size = 7),
+          axis.title = element_text(size = 6),
+          axis.text = element_text(size = 5))
+
+p1 + p2
+```
+
+
+## 
+
+\centerline{\includegraphics[width=.8\textwidth]{img/zhang_tse_sc_diff-1.pdf}}
+
+\vfill
+
+* Cluster cells using gene expression $\to$ find marker genes that differ between clusters
+
+* But clusters were *defined* to maximize gene expression differences
+
+* This is **selection bias**: the same data used to form and evaluate the hypothesis
+
+\vfill
+\tiny
+\flushright 
+
+[@Zhang2019-ku]
+
+
+## Clustering creates artificial DE even from one population
+
+\centerline{\includegraphics[width=.6\textwidth]{img/zhang_tse_sc_diff-2.pdf}}
+
+\vfill
+
+500 cells from **one** distribution ($\mu = 0.5$). After $k$-means, the two clusters look different --- but the difference is an artefact. [@Zhang2019-ku]
+
+
+## Standard DE tests are inflated; corrected tests are not
+
+\centerline{\includegraphics[width=.9\textwidth]{img/zhang_tse_sc_diff-3.pdf}}
+
+\vfill
+
+\small
+Blue = standard test, orange = truncated normal (TN) corrected test. \textsf{\color{red}Red gene names} = housekeeping genes that should not be DE. [@Zhang2019-ku]
+
+
+## Clustering then testing $\to$ inflated significance
+
+Even when there is **no true grouping**, standard DE after clustering produces many "significant" genes:
+
+* A "double dipping" problem
+
+* The clustering algorithm forces cells into groups
+
+* Cells assigned to the same cluster are more similar *by construction*
+
+* Standard tests (e.g., Wilcoxon, t-test) ignore this selection step $\to$ **inflated p-values**
+
+
+
+## The double-dipping problem
+
+We observe a count matrix $X$ (cells $\times$ genes), where $X_{ij} \sim \text{Poisson}(\lambda_{ij})$
+
+**Standard pipeline** (double dipping):
+
+* Use $X$ to estimate clusters $\hat{c}_1, \ldots, \hat{c}_n$
+
+* Use $X$ again to test: "Is gene $j$ differentially expressed between clusters?"
+
+* The test does not account for the fact that clusters were chosen to make genes look different
+
+**Result**: under the null ($\lambda_{ij}$ does not depend on cell type), we still get many small p-values
+
+\vfill
+\tiny
+\flushright
+
+[@Neufeld2023-fd]
+
+## 
+
+\centerline{\includegraphics[width=.7\textwidth]{img/neufeld_double_dipping-1.pdf}}
+
+## Null genes look DE after clustering: both $p < 0.001$
+
+\centerline{\includegraphics[width=.95\textwidth]{img/neufeld_double_dipping-2.pdf}}
+
+\vfill
+
+Two genes drawn from the **same** Poisson distribution across all cells. After clustering (right), both appear significantly DE ($p < 0.001$). [@Neufeld2023-fd]
+
+
+## Count splitting [@Neufeld2023-fd]
+
+**Key insight**: Poisson thinning creates independent splits
+
+If $X_{ij} \sim \text{Poisson}(\lambda_{ij})$, then for any $\epsilon \in (0,1)$:
+
+$$X_{ij}^{\text{train}} \mid X_{ij} \sim \text{Binomial}(X_{ij}, \epsilon), \quad X_{ij}^{\text{test}} = X_{ij} - X_{ij}^{\text{train}}$$
+
+Then $X^{\text{train}} \perp X^{\text{test}}$ (they are **independent**!)
+
+**The recipe**:
+
+1. Split $X$ into $X^{\text{train}}$ and $X^{\text{test}}$ via Poisson thinning
+
+2. Cluster using $X^{\text{train}}$ only
+
+3. Test for DE using $X^{\text{test}}$ only
+
+This controls Type I error because the test data is independent of the clustering.
+
+
+## Count splitting controls Type I error
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\centerline{\includegraphics[height=.7\textheight]{img/neufeld_double_dipping-3.pdf}}
+
+:::
+::: {.column width=.35}
+
+* QQ plots under null: double dipping (purple) inflates p-values
+
+* Count splitting (orange) stays on the diagonal. 
+
+* Count splitting across signal-to-noise ratios. 
+
+${}$
+
+\tiny
+\flushright
+
+[@Neufeld2023-fd]
+
+:::
+::::::
+
+# Discussion: How should we test cell-cell communication?
+
+## CellPhoneDB infers communication from clusters
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[height=.6\textheight]{img/cellphonedb-pipeline.pdf}}
+
+:::
+::: {.column width=.6}
+
+1. **Cluster** cells into discrete types (e.g., Leiden)
+
+2. **Look up** known ligand-receptor (L-R) pairs from a curated database
+
+3. For each L-R pair $(l, r)$ and each cell-type pair $(A, B)$:
+   - Compute the **mean expression** of $l$ in $A$ and $r$ in $B$
+   - Score $= \operatorname{mean}(\bar{x}_l^A,\, \bar{x}_r^B)$
+
+4. **Permutation test**: randomly shuffle cell-type labels $\to$ null distribution of scores
+
+5. Report pairs with $p < 0.05$
+
+:::
+::::::
+
+\vfill
+
+\footnotesize
+
+[@Vento-Tormo2018-wn; @Armingol2021-tu; @Efremova2020-qy]
+
+## CellPhoneDB output: significant L-R pairs
+
+\centerline{\includegraphics[height=.7\textheight]{img/cellphonedb-output.pdf}}
+
+\footnotesize
+
+[@Vento-Tormo2018-wn]
+
+## Discussion
+
+\Large
+
+Given what we learned today, what could go wrong with this approach?
+
+\vspace{1em}
+
+\normalsize
+
+**Hint 1:** Clustering uses the same expression matrix as ...
+
+\vspace{0.5em}
+
+**Hint 2:** But L-R genes may not overlap with the genes that ...
+
+## Can we fix this? Could count splitting help?
+
+\Large
+
+- Split counts: $X = X^{\text{train}} + X^{\text{test}}$
+
+- Cluster on $X^{\text{train}}$, test L-R pairs on $X^{\text{test}}$
+
+\vspace{1em}
+
+\normalsize
+
+But wait ...
+
+- L-R scores need **mean expression** — do we have enough signal in $X^{\text{test}}$?
+
+- Ligand in cluster $A$, receptor in cluster $B$ — we need counts from **different cells**, not the same cell split twice
+
+- What if the clustering itself changes with only half the counts?
+
+
+## Takeaways
+
+**Graph-based clustering**
+
+* Modularity optimization (Louvain/Leiden) is the workhorse of single-cell clustering
+
+* The resolution parameter controls granularity — there is no single "correct" value
+
+* SBMs offer a principled alternative with automatic model selection
+
+**When clustering goes wrong**
+
+* Clustering then testing on the same data = **double dipping** $\to$ inflated p-values
+
+* **sc-SHC**: build significance testing into the clustering itself
+
+* **Count splitting**: exploit Poisson thinning to create independent train/test sets
+
+* **RECALL**: use artificial null genes to calibrate and detect over-clustering
+
+
+# Appendix
+
+## No perfect clustering algorithm
+
+**Impossibility Theorem** [@Kleinberg2002-im]: no clustering function $f$ can simultaneously satisfy all three axioms:
+
+1. **Scale invariance**: scaling all distances by $\alpha > 0$ doesn't change the clustering
+
+2. **Richness**: every possible partition can be produced by some distance function
+
+3. **Consistency**: shrinking within-cluster distances and expanding between-cluster distances doesn't change the clustering
+
+Any algorithm must violate at least one:
+
+\vfill
+
+\centering
+\small
+\begin{tabular}{lccc}
+\hline
+\textbf{Method} & \textbf{Scale inv.} & \textbf{Richness} & \textbf{Consistency} \\
+\hline
+$k$-cluster (fixed $k$) & \checkmark & $\times$ & \checkmark \\
+Distance threshold (fixed $r$) & $\times$ & \checkmark & \checkmark \\
+Proportional ($\alpha \cdot d_{\max}$) & \checkmark & \checkmark & $\times$ \\
+\hline
+\end{tabular}
+
+## Axiom 1: Scale invariance
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9, every node/.style={circle, fill, inner sep=2pt}]
+
+% Left cluster
+\node[fill=teal] (a1) at (0,0) {};
+\node[fill=teal] (a2) at (0.6,0.3) {};
+\node[fill=teal] (a3) at (0.3,-0.4) {};
+
+% Right cluster
+\node[fill=magenta] (b1) at (3,0) {};
+\node[fill=magenta] (b2) at (3.5,0.4) {};
+\node[fill=magenta] (b3) at (3.2,-0.3) {};
+
+\draw[gray] (a1)--(a2) node[midway,above,font=\scriptsize,fill=none] {1};
+\draw[gray] (a1)--(b1) node[midway,above,font=\scriptsize,fill=none] {3};
+
+\node[fill=none, font=\large] at (5,0) {$\xrightarrow{\times \alpha}$};
+
+% Scaled version
+\node[fill=teal] (c1) at (7,0) {};
+\node[fill=teal] (c2) at (7.6,0.3) {};
+\node[fill=teal] (c3) at (7.3,-0.4) {};
+
+\node[fill=magenta] (d1) at (10,0) {};
+\node[fill=magenta] (d2) at (10.5,0.4) {};
+\node[fill=magenta] (d3) at (10.2,-0.3) {};
+
+\draw[gray] (c1)--(c2) node[midway,above,font=\scriptsize,fill=none] {$\alpha$};
+\draw[gray] (c1)--(d1) node[midway,above,font=\scriptsize,fill=none] {$3\alpha$};
+
+\node[fill=none, font=\small] at (1.5,-1.5) {$f(d) = \{\text{\textcolor{teal}{A}}, \text{\textcolor{magenta}{B}}\}$};
+\node[fill=none, font=\small] at (8.5,-1.5) {$f(\alpha \cdot d) = \{\text{\textcolor{teal}{A}}, \text{\textcolor{magenta}{B}}\}$};
+
+\end{tikzpicture}
+\end{center}
+
+Multiplying all distances by $\alpha > 0$ should not change the partition.
+
+## Axiom 2: Richness
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9, every node/.style={circle, fill, inner sep=2pt}]
+
+% Partition 1: {AB}{CD}
+\node[fill=teal] (a1) at (0,0.3) {};
+\node[fill=teal] (a2) at (0.7,0) {};
+\node[fill=magenta] (a3) at (2.5,0.3) {};
+\node[fill=magenta] (a4) at (3.2,0) {};
+
+\draw[rounded corners, dashed, teal] (-0.4,-0.5) rectangle (1.1,0.8);
+\draw[rounded corners, dashed, magenta] (2.1,-0.5) rectangle (3.6,0.8);
+
+\node[fill=none, font=\scriptsize] at (1.6,-1) {$d_1 \to \{\text{\textcolor{teal}{AB}}, \text{\textcolor{magenta}{CD}}\}$};
+
+% Partition 2: {AC}{BD}
+\node[fill=orange] (b1) at (6,0.5) {};
+\node[fill=blue] (b2) at (7.5,0) {};
+\node[fill=orange] (b3) at (6,-0.3) {};
+\node[fill=blue] (b4) at (7.5,0.7) {};
+
+\draw[rounded corners, dashed, orange] (5.6,-0.7) rectangle (6.4,0.9);
+\draw[rounded corners, dashed, blue] (7.1,-0.4) rectangle (7.9,1.1);
+
+\node[fill=none, font=\scriptsize] at (6.9,-1) {$d_2 \to \{\text{\textcolor{orange}{AC}}, \text{\textcolor{blue}{BD}}\}$};
+
+\end{tikzpicture}
+\end{center}
+
+For **any** partition of $n$ points, there exists some distance function $d$ that produces it.
+
+## Axiom 3: Consistency
+
+\begin{center}
+\begin{tikzpicture}[scale=0.9, every node/.style={circle, fill, inner sep=2pt}]
+
+% Before
+\node[fill=teal] (a1) at (0,0) {};
+\node[fill=teal] (a2) at (1,0.3) {};
+\node[fill=magenta] (b1) at (3,0) {};
+\node[fill=magenta] (b2) at (4,0.3) {};
+
+\draw[teal, thick] (a1)--(a2) node[midway,above,font=\scriptsize,fill=none] {1};
+\draw[gray] (a2)--(b1) node[midway,above,font=\scriptsize,fill=none] {2};
+\draw[magenta, thick] (b1)--(b2) node[midway,above,font=\scriptsize,fill=none] {1};
+
+\node[fill=none, font=\large] at (5.5,0) {$\to$};
+
+% After: within shrinks, between grows
+\node[fill=teal] (c1) at (7,0) {};
+\node[fill=teal] (c2) at (7.5,0.15) {};
+\node[fill=magenta] (d1) at (11,0) {};
+\node[fill=magenta] (d2) at (11.5,0.15) {};
+
+\draw[teal, thick] (c1)--(c2) node[midway,above,font=\scriptsize,fill=none] {0.5};
+\draw[gray] (c2)--(d1) node[midway,above,font=\scriptsize,fill=none] {5};
+\draw[magenta, thick] (d1)--(d2) node[midway,above,font=\scriptsize,fill=none] {0.5};
+
+\node[fill=none, font=\scriptsize] at (2,-1) {$f(d) = \{\text{\textcolor{teal}{A}}, \text{\textcolor{magenta}{B}}\}$};
+\node[fill=none, font=\scriptsize] at (9.2,-1) {$f(d') = \{\text{\textcolor{teal}{A}}, \text{\textcolor{magenta}{B}}\}$ ?};
+
+\end{tikzpicture}
+\end{center}
+
+If we make clusters "tighter" and "farther apart," the same partition should remain.
+
+
+## References {.allowframebreaks}
+
+
