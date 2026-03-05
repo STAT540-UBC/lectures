@@ -1468,6 +1468,420 @@ For **any** partition of $n$ points, there exists some distance function $d$ tha
 
 If we make clusters "tighter" and "farther apart," the same partition should remain.
 
+## Expectation maximization
+
+We'll use a Gaussian Mixture Model (GMM) example to illustrate the EM algorithm, which is fundamental to block modelling and many clustering approaches.
+
+```{r}
+library(torch)
+torch_set_num_threads(8)
+```
+
+## Simulated example data
+
+```{r}
+#' @param nn sample size
+#' @param D dimensionality
+#' @param K number of clusters
+simulate.data <- function(nn, D, K, sig = .2) {
+  require(torch)
+  torch_manual_seed(1447)
+  .mu <- torch_randn(K, D) * 2
+  kk <- torch_tensor(sample(K,nn,TRUE),
+                     dtype=torch_long())
+  .z <- nnf_one_hot(kk)$to(dtype=torch_float())
+  .eps <- torch_randn(nn, D)
+  list(x = torch_mm(.z, .mu) + .eps * sig,
+       k = as.integer(kk), z = .z, mu = .mu)
+}
+
+sim.out <- simulate.data(300, 2, 3)
+X <- sim.out$x
+```
+
+```{r fig.width=3, fig.height=2}
+library(ggplot2)
+.dt <- as.data.frame(as.matrix(X))
+colnames(.dt) <- c("V1", "V2")
+.dt$group <- as.factor(sim.out$k)
+
+.dt.mu <- as.data.frame(as.matrix(sim.out$mu))
+colnames(.dt.mu) <- c("V1", "V2")
+
+ggplot(.dt, aes(V1, V2, colour=group)) +
+  geom_point(size=0.7) +
+  geom_point(data = .dt.mu, colour = "red", size=5, pch = "+") +
+  theme_minimal() +
+  theme(axis.title = element_blank())
+```
+
+**Two goals**: recover (1) group membership and (2) the centroids (red marks)
+
+## The chicken-and-egg problem
+
+* If we knew the membership of all points, we could estimate the centres (e.g., taking sample mean within each cluster)
+
+* If we knew the centres, we could assign points to the most probable groups based on distance
+
+* Statistical answer: Solve the underlying inference problem using **Expectation Maximization**
+
+## Gaussian Mixture Model (GMM)
+
+**Data generating process**
+
+1. Initialize $\mu_{k}$ (centre of each group) and $\sigma_{k}$ (spread within each group)
+
+2. Randomly assign group membership, $Z_{ik} = 1$ iff point $i$ belongs to group $k$
+
+3. Generate: $\mathbf{x}_{i} | Z_{ik} = 1, \boldsymbol{\mu}_{k} \sim \mathcal{N}\!\left(\boldsymbol{\mu}_{k}, \sigma^{2}I\right)$
+
+How do we infer $Z$ and $\mu,\sigma$?
+
+## Expectation Maximization for GMM MLE
+
+\begin{eqnarray*}
+\onslide<1->{
+	J &\equiv& \log \prod_{i=1}^{n} p(\mathbf{x}_{i}|\mu,\sigma) \\
+}
+\onslide<2>{
+	&=& \log \prod_{i=1}^{n} \sum_{Z} p(\mathbf{x}_{i}|Z,\mu,\sigma)p(Z)
+}
+\end{eqnarray*}
+
+\onslide<2>{
+* It might be difficult to enumerate all the $Z$'s... so let's introduce distributions to help our "guessing" work: $q(Z)$
+}
+
+## EM algorithm: What is the best way to guess latent variables?
+
+\begin{eqnarray*}
+\onslide<1->{
+  \sum_{i} \log p(\mathbf{x}_{i}|\mu,\sigma)
+  &=& \sum_{i=1}^{n} {\color{blue} \log} \sum_{Z_{i}} {\color{red} \frac{q(Z_{i})}{q(Z_{i})} } p(\mathbf{x}_{i}|Z_{i},\mu,\sigma)p(Z_{i}) \\
+  }
+\onslide<2->{
+  &\underset{\textsf{\color{blue} Jensen}}{\ge}&
+   \sum_{i=1}^{n} \sum_{Z_{i}} q(Z_{i}) {\color{blue}\log} \frac{p(\mathbf{x}_{i}|Z_{i},\mu,\sigma)p(Z_{i})}{q(Z_{i})} \\ }
+\end{eqnarray*}
+
+\onslide<3->{ What is the best $q(Z)$? }
+
+## EM algorithm: optimal E-step takes the posterior probability
+
+\onslide<1->{ If $q(Z)=p(Z|\mathbf{x}_{i},\mu,\sigma)$ (by Bayes rule),  }
+
+\begin{eqnarray*}
+\onslide<1->{
+  &=&
+      \sum_{i}^{n}\sum_{Z_{i}} p(Z_{i}|\mathbf{x}_{i},\mu,\sigma)
+	\log \frac{p(\mathbf{x}_{i}|Z_{i},\mu,\sigma)p(Z_{i})}{p(Z_{i}|\mathbf{x}_{i}\mu,\sigma)}\\
+}
+\onslide<2->{
+  &=&
+\sum_{i}^{n}\sum_{Z_{i}} p(Z_{i}|\mathbf{x}_{i},\mu,\sigma)
+\log \frac{p(\mathbf{x}_{i},Z_{i}|\mu,\sigma) p(\mathbf{x}_{i}|\mu,\sigma)}{p(\mathbf{x}_{i}, Z_{i}|\mu,\sigma)} \\
+}
+\onslide<3>{
+&=&
+    \sum_{i=1}^{n} \underbrace{\left[ \sum_{Z_{i}} p(Z_{i}|\mathbf{x}_{i},\mu,\sigma) \right]}_{\color{red} = 1} \log p(\mathbf{x}_{i}|\mu,\sigma)
+  \\
+  }
+  \onslide<3>{
+  &=& \sum_{i} \log p(\mathbf{x}_{i}|\mu,\sigma)
+      }
+\end{eqnarray*}
+
+\onslide<3>{The inequality becomes equality.}
+
+## Expectation Maximization algorithm = expected MLE
+
+**The goal**:
+
+\begin{eqnarray}
+  \log p(X|\mu,\sigma) &=& \log \sum_{Z} p(X,Z|\mu,\sigma) \\
+  &\underset{\textsf{\color{blue} Jensen}}{\ge}&
+  \sum_{Z} \underbrace{p(Z|X,\mu,\sigma)}_{\color{red}\textsf{E-step}} \underbrace{\log p(X|Z,\mu,\sigma)}_{\color{red}\textsf{M-step}} \\
+ &=& \underbrace{\mathbb{E}_{p(Z|X,\mu,\sigma)}}_{\color{red}\textsf{E-step}} \left[ \underbrace{\log p(X|Z,\mu,\sigma)}_{\color{red}\textsf{M-step}} \right]
+\end{eqnarray}
+
+($Z$ is discrete, e.g., a membership indicator)
+
+**Solution**: **Maximize** the lower bound by taking **the expectation** over the posterior probability.
+
+## EM algorithm of GMM: E-step
+
+Initialize parameters:
+
+```{r}
+N <- nrow(X)
+D <- ncol(X)
+K <- 3
+
+set.seed(3)
+.mu <- scale(matrix(rnorm(K*D), K, D)) * .1
+mu <- torch_tensor(.mu, requires_grad = TRUE)
+ln.sig <- torch_zeros(K, D, requires_grad=TRUE)
+```
+
+Log-likelihood under group $k$ with parameters $\mu_{k}$ and $\sigma_{k}$:
+
+$\log p(\mathbf{x}_{i}|\mu_{k}, \sigma_{k}) = \log \mathcal{N}\!\left(\mathbf{x}_{i}|\mu_{k},\sigma_{k}\right)$
+
+```{r}
+#' @param X data (n x D)
+#' @param .mu centre parameters (K x D)
+#' @param .ln.sig log standard dev (K x D)
+log.lik <- function(X, .mu, .ln.sig){
+    .ln.sig <- torch_clamp(.ln.sig,
+                           log(0.01),
+                           log(100.))
+
+    .rs <- torch_square(X - .mu)
+    .sig <- torch_exp(.ln.sig)
+    llik <- - .rs/.sig/2.0 - .ln.sig/2.0
+
+    torch_sum(llik, dim=2) # sum over dim
+}
+```
+
+Estimate the posterior probability:
+
+$$p(Z_{ik}| \mathbf{x}_{i}, \mu, \sigma)
+= \frac{\exp\{\log p(\mathbf{x}_{i}|\mu_{k},\sigma_{k})\}}{\sum_{k'} \exp\{\log p(\mathbf{x}_{i}|\mu_{k'},\sigma_{k'})\}}$$
+
+```{r}
+#' sample latent Z ~ the posterior
+take.estep <- function() {
+    llik.mat <- torch_zeros(nrow(X), K)
+    for(k in 1:K){
+        mu.k <- mu[k, , drop = FALSE]
+        ln.sig.k <- ln.sig[k, , drop = FALSE]
+        llik.mat[, k] <- log.lik(X, mu.k, ln.sig.k)
+    }
+    zz <- distr_categorical(logits = llik.mat)
+    zz$sample()
+}
+```
+
+*Remark*: We stochastically sample $Z_{ik}=1$ with the posterior probability.
+
+## EM algorithm of GMM: M-step
+
+Maximization step to optimize model parameters.
+
+Let the expected lower-bound (ELBO):
+
+$$\mathcal{L}(\mathbf{x}_{i}; \{\mu_{k}\}, \{\sigma_{k}\})
+=
+\sum_{i=1}^{n}\sum_{k=1}^{K} Z_{ik} \log p(\mathbf{x}_{i}| Z_{ik}, \mu_{k}, \sigma_{k})$$
+
+Given $Z$, we can take gradient steps (using `torch`):
+
+$$\mu_{k}^{(t)} \gets \mu_{k}^{(t-1)} + \rho \nabla_{\mu_{k}} \sum_{i} \mathcal{L}(\mathbf{x}_{i})$$
+
+$$\sigma_{k}^{(t)} \gets \sigma_{k}^{(t-1)} + \rho \nabla_{\sigma_{k}} \sum_{i} \mathcal{L}(\mathbf{x}_{i})$$
+
+```{r}
+## `torch` implementation
+opt <- optim_adam(list(mu, ln.sig), lr=.25)
+
+take.mstep <- function(Z){
+  opt$zero_grad()
+  llik.1 <- log.lik(X, mu[1, , drop= FALSE],
+                    ln.sig[1, , drop=FALSE])
+  llik <- llik.1 * Z[, 1]
+  for(k in 2:ncol(Z)){
+      llik.k <- log.lik(X, mu[k, , drop=FALSE],
+                        ln.sig[k, , drop=FALSE])
+      llik <- llik + llik.k * Z[, k]
+  }
+  loss <- torch_mean(- llik)
+  loss$backward()
+  . <- opt$step()
+  return(torch_sum(llik)$item())
+}
+```
+
+## Alternate E- and M-steps until convergence
+
+```{r echo=FALSE}
+# Run EM algorithm and save traces
+llik.trace <- c()
+Z.trace <- list()
+mu.trace <- list()
+
+# Initial state
+mu.trace[[1]] <- list(t = 0,
+                      mu = as.matrix(mu),
+                      grad = matrix(0, K, D))
+
+for(tt in 1:100){
+    rand.idx <- take.estep()
+    z <- nnf_one_hot(rand.idx)
+    llik <- take.mstep(z)
+
+    llik.trace <- c(llik.trace, llik)
+    Z.trace[[tt]] <- list(t = tt, z = as.integer(rand.idx))
+    mu.trace[[tt+1]] <- list(t = tt,
+                            mu = as.matrix(mu),
+                            grad = as.matrix(mu$grad))
+}
+```
+
+```{r fig.width=4, fig.height=3}
+plot(1:100, llik.trace, type="b", pch=20, cex=0.5,
+     xlab="Iteration", ylab="Log-likelihood")
+grid()
+```
+
+##
+
+```{r echo=FALSE}
+# Visualization functions
+show.z.trace <- function(tt) {
+  # E-step: Show cluster assignments
+  X.df <- as.data.frame(as.matrix(X))
+  colnames(X.df) <- c("x1", "x2")
+
+  if (tt > 0 && tt <= length(Z.trace)) {
+    X.df$cluster <- factor(Z.trace[[tt]]$z)
+  } else {
+    X.df$cluster <- factor(1)
+  }
+
+  ggplot(X.df, aes(x1, x2, fill=cluster)) +
+    geom_point(pch=21, alpha=0.8, stroke=0.2, size=1.5) +
+    theme_minimal() +
+    theme(legend.position="none", axis.title=element_blank()) +
+    scale_fill_brewer(palette="Dark2") +
+    ggtitle(paste0("E-step Iter = ", tt))
+}
+
+show.mu.trace <- function(tt) {
+  # M-step: Show centers with gradient arrows
+  X.df <- as.data.frame(as.matrix(X))
+  colnames(X.df) <- c("x1", "x2")
+
+  # Get all centers up to time tt (for trajectory)
+  mu.history <- do.call(rbind, lapply(1:min(tt+1, length(mu.trace)), function(t) {
+    df <- as.data.frame(mu.trace[[t]]$mu)
+    df$t <- mu.trace[[t]]$t
+    df$cluster <- 1:K
+    df
+  }))
+  colnames(mu.history)[1:2] <- c("x1", "x2")
+  mu.history$cluster <- factor(mu.history$cluster)
+
+  # Current position and gradient
+  mu.current <- mu.trace[[min(tt+1, length(mu.trace))]]
+  mu.df <- as.data.frame(mu.current$mu)
+  mu.df$cluster <- factor(1:K)
+  colnames(mu.df)[1:2] <- c("x1", "x2")
+
+  # Gradient arrows
+  grad.df <- as.data.frame(mu.current$grad)
+  colnames(grad.df) <- c("g1", "g2")
+  mu.df <- cbind(mu.df, grad.df)
+  mu.df$x1end <- mu.df$x1 - sign(mu.df$g1) * pmin(1, abs(10 * mu.df$g1))
+  mu.df$x2end <- mu.df$x2 - sign(mu.df$g2) * pmin(1, abs(10 * mu.df$g2))
+
+  p <- ggplot(X.df, aes(x1, x2)) +
+    geom_point(colour="gray", alpha=0.5, size=0.5) +
+    geom_point(data=mu.history, aes(x1, x2, fill=cluster, alpha=t),
+               pch=21, size=2, stroke=0) +
+    geom_segment(data=mu.df, aes(x=x1, y=x2, xend=x1end, yend=x2end, colour=cluster),
+                 arrow=arrow(length=unit(0.15, "cm")), size=0.5) +
+    scale_alpha_continuous(range=c(0, 1), guide="none") +
+    scale_fill_brewer(palette="Dark2", guide="none") +
+    scale_colour_brewer(palette="Dark2", guide="none") +
+    theme_minimal() +
+    theme(legend.position="none", axis.title=element_blank()) +
+    ggtitle(paste0("M-step Iter = ", tt))
+
+  return(p)
+}
+```
+
+* **E-step** (left): Assign points to clusters based on current centers
+
+* **M-step** (right): Update cluster centers (gradient arrows show parameter updates)
+
+* As iterations progress, centers converge to true locations
+
+##
+
+```{r fig.width=5, fig.height=2}
+library(patchwork)
+show.z.trace(1) | show.mu.trace(1)
+```
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(2) | show.mu.trace(2)
+```
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(3) | show.mu.trace(3)
+```
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(5) | show.mu.trace(5)
+```
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(10) | show.mu.trace(10)
+```
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(20) | show.mu.trace(20)
+```
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(50) | show.mu.trace(50)
+```
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(75) | show.mu.trace(75)
+```
+
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(80) | show.mu.trace(80)
+```
+
+
+##
+
+```{r fig.width=5, fig.height=2}
+show.z.trace(100) | show.mu.trace(100)
+```
+
+## Key insights for block modelling
+
+The EM algorithm provides a principled framework for:
+
+1. **Handling latent structure**: Just as GMM has latent cluster assignments, block models have latent block/community memberships
+
+2. **Iterative refinement**: Alternating between estimating memberships (E-step) and updating model parameters (M-step)
+
+3. **Guaranteed improvement**: Each iteration increases the likelihood (or doesn't decrease it)
+
+4. **Flexibility**: Can be adapted to various probability models beyond Gaussian mixtures
 
 ## References {.allowframebreaks}
 
