@@ -1,0 +1,2922 @@
+---
+title: "Variational Autoencoder in Single-cell Data"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: vae.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: xelatex
+        slide_level: 2
+header-includes:
+  - \usepackage{cancel}
+  - \usepackage{tikz}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+---
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/vae-single-cell/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+
+theme_set(theme_minimal())
+```
+
+## Learning objectives
+
+* Model-based approach to high-dimensional data analysis
+
+* Primer to learning with artificial neural networks
+
+
+## Overview of single-cell data analysis
+
+\centerline{\includegraphics[width=.8\textwidth]{img/Karchenko_1.pdf}}
+
+\centerline{\includegraphics[width=.8\textwidth]{img/Karchenko_2.pdf}}
+
+\vfill
+
+\flushright
+\tiny
+[@Kharchenko2021-wr]
+
+## The goal of modelling in high-dimensional space
+
+The goal is to model two types of relationships:
+
+\large
+
+* Relationship between dimensions/features (genes)
+
+\vfill
+
+* Relationship between samples/data points (cells)
+
+\normalsize
+
+\vfill
+
+::: {.incremental}
+
+### Key question
+
+Which cells co-vary? Which genes co-vary?
+
+:::
+
+
+## What is a latent variable/factor model?
+
+Examples:
+
+\large
+
+* Principal Component Analysis
+
+* Non-negative matrix factorization
+
+* (...)
+
+\normalsize
+
+## What is Unsupervised Learning?
+
+:::::: {.columns}
+::: {.column width=.45}
+::: {.block}
+
+### Supervised learning
+
+* Input: data $\mathcal{X} = \{\mathbf{x}_{i},\ldots\}$
+
+* Input 2: label $\mathcal{Y} = \{y_{i},\ldots\}$
+
+* Goal: learn $f: \mathcal{X} \to \mathcal{Y}$
+
+:::
+
+X: gene expression samples; Y: disease labels
+
+:::
+::: {.column width=.45}
+
+::: {.block}
+### Unsupervised learning
+
+* Input: data $\mathcal{X} = \{\mathbf{x}_{i},\ldots\}$
+
+* Goal 1: learn $f: \mathcal{Z} \to \mathcal{X}$
+
+* Goal 2: hidden/latent states, $\mathcal{Z} = \{\mathbf{z}_{i},\ldots\}$
+
+:::
+
+X: gene expression matrices
+
+:::
+::::::
+
+
+# Representation Learning
+
+## 
+
+\Large
+
+How can we obtain a good representation of data?
+
+\normalsize
+
+## Two strategies to learn a "good" representation
+
+:::::: {.columns}
+::: {.column width=.45}
+
+::: {.block}
+
+### 1. Feature engineering
+
+Construct useful combinations of variables, feature engineering
+
+- Principal component analysis (matrix factorization)
+
+- Pattern recognition
+
+- Clustering (average patterns $\approx$ combined features/data)
+
+::: 
+
+:::
+::: {.column width=.45}
+
+::: {.incremental}
+
+::: {.block}
+
+### 2. Manifold learning
+
+Change the manifold (a coordinate system) of data
+
+- Probabilistic topic models: word frequency $\to$ simplex
+	
+- Angular space $\to$ Euclidean space
+
+- Observed high-dim. $\to$ interpretable ones
+
+:::
+
+:::
+
+:::
+::::::
+
+We use both strategies in practice.
+
+## Feature engineering by combining multiple vars.
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=FALSE}
+.rnorm <- function(d1,d2) matrix(rnorm(d1*d2),d1,d2)
+```
+
+```{r echo=FALSE}
+U <- .rnorm(100, 2); V <- .rnorm(100, 2)
+X <- U %*% t(V) + .rnorm(100, 100)
+```
+
+$$\mathbf{x}_{i} = \mathbf{u}_{i} V^{\top} + \mathcal{N}\!\left(\mathbf{0},I\right)$$
+
+```{r echo=FALSE}
+X <- .sort.matrix(X)
+```
+
+```{r echo=FALSE, fig.width=2.5, fig.height=2, onslide.plot="1-"}
+.matshow(X, .axis.lab=0, .lw=0)
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo=FALSE}
+.svd <- svd(X, nu=2, nv=2)
+u.hat <- sweep(.svd$u, 2, .svd$d[1:2], `*`)
+```
+
+```{r echo=FALSE, fig.width=2.7, fig.height=2.3, only.plot="2"}
+p1 <- .matshow(u.hat) +
+    ggtitle("features")
+p.times <- ggplot() + theme_void() +
+    geom_text(aes(0,0,label="X"), size=5)
+p2 <- wrap_plots(.matshow(t(.svd$v)),
+                 ggplot() + theme_void(),
+                 ncol=1, heights=c(1,9)) +
+    ggtitle("feature loading")
+wrap_plots(list(p1, p.times, p2), nrow=1, widths=c(1,2,8))
+```
+
+:::
+::::::
+
+## Feature engineering 
+
+:::::: {.columns}
+::: {.column width=.5}
+
+$$\mathbf{x}_{i} = \mathbf{u}_{i} V^{\top} + \mathcal{N}\!\left(\mathbf{0},I\right)$$
+
+* We call each column of U and $V$ a factor (row/column)
+
+* One factor corresponds to the activities/patterns/expressions of 100 genes/samples
+
+* We will discuss further later.
+
+:::
+::: {.column width=.5}
+
+```{r echo=FALSE, fig.width=2.7, fig.height=2.1}
+p1 <- .matshow(u.hat)
+p.times <- ggplot() + theme_void() +
+    geom_text(aes(0,0,label="X"), size=5)
+p2 <- wrap_plots(.matshow(t(.svd$v)),
+                 ggplot() + theme_void(),
+                 ncol=1, heights=c(1,9))
+wrap_plots(list(p1, p.times, p2), nrow=1, widths=c(1,2,8))
+```
+
+:::
+::::::
+
+## Manifold learning changes the coordinate system
+
+:::::: {.columns}
+::: {.column width=.5}
+
+```{r echo=FALSE}
+if(!require(sphereplot)){
+    install.packages("sphereplot")
+}
+.dt <- fread("worldcities.csv")
+xx <- sphereplot::sph2car(.dt$lng, .dt$lat)
+.svd <- svd(xx)
+```
+
+```{r echo=FALSE, fig.width=2.5, fig.height=2.3, only.plot="1-2"}
+ggplot(as.data.table(xx), aes(x, y)) +
+    ggrastr::rasterise(geom_point(stroke=0, size=.5, alpha=.5, colour="gray40"), dpi=300) +
+    ggtitle("x and y coordinates")
+```
+
+
+```{r echo=FALSE, fig.width=2.5, fig.height=2.5, only.plot="3-4"}
+ggplot(as.data.table(.svd$u), aes(V1, V2)) +
+    ggrastr::rasterise(geom_point(stroke=0, size=.5, alpha=.5, colour="gray40"), dpi=300) +
+    ggtitle("PC1 and PC2") +
+    xlab("PC 1") + ylab("PC 2")
+```
+
+:::
+::: {.column width=.5}
+
+```{r echo=FALSE, fig.width=2.5, fig.height=2.3, only.plot="2"}
+ggplot(as.data.table(xx), aes(x, z)) +
+    ggrastr::rasterise(geom_point(stroke=0, size=.5, alpha=.5, colour="gray40"), dpi=300) +
+    ggtitle("x and z coordinates")
+```
+
+```{r echo=FALSE, fig.width=2.5, fig.height=2.5, only.plot="4"}
+ggplot(as.data.table(.svd$u), aes(V2, V3)) +
+    ggrastr::rasterise(geom_point(stroke=0, size=.5, alpha=.5, colour="gray40"), dpi=300) +
+    ggtitle("PC2 and PC3") +
+    xlab("PC 2") + ylab("PC 3")
+```
+
+:::
+::::::
+
+```{r echo=FALSE, fig.width=4.5, fig.height=2.8, only.plot=5}
+yy <- sphereplot::car2sph(xx) %>% as.data.table
+ggplot(yy, aes(`long`, `lat`)) +
+    ggrastr::rasterise(geom_point(stroke=0, size=.5, alpha=.5, colour="gray40"), dpi=300) +
+    ggtitle("(x,y,z) to (long, lat)") +
+    xlab("longitude") + ylab("latitude")
+```
+
+\tiny
+Data from [https://simplemaps.com/data/world-cities](https://simplemaps.com/data/world-cities)
+
+
+## Representation learning
+
+:::::: {.columns}
+::: {.column width=.45}
+
+### Feature engineering
+
+* Combine samples based on similarity to learn common features
+
+* Combine features/genes/proteins to create a new factor
+
+* Matrix factorization to capture factors that explain large variation 
+
+:::
+::: {.column width=.45}
+
+### Manifold learning
+
+* Change the coordinate system
+
+* What's not separable in one space can be spread out in another one
+
+* Apply non-linear functions to a set of features
+
+:::
+::::::
+
+# MNIST Example
+
+## A visual example: handwritten digits
+
+```{r mnist-prep, include=FALSE}
+library(torch)
+mnist.all.rds <- "../data/mnist_all.rds"
+if.needed(mnist.all.rds, {
+    library(dslabs)
+    mnist <- read_mnist()
+    X.all <- mnist$train$images / 255
+    labels <- mnist$train$labels
+    saveRDS(list(X = X.all, labels = labels), mnist.all.rds)
+})
+mnist.all <- readRDS(mnist.all.rds)
+```
+
+```{r mnist-show-helper, include=FALSE}
+.show.digits <- function(imgs, nrow = 2, ncol = 5, show_grid = FALSE) {
+    plots <- lapply(seq_len(nrow * ncol), function(i) {
+        m <- matrix(imgs[i, ], 28, 28, byrow = TRUE)
+        ## Rotate 90 degrees clockwise: transpose then reverse columns
+        m_rot <- t(m)[, 28:1]
+        dt <- reshape2::melt(m_rot)
+        p <- ggplot(dt, aes(Var1, Var2, fill = value)) +
+            geom_raster() +
+            scale_fill_gradient(low = "white", high = "black") +
+            coord_equal() +
+            theme_void() + theme(legend.position = "none")
+
+        if (show_grid) {
+            p <- p +
+                geom_vline(xintercept = seq(0.5, 28.5, 1), colour = "gray80", linewidth = 0.2) +
+                geom_hline(yintercept = seq(0.5, 28.5, 1), colour = "gray80", linewidth = 0.2) +
+                scale_x_continuous(expand = c(0, 0)) +
+                scale_y_continuous(expand = c(0, 0))
+        }
+        p
+    })
+    wrap_plots(plots, nrow = nrow, ncol = ncol)
+}
+
+## Random rotation via affine grid
+.rotate.batch <- function(x, max.angle = 30) {
+    n <- x$shape[1]
+    x4d <- x$view(c(n, 1L, 28L, 28L))
+    angles <- runif(n, -max.angle, max.angle) * pi / 180
+    theta <- torch_zeros(n, 2, 3)
+    theta[, 1, 1] <- cos(angles)
+    theta[, 1, 2] <- -sin(angles)
+    theta[, 2, 1] <- sin(angles)
+    theta[, 2, 2] <- cos(angles)
+    grid <- nnf_affine_grid(theta, c(n, 1L, 28L, 28L))
+    rotated <- nnf_grid_sample(x4d, grid, mode = "bilinear", padding_mode = "zeros")
+    rotated$view(c(n, 784L))
+}
+```
+
+```{r mnist-show-orig, echo=FALSE, fig.width=6, fig.height=2.7}
+set.seed(1)
+show.idx <- sapply(0:9, function(d) {
+    idx <- which(mnist.all$labels == d)
+    sample(idx, 1)
+})
+.show.digits(mnist.all$X[show.idx, ], show_grid = TRUE)
+```
+
+* 28 $\times$ 28 = 784 pixels per image — can we compress to $K = 12$?
+* We train on all digits (0-9)
+
+## The autoencoder bottleneck $\approx$ PCA
+
+\begin{center}
+\begin{tikzpicture}[
+    layer/.style={draw, fill=gray!20, minimum width=0.6cm, rounded corners=2pt},
+    arr/.style={->, thick, >=stealth}
+]
+\usetikzlibrary{decorations.pathreplacing}
+\node[layer, minimum height=3.5cm] (input) at (0,0) {};
+\node[below=2pt] at (input.south) {\scriptsize 784};
+\node[layer, minimum height=1cm] (z) at (2,0) {};
+\node[below=2pt] at (z.south) {\scriptsize \textbf{12}};
+\node[layer, minimum height=3.5cm] (output) at (4,0) {};
+\node[below=2pt] at (output.south) {\scriptsize 784};
+\draw[arr] (input) -- (z);
+\draw[arr] (z) -- (output);
+\node[above=8pt] at (input.north) {\small $\mathbf{x}$};
+\node[above=8pt] at (z.north) {\small $\mathbf{z}$};
+\node[above=8pt] at (output.north) {\small $\hat{\mathbf{x}}$};
+\draw[decorate, decoration={brace, mirror, amplitude=5pt}] (-0.5,-2.3) -- (1.7,-2.3)
+    node[midway, below=6pt] {\small encoder};
+\draw[decorate, decoration={brace, mirror, amplitude=5pt}] (2.3,-2.3) -- (4.5,-2.3)
+    node[midway, below=6pt] {\small decoder};
+\end{tikzpicture}
+\end{center}
+
+* All information about the digit must pass through **10 numbers**
+
+## AE vs. VAE on all digits (K=12)
+
+```{r mnist-ae-train, include=FALSE}
+mnist.ae.rds <- "../data/mnist_ae_model.rds"
+if.needed(mnist.ae.rds, {
+    X.m <- torch_tensor(mnist.all$X)
+    n <- nrow(mnist.all$X)
+    d <- 784L
+    K.m <- 12L
+
+    ## Autoencoder
+    set.seed(42)
+    encoder <- nn_linear(d, K.m)
+    decoder <- nn_linear(K.m, d)
+    optimizer <- optim_adam(c(encoder$parameters, decoder$parameters), lr = 1e-3)
+
+    ## Training loop
+    for (epoch in seq_len(500)) {
+        idx <- sample(n, 128)
+        x_batch <- X.m[idx, ]
+
+        # Forward pass
+        z <- encoder(x_batch)
+        x_recon <- decoder(z) |> torch_sigmoid()
+
+        # Loss: binary cross-entropy
+        loss <- nnf_binary_cross_entropy(x_recon, x_batch, reduction = "mean")
+
+        # Backward pass
+        optimizer$zero_grad()
+        loss$backward()
+        optimizer$step()
+    }
+
+    ## Get reconstructions
+    with_no_grad({
+        z_all <- encoder(X.m) |> as.array()
+        recon_all <- decoder(encoder(X.m)) |> torch_sigmoid() |> as.array()
+    })
+
+    saveRDS(list(z = z_all, recon = recon_all), mnist.ae.rds)
+})
+mnist.ae <- readRDS(mnist.ae.rds)
+```
+
+```{r mnist-vae-train, include=FALSE}
+mnist.vae.rds <- "../data/mnist_vae_model.rds"
+if.needed(mnist.vae.rds, {
+    X.m <- torch_tensor(mnist.all$X)
+    n <- nrow(mnist.all$X)
+    d <- 784L
+    K.m <- 12L
+
+    ## Variational Autoencoder
+    set.seed(123)  # Different seed from AE
+    encoder_mu <- nn_linear(d, K.m)
+    encoder_logvar <- nn_linear(d, K.m)
+    decoder <- nn_linear(K.m, d)
+
+    optimizer <- optim_adam(c(encoder_mu$parameters,
+                              encoder_logvar$parameters,
+                              decoder$parameters), lr = 1e-3)
+
+    ## Training loop
+    for (epoch in seq_len(500)) {
+        idx <- sample(n, 128)
+        x_batch <- X.m[idx, ]
+        batch_size <- x_batch$shape[1]
+
+        # Encode
+        mu <- encoder_mu(x_batch)
+        logvar <- encoder_logvar(x_batch) |> torch_clamp(-8, 8)
+
+        # Reparameterization trick: z = mu + sigma * epsilon
+        std <- torch_exp(0.5 * logvar)
+        eps <- torch_randn_like(std)
+        z <- mu + std * eps
+
+        # Decode
+        x_recon <- decoder(z) |> torch_sigmoid()
+
+        # Reconstruction loss (BCE, averaged over batch and features)
+        recon_loss <- nnf_binary_cross_entropy(x_recon, x_batch, reduction = "sum")
+        recon_loss <- recon_loss / batch_size
+
+        # KL divergence: -0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+        kl_loss <- -0.5 * torch_sum(1 + logvar - mu$pow(2) - logvar$exp())
+        kl_loss <- kl_loss / batch_size
+
+        # Total loss
+        loss <- recon_loss + kl_loss
+
+        # Backward pass
+        optimizer$zero_grad()
+        loss$backward()
+        optimizer$step()
+    }
+
+    ## Get reconstructions (use mean, not sampling)
+    with_no_grad({
+        mu_all <- encoder_mu(X.m)
+        z_all <- mu_all |> as.array()
+        recon_all <- decoder(mu_all) |> torch_sigmoid() |> as.array()
+    })
+
+    saveRDS(list(z = z_all, recon = recon_all), mnist.vae.rds)
+})
+mnist.vae <- readRDS(mnist.vae.rds)
+```
+
+```{r mnist-models-combine, include=FALSE}
+mnist.models <- list(
+    z.ae = mnist.ae$z,
+    z.vae = mnist.vae$z,
+    recon.ae = mnist.ae$recon,
+    recon.vae = mnist.vae$recon,
+    labels = mnist.all$labels,
+    show.idx = show.idx
+)
+```
+
+:::::: {.columns}
+::: {.column width=.33}
+
+\centerline{\textbf{Original}}
+
+```{r mnist-recon-orig, echo=FALSE, fig.width=1.8, fig.height=1.5}
+.show.digits(mnist.all$X[show.idx, ], nrow = 2, ncol = 5)
+```
+
+:::
+::: {.column width=.33}
+
+\centerline{\textbf{AE (K=12)}}
+
+```{r mnist-recon-ae, echo=FALSE, fig.width=1.8, fig.height=1.5}
+.show.digits(mnist.models$recon.ae[show.idx, ], nrow = 2, ncol = 5)
+```
+
+:::
+::: {.column width=.33}
+
+\centerline{\textbf{VAE (K=20)}}
+
+```{r mnist-recon-vae, echo=FALSE, fig.width=1.8, fig.height=1.5}
+.show.digits(mnist.models$recon.vae[show.idx, ], nrow = 2, ncol = 5)
+```
+
+:::
+::::::
+
+* Trained on all digits (0-9)
+
+## Latent representations (heatmaps sorted by digit)
+
+```{r}
+## Sort by digit label
+digit.order <- order(mnist.models$labels)
+z.ae <- mnist.models$z.ae[digit.order, ]
+z.vae <- mnist.models$z.vae[digit.order, ]
+
+## Sample for visualization (100 per digit = 1000 total)
+set.seed(42)
+z.ae.list <- lapply(0:9, function(d) {
+    idx <- which(mnist.models$labels[digit.order] == d)
+    sub.idx <- sample(idx, min(100, length(idx)))
+    dt <- as.data.table(z.ae[sub.idx, ])
+    dt$digit <- factor(d)
+    dt$sample <- 1:nrow(dt)
+    dt
+})
+z.ae.dt <- rbindlist(z.ae.list)
+
+z.vae.list <- lapply(0:9, function(d) {
+    idx <- which(mnist.models$labels[digit.order] == d)
+    sub.idx <- sample(idx, min(100, length(idx)))
+    dt <- as.data.table(z.vae[sub.idx, ])
+    dt$digit <- factor(d)
+    dt$sample <- 1:nrow(dt)
+    dt
+})
+z.vae.dt <- rbindlist(z.vae.list)
+```
+
+```{r mnist-latent-ae, echo=FALSE, fig.width=5.5, fig.height=2.5, only.plot=1}
+z.ae.long <- melt(z.ae.dt, id.vars = c("sample", "digit"),
+                   variable.name = "dim", value.name = "value")
+ggplot(z.ae.long, aes(x = sample, y = dim, fill = value)) +
+    ggrastr::rasterise(geom_tile(), dpi = 300) +
+    facet_grid(. ~ digit, scales = "free_x", space = "free_x") +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+    ggtitle("AE") + xlab("") + ylab("latent dims") +
+    theme_minimal() + theme(axis.text.x = element_blank())
+```
+
+```{r mnist-latent-vae, echo=FALSE, fig.width=5.5, fig.height=2.5, only.plot=2}
+z.vae.long <- melt(z.vae.dt, id.vars = c("sample", "digit"),
+                    variable.name = "dim", value.name = "value")
+ggplot(z.vae.long, aes(x = sample, y = dim, fill = value)) +
+    ggrastr::rasterise(geom_tile(), dpi = 300) +
+    facet_grid(. ~ digit, scales = "free_x", space = "free_x") +
+    scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+    ggtitle("VAE") + xlab("") + ylab("latent dims") +
+    theme_minimal() + theme(axis.text.x = element_blank())
+```
+
+* What differences do you observe between AE and VAE?
+* How are the digits distributed in latent space?
+
+## Why non-linearity?
+
+* **Linear layers alone** cannot learn complex patterns
+
+* Stacking linear layers: $f(g(\mathbf{x})) = \mathbf{W}_2(\mathbf{W}_1\mathbf{x}) = (\mathbf{W}_2\mathbf{W}_1)\mathbf{x}$
+
+* Result is still linear — just a single matrix multiplication
+
+## ReLU activation
+
+* **ReLU**: $\text{ReLU}(z) = \max(0, z)$
+
+* Introduces non-linearity between layers
+
+* Simple, computationally efficient, avoids vanishing gradients
+
+## Two-layer VAE architecture
+
+* $\mathbf{x} \xrightarrow{\text{Linear}} \mathbf{h} \xrightarrow{\text{ReLU}} \mathbf{h}' \xrightarrow{\text{Linear}} \mathbf{z}$
+
+* Hidden layer $\mathbf{h}$ (128 dimensions) learns intermediate features
+
+* Batch normalization stabilizes training
+
+## Nonlinear layers VAE results
+
+```{r mnist-mlp-train, include=FALSE}
+mnist.mlp.rds <- "../data/mnist_mlp_models.rds"
+if.needed(mnist.mlp.rds, {
+    X.m <- torch_tensor(mnist.all$X)
+    n <- nrow(mnist.all$X)
+    d <- 784L
+    K.m <- 12L
+    h <- 128L  ## hidden dimension
+
+    ## Nonlinear layers VAE with batch normalization
+    set.seed(456)  # Different from linear models
+    encoder_hidden <- nn_linear(d, h)
+    encoder_bn <- nn_batch_norm1d(h)
+    encoder_mu <- nn_linear(h, K.m)
+    encoder_logvar <- nn_linear(h, K.m)
+
+    decoder_hidden <- nn_linear(K.m, h)
+    decoder_bn <- nn_batch_norm1d(h)
+    decoder_out <- nn_linear(h, d)
+
+    optimizer <- optim_adam(c(encoder_hidden$parameters, encoder_bn$parameters,
+                              encoder_mu$parameters, encoder_logvar$parameters,
+                              decoder_hidden$parameters, decoder_bn$parameters,
+                              decoder_out$parameters), lr = 1e-3)
+
+    ## Training loop
+    for (epoch in seq_len(500)) {
+        idx <- sample(n, 128)
+        x_batch <- X.m[idx, ]
+        batch_size <- x_batch$shape[1]
+
+        ## Encoder: x -> hidden -> mu, logvar
+        h_enc <- encoder_hidden(x_batch) |> encoder_bn() |> nnf_relu()
+        mu <- encoder_mu(h_enc)
+        logvar <- encoder_logvar(h_enc) |> torch_clamp(-8, 8)
+
+        ## Reparameterization: z = mu + std * epsilon
+        std <- torch_exp(0.5 * logvar)
+        eps <- torch_randn_like(std)
+        z <- mu + std * eps
+
+        ## Decoder: z -> hidden -> x
+        h_dec <- decoder_hidden(z) |> decoder_bn() |> nnf_relu()
+        x_recon <- decoder_out(h_dec) |> torch_sigmoid()
+
+        ## Reconstruction loss (sum then normalise)
+        recon_loss <- nnf_binary_cross_entropy(x_recon, x_batch, reduction = "sum")
+        recon_loss <- recon_loss / batch_size
+
+        ## KL divergence (sum then normalise)
+        kl_loss <- -0.5 * torch_sum(1 + logvar - mu$pow(2) - logvar$exp())
+        kl_loss <- kl_loss / batch_size
+
+        ## Total loss
+        loss <- recon_loss + kl_loss
+
+        ## Backward pass
+        optimizer$zero_grad()
+        loss$backward()
+        optimizer$step()
+    }
+
+    ## Get reconstructions (use mean, not sampling)
+    with_no_grad({
+        h_enc <- encoder_hidden(X.m) |> encoder_bn() |> nnf_relu()
+        mu_all <- encoder_mu(h_enc)
+        h_dec <- decoder_hidden(mu_all) |> decoder_bn() |> nnf_relu()
+        recon_all <- decoder_out(h_dec) |> torch_sigmoid() |> as.array()
+        z_all <- mu_all |> as.array()
+    })
+
+    saveRDS(list(recon = recon_all, z = z_all, labels = mnist.all$labels,
+                 show.idx = show.idx), mnist.mlp.rds)
+})
+mnist.mlp <- readRDS(mnist.mlp.rds)
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\centerline{\textbf{Linear VAE}}
+
+```{r mnist-mlp-vae-linear, echo=FALSE, fig.width=2.5, fig.height=2}
+.show.digits(mnist.models$recon.vae[show.idx, ], nrow = 2, ncol = 5)
+```
+
+:::
+::: {.column width=.5}
+
+\centerline{\textbf{Nonlinear layers VAE}}
+
+```{r mnist-mlp-vae-mlp, echo=FALSE, fig.width=2.5, fig.height=2}
+.show.digits(mnist.mlp$recon[show.idx, ], nrow = 2, ncol = 5)
+```
+
+:::
+::::::
+
+* 2 encoder layers: 784 → 128 → 12 (with batch norm + ReLU)
+* 2 decoder layers: 12 → 128 → 784 (with batch norm + ReLU)
+
+## Nonlinear layers VAE architecture
+
+\begin{center}
+\begin{tikzpicture}[
+    layer/.style={draw, fill=gray!20, minimum width=0.6cm, rounded corners=2pt},
+    arr/.style={->, thick, >=stealth}
+]
+
+%% Encoder
+\node[layer, minimum height=3.5cm] (x) at (0,0) {\small $\mathbf{x}$};
+\node[below=2pt] at (x.south) {\scriptsize 784};
+
+\node[layer, minimum height=1.8cm] (h1) at (1.5,0) {};
+\node[below=2pt] at (h1.south) {\scriptsize 128};
+\draw[arr] (x) -- (h1);
+
+\node[layer, minimum height=0.8cm, fill=blue!10] (mu) at (3,0.5) {\scriptsize $\boldsymbol{\mu}$};
+\node[below=2pt] at (mu.south) {\scriptsize 12};
+\draw[arr] (h1) -- (mu);
+
+\node[layer, minimum height=0.8cm, fill=blue!10] (logvar) at (3,-0.5) {\scriptsize $\log\boldsymbol{\sigma}^2$};
+\node[below=4pt] at (logvar.south) {\scriptsize 12};
+\draw[arr] (h1) -- (logvar);
+
+%% Reparameterization
+\node[layer, minimum height=0.8cm, fill=green!10] (eps) at (4.5,-0.5) {\scriptsize $\boldsymbol{\epsilon}$};
+
+\node[layer, minimum height=0.8cm, fill=orange!20] (z) at (5.5,0) {\small $\mathbf{z}$};
+\node[below=4pt] at (z.south) {\tiny $\boldsymbol{\epsilon} \sim \mathcal{N}(0,\mathbf{I})$};
+\draw[arr] (mu) -- (z);
+\draw[arr] (logvar) -- (z);
+\draw[arr] (eps) -- (z);
+
+%% Decoder
+\node[layer, minimum height=1.8cm] (h2) at (7,0) {};
+\node[below=2pt] at (h2.south) {\scriptsize 128};
+\draw[arr] (z) -- (h2);
+
+\node[layer, minimum height=3.5cm] (xhat) at (8.5,0) {\small $\hat{\mathbf{x}}$};
+\node[below=2pt] at (xhat.south) {\scriptsize 784};
+\draw[arr] (h2) -- (xhat);
+
+\end{tikzpicture}
+\end{center}
+
+* **Reparameterization trick**: $\mathbf{z} = \boldsymbol{\mu} + \boldsymbol{\sigma} \odot \boldsymbol{\epsilon}$ where $\boldsymbol{\epsilon} \sim \mathcal{N}(0, \mathbf{I})$
+
+## t-SNE visualization of latent space
+
+```{r mnist-tsne, include=FALSE}
+library(Rtsne)
+
+mnist.tsne.rds <- "../data/mnist_tsne.rds"
+if.needed(mnist.tsne.rds, {
+    set.seed(42)
+
+    ## Linear VAE latent space
+    tsne_linear <- Rtsne(mnist.vae$z, dims = 2, perplexity = 30, verbose = FALSE)
+    tsne_linear_dt <- data.table(
+        x = tsne_linear$Y[, 1],
+        y = tsne_linear$Y[, 2],
+        digit = factor(mnist.all$labels)
+    )
+
+    ## Nonlinear layers VAE latent space
+    tsne_mlp <- Rtsne(mnist.mlp$z, dims = 2, perplexity = 30, verbose = FALSE)
+    tsne_mlp_dt <- data.table(
+        x = tsne_mlp$Y[, 1],
+        y = tsne_mlp$Y[, 2],
+        digit = factor(mnist.all$labels)
+    )
+
+    saveRDS(list(linear = tsne_linear_dt, mlp = tsne_mlp_dt), mnist.tsne.rds)
+})
+mnist.tsne <- readRDS(mnist.tsne.rds)
+tsne_linear_dt <- mnist.tsne$linear
+tsne_mlp_dt <- mnist.tsne$mlp
+```
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\centerline{\textbf{Linear VAE}}
+
+```{r tsne-linear, echo=FALSE, fig.width=2.8, fig.height=2.5}
+ggplot(tsne_linear_dt, aes(x, y, colour = digit)) +
+    geom_point(size = 0.3, alpha = 0.6, stroke = 0) +
+    scale_colour_brewer(palette = "Paired") +
+    theme_minimal() +
+    theme(legend.position = "right", legend.key.size = unit(0.3, "lines")) +
+    labs(x = "t-SNE 1", y = "t-SNE 2")
+```
+
+:::
+::: {.column width=.5}
+
+\centerline{\textbf{Nonlinear layers VAE}}
+
+```{r tsne-mlp, echo=FALSE, fig.width=2.8, fig.height=2.5}
+ggplot(tsne_mlp_dt, aes(x, y, colour = digit)) +
+    geom_point(size = 0.3, alpha = 0.6, stroke = 0) +
+    scale_colour_brewer(palette = "Paired") +
+    theme_minimal() +
+    theme(legend.position = "right", legend.key.size = unit(0.3, "lines")) +
+    labs(x = "t-SNE 1", y = "t-SNE 2")
+```
+
+:::
+::::::
+
+* t-SNE reduces K=12 dimensions to 2D for visualization
+
+## How do we learn nonlinear encoding-decoding?
+
+\Large
+
+* Encoder: $\mathbf{z} \gets f(\cdots f(\mathbf{x}))$
+
+* Decoder: $\hat{\mathbf{x}} \gets g(\cdots g(\mathbf{z}))$
+
+* Loss: $\mathcal{L} = L(\mathbf{x}, \hat{\mathbf{x}})$
+
+* Gradient (differentiation): $\nabla \mathcal{L}$
+
+\normalsize
+
+# Building Autoencoders on Single-Cell Data
+
+## The PDAC data
+
+```{r load-seurat, message=FALSE, warning=FALSE}
+library(Seurat)
+```
+
+```{r load-pdac, include=FALSE}
+pdac.rds <- "../data/GSE155698_PDAC_Steele2020/pdac_tissues123_processed.rds"
+if.needed(pdac.rds, {
+    ## Load all three tissues
+    data.dirs <- paste0("../data/GSE155698_PDAC_Steele2020/PDAC_TISSUE_", 1:3, "/")
+
+    pdac.list <- lapply(1:3, function(i) {
+        counts <- Read10X(data.dir = data.dirs[i])
+        obj <- CreateSeuratObject(counts = counts,
+                                  project = paste0("PDAC_TISSUE_", i),
+                                  min.cells = 3,
+                                  min.features = 200)
+        obj[["percent.mt"]] <- PercentageFeatureSet(obj, pattern = "^MT-")
+        obj <- subset(obj,
+                      nFeature_RNA > 200 &
+                      nFeature_RNA < 6000 &
+                      percent.mt < 20)
+        obj
+    })
+
+    ## Merge tissues
+    pdac <- merge(pdac.list[[1]],
+                  y = c(pdac.list[[2]], pdac.list[[3]]),
+                  add.cell.ids = c("T1", "T2", "T3"))
+
+    ## Join layers (required for v5 assay)
+    pdac <- JoinLayers(pdac)
+
+    ## Process combined data (NO batch correction - we'll use scVI for that!)
+    pdac <- pdac |>
+        NormalizeData() |>
+        FindVariableFeatures(nfeatures = 2000) |>
+        ScaleData() |>
+        RunPCA(npcs = 30) |>
+        FindNeighbors(dims = 1:20) |>
+        FindClusters(resolution = 0.5) |>
+        RunUMAP(dims = 1:20)
+
+    saveRDS(pdac, pdac.rds)
+})
+pdac <- readRDS(pdac.rds)
+```
+
+```{r show-pdac-pipeline, eval=FALSE, echo=TRUE}
+## Load and merge tissues 1-3
+pdac.list <- lapply(1:3, function(i) {
+    Read10X(data.dir = paste0("PDAC_TISSUE_", i, "/")) |>
+        CreateSeuratObject(project = paste0("PDAC_T", i))
+})
+pdac <- merge(pdac.list[[1]], y = c(pdac.list[[2]], pdac.list[[3]]))
+
+## Process
+pdac <- pdac |>
+    NormalizeData() |>
+    FindVariableFeatures(nfeatures = 2000) |>
+    ScaleData() |>
+    RunPCA(npcs = 30) |>
+    FindNeighbors(dims = 1:20) |>
+    FindClusters(resolution = 0.5) |>
+    RunUMAP(dims = 1:20)
+```
+
+* `r num.int(nrow(pdac))` genes/features/rows and `r num.int(ncol(pdac))` cells/columns
+
+## PDAC: `r ncol(pdac)` cells from 3 tissues
+
+```{r show-pdac-umap, echo=FALSE, fig.width=4.5, fig.height=3.5}
+DimPlot(pdac, reduction = "umap", label = TRUE, label.size = 3) +
+    theme(legend.position = "right")
+```
+
+* Seurat clustering identifies `r length(unique(pdac$seurat_clusters))` clusters
+
+
+```{r load-torch, include=FALSE}
+library(torch)
+```
+
+```{r prep-torch-data, include=FALSE}
+torch.data.rds <- "../data/GSE155698_PDAC_Steele2020/pdac_torch_data.rds"
+if.needed(torch.data.rds, {
+    ## Use RAW COUNTS (not normalized/batch-corrected)
+    ## VAE/scVI models need raw counts to learn distributions
+    counts <- GetAssayData(pdac, layer = "counts")
+    hvg <- VariableFeatures(pdac)
+    X <- t(as.matrix(counts[hvg, ]))
+    saveRDS(list(X = X, hvg = hvg), torch.data.rds)
+})
+torch.data <- readRDS(torch.data.rds)
+X.tensor <- torch_tensor(torch.data$X)
+n.cells <- nrow(torch.data$X)
+n.genes <- ncol(torch.data$X)
+```
+
+```{r prep-batch-data, include=FALSE}
+batch.data.rds <- "../data/GSE155698_PDAC_Steele2020/batch_data.rds"
+if.needed(batch.data.rds, {
+    ## Extract batch labels (orig.ident contains tissue info)
+    batch.labels <- pdac$orig.ident
+    ## Convert to numeric: PDAC_TISSUE_1 -> 0, PDAC_TISSUE_2 -> 1, PDAC_TISSUE_3 -> 2
+    batch.idx <- as.integer(factor(batch.labels,
+                                    levels = c("PDAC_TISSUE_1", "PDAC_TISSUE_2", "PDAC_TISSUE_3"))) - 1
+    ## Extract library sizes (total counts per cell)
+    lib.sizes <- Matrix::colSums(GetAssayData(pdac, layer = "counts"))
+    saveRDS(list(batch.idx = batch.idx, lib.sizes = lib.sizes), batch.data.rds)
+})
+batch.data <- readRDS(batch.data.rds)
+batch.tensor <- torch_tensor(batch.data$batch.idx, dtype = torch_long())
+lib.size.tensor <- torch_tensor(batch.data$lib.sizes)
+n.batches <- length(unique(batch.data$batch.idx))
+```
+
+## Prepare the data for `torch`
+
+```{r show-prep-data, echo=TRUE, eval=FALSE}
+counts <- GetAssayData(pdac, layer = "counts")
+hvg <- VariableFeatures(pdac)
+X <- t(as.matrix(counts[hvg, ]))
+```
+
+* Extract **raw counts** (not normalized/batch-corrected)
+* Rows = cells, columns = genes (2000 highly variable genes)
+
+```{r show-dim, echo=TRUE}
+dim(torch.data$X)
+```
+
+## What does the data look like?
+
+```{r show-data-corner, echo=TRUE}
+torch.data$X[1:5, 1:6]
+```
+
+* Sparse count matrix -- most entries are zero
+
+```{r show-data-summary, echo=TRUE}
+mean(torch.data$X == 0)
+```
+
+## Convert to a `torch` tensor
+
+```{r show-tensor, echo=TRUE}
+X.tensor <- torch_tensor(torch.data$X)
+X.tensor$shape
+```
+
+* This is our input: each row $\mathbf{x}_i$ is one cell's expression profile
+
+## What is an autoencoder?
+
+\large
+
+* Compress high-dimensional data into a low-dimensional **code**
+
+* Then reconstruct the original data from that code
+
+\normalsize
+
+\vfill
+
+$$\mathbf{x} \xrightarrow{\text{encoder}} \mathbf{z} \xrightarrow{\text{decoder}} \hat{\mathbf{x}}$$
+
+\vfill
+
+* The **bottleneck** $\mathbf{z}$ forces the model to learn a compact summary
+
+## A linear encoder
+
+$$\mathbf{z}_{i} = W \, \mathbf{x}_{i} + \mathbf{b}$$
+
+* Input: $\mathbf{x}_i \in \mathbb{R}^{p}$ (2000 genes)
+* Output: $\mathbf{z}_i \in \mathbb{R}^{K}$ (e.g., $K = 12$ latent dimensions)
+
+```{r def-encoder, echo=TRUE}
+K <- 10
+
+linear.encoder <- nn_module(
+    initialize = function(d.in, K) {
+        self$linear <- nn_linear(d.in, K)
+    },
+    forward = function(x) {
+        x |> torch_log1p() |> self$linear()
+    }
+)
+```
+
+## A linear decoder
+
+$$\hat{\mathbf{x}}_{i} = W' \mathbf{z}_{i} + \mathbf{b}'$$
+
+* Input: $\mathbf{z}_i \in \mathbb{R}^{K}$
+* Output: $\hat{\mathbf{x}}_i \in \mathbb{R}^{p}$ (reconstructed expression)
+
+```{r def-decoder, echo=TRUE}
+linear.decoder <- nn_module(
+    initialize = function(K, d.out) {
+        self$linear <- nn_linear(K, d.out)
+    },
+    forward = function(z) {
+        self$linear(z)
+    }
+)
+```
+
+## Putting them together
+
+```{r def-autoencoder, echo=TRUE}
+autoencoder <- nn_module(
+    initialize = function(d.in, K) {
+        self$enc <- linear.encoder(d.in, K)
+        self$dec <- linear.decoder(K, d.in)
+    },
+    forward = function(x) {
+        z <- self$enc(x)
+        x.hat <- self$dec(z)
+        list(z = z, x.hat = x.hat)
+    }
+)
+```
+
+* Encoder compresses $p \to K$, decoder expands $K \to p$
+
+## Loss function: mean squared error
+
+$$\mathcal{L} = \frac{1}{n}\sum_{i} \| \mathbf{x}_{i} - \hat{\mathbf{x}}_{i} \|^{2}$$
+
+* How well can we reconstruct the original data?
+
+```{r def-mse-loss, echo=TRUE}
+recon.loss <- function(x, x.hat) {
+    torch_mean(torch_sum((x - x.hat)^2, dim = 2))
+}
+```
+
+## Training: set up the model and optimizer
+
+```{r train-ae-setup, echo=TRUE}
+set.seed(42)
+model.ae <- autoencoder(n.genes, K)
+optimizer <- optim_adam(model.ae$parameters, lr = 1e-3)
+```
+
+```{r train-ae-setup-show, echo=TRUE}
+model.ae
+```
+
+## First, let's sort the observed data for visualization
+
+```{r prep-obs-heatmap, include=FALSE}
+obs.rds <- "../data/GSE155698_PDAC_Steele2020/obs_sorted.rds"
+if.needed(obs.rds, {
+    set.seed(1)
+    show.idx <- sample(n.cells, 200)
+    X.show <- torch.data$X[show.idx, ]
+    ## pick top 200 genes by variance for clearer visualization
+    gene.var <- apply(X.show, 2, var)
+    top.genes <- order(gene.var, decreasing = TRUE)[1:200]
+    X.show <- X.show[, top.genes]
+    X.log <- log1p(X.show)
+    X.scaled <- scale(X.log)
+    col.center <- attr(X.scaled, "scaled:center")
+    col.scale <- attr(X.scaled, "scaled:scale")
+    ## get sort order via order.pair
+    .op <- as.matrix(X.scaled) %>%
+        reshape2::melt() %>%
+        rename(row = Var1, col = Var2, weight = value) %>%
+        order.pair()
+    row.perm <- match(.op$rows, rownames(X.scaled))
+    col.perm <- match(.op$cols, colnames(X.scaled))
+    X.sorted <- X.scaled[row.perm, col.perm]
+    saveRDS(list(idx = show.idx, top.genes = top.genes,
+                 col.center = col.center, col.scale = col.scale,
+                 row.perm = row.perm, col.perm = col.perm,
+                 X.sorted = X.sorted), obs.rds)
+})
+obs.data <- readRDS(obs.rds)
+.clim <- c(-3, 3)
+```
+
+```{r plot-obs-heatmap, echo=FALSE, fig.width=5, fig.height=2.8}
+.matshow(obs.data$X.sorted, .axis.lab = 0, .limits = .clim) +
+    ggtitle("Observed (log1p, scaled) — 200 cells x 200 genes")
+```
+
+## Training loop
+
+```{r train-ae-show, echo=TRUE, eval=FALSE}
+n.epoch <- 2000
+batch.size <- 256
+for (epoch in seq_len(n.epoch)) {
+    idx <- sample(n.cells, batch.size)
+    x.batch <- X.tensor[idx, ]
+    out <- model.ae(x.batch)
+    loss <- recon.loss(torch_log1p(x.batch), out$x.hat)
+    optimizer$zero_grad()
+    loss$backward()
+    optimizer$step()
+}
+```
+
+* Sample a minibatch $\to$ forward pass $\to$ compute loss $\to$ backprop $\to$ update weights
+
+```{r train-ae, include=FALSE}
+ae.rds <- "../data/GSE155698_PDAC_Steele2020/ae_trained.rds"
+if.needed(ae.rds, {
+    n.epoch <- 2000
+    batch.size <- 256
+    loss.history <- c()
+    snapshots <- list()
+    record.at <- c(1, 100, 500, 2000)
+    for (epoch in seq_len(n.epoch)) {
+        idx <- sample(n.cells, batch.size)
+        x.batch <- X.tensor[idx, ]
+        out <- model.ae(x.batch)
+        loss <- recon.loss(torch_log1p(x.batch), out$x.hat)
+        optimizer$zero_grad()
+        loss$backward()
+        optimizer$step()
+        loss.history <- c(loss.history, loss$item())
+        if (epoch %in% record.at) {
+            with_no_grad({
+                out.all <- model.ae(X.tensor[obs.data$idx, ])
+                snapshots[[as.character(epoch)]] <-
+                    out.all$x.hat |> as.array()
+            })
+        }
+    }
+    with_no_grad({
+        z.all <- model.ae$enc(X.tensor) |> as.array()
+    })
+    saveRDS(list(loss = loss.history,
+                 z = z.all,
+                 snapshots = snapshots), ae.rds)
+})
+ae.result <- readRDS(ae.rds)
+```
+
+## Training loss
+
+```{r plot-ae-loss, echo=FALSE, fig.width=4.5, fig.height=2.5}
+data.table(epoch = seq_along(ae.result$loss),
+           loss = ae.result$loss) |>
+    ggplot(aes(epoch, loss)) +
+    geom_point(size = 0.3, alpha = 0.5) +
+    geom_smooth(se = FALSE, colour = "firebrick") +
+    ylab("reconstruction loss") +
+    ggtitle("Autoencoder training")
+```
+
+## Reconstruction across epochs
+
+```{r plot-ae-snapshots-helper, include=FALSE}
+.recon.heatmap <- function(recon.mat, title = "") {
+    recon.sub <- recon.mat[, obs.data$top.genes]
+    recon.scaled <- sweep(recon.sub, 2, obs.data$col.center, `-`)
+    recon.scaled <- sweep(recon.scaled, 2, obs.data$col.scale, `/`)
+    recon.scaled[is.na(recon.scaled)] <- 0
+    .mat <- recon.scaled[obs.data$row.perm, obs.data$col.perm]
+    .matshow(.mat, .axis.lab = 0, .limits = .clim) + ggtitle(title)
+}
+```
+
+```{r}
+p.obs <- .matshow(obs.data$X.sorted, .axis.lab = 0, .limits = .clim) +
+    ggtitle("Observed")
+p.ep1 <- .recon.heatmap(ae.result$snapshots[["1"]], "epoch 1")
+p.ep100 <- .recon.heatmap(ae.result$snapshots[["100"]], "epoch 100")
+p.ep500 <- .recon.heatmap(ae.result$snapshots[["500"]], "epoch 500")
+```
+
+
+```{r plot-ae-snapshots-0, echo=FALSE, fig.width=5.8, fig.height=2.9, only.plot="1"}
+p.obs | p.ep1
+```
+
+```{r plot-ae-snapshots-1, echo=FALSE, fig.width=5.8, fig.height=2.9, only.plot="2"}
+p.obs | p.ep100
+```
+
+```{r plot-ae-snapshots-2, echo=FALSE, fig.width=5.8, fig.height=2.9, only.plot="3"}
+p.obs | p.ep500
+```
+
+
+
+## Observed vs. reconstructed (epoch 2000)
+
+```{r plot-ae-compare, echo=FALSE, fig.width=5.8, fig.height=2.9}
+p.obs <- .matshow(obs.data$X.sorted, .axis.lab = 0, .limits = .clim) +
+    ggtitle("Observed")
+p.recon <- .recon.heatmap(ae.result$snapshots[["2000"]], "Reconstructed (epoch 2000)")
+p.obs + p.recon
+```
+
+## Latent space of the autoencoder
+
+```{r plot-ae-latent, echo=FALSE, fig.width=5.5, fig.height=2.8}
+z.dt <- as.data.table(ae.result$z)
+colnames(z.dt) <- paste0("z", 1:K)
+p1 <- ggplot(z.dt, aes(z1, z2)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("z1 vs z2")
+p2 <- ggplot(z.dt, aes(z3, z4)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("z3 vs z4")
+p1 + p2
+```
+
+* Each dot is a cell; the latent space has no particular structure yet
+
+
+# Variational Autoencoder on single cell data
+
+## From autoencoder to VAE: one key change
+
+\large
+
+Autoencoder encoder outputs a **point**:
+
+$$\mathbf{z}_{i} = W \mathbf{x}_{i} + \mathbf{b}$$
+
+\vfill
+
+VAE encoder outputs a **distribution**:
+
+$$\boldsymbol{\mu}_{i} = W_{\mu} \mathbf{x}_{i} + \mathbf{b}_{\mu}, \quad \log \boldsymbol{\sigma}^{2}_{i} = W_{\sigma} \mathbf{x}_{i} + \mathbf{b}_{\sigma}$$
+
+$$\mathbf{z}_{i} \sim \mathcal{N}(\boldsymbol{\mu}_{i},\, \text{diag}(\boldsymbol{\sigma}^{2}_{i}))$$
+
+## The reparameterization trick
+
+We can't backpropagate through a random sample. But we can rewrite:
+
+$$\mathbf{z}_{i} = \boldsymbol{\mu}_{i} + \boldsymbol{\sigma}_{i} \odot \boldsymbol{\epsilon}, \quad \boldsymbol{\epsilon} \sim \mathcal{N}(\mathbf{0}, I)$$
+
+\vfill
+
+* The randomness is in $\boldsymbol{\epsilon}$ (external), not in the parameters
+* Gradients flow through $\boldsymbol{\mu}$ and $\boldsymbol{\sigma}$ as usual
+
+## VAE encoder in `torch`
+
+```{r def-vae-encoder, echo=TRUE}
+vae.encoder <- nn_module(
+    initialize = function(d.in, K, h = 128) {
+        self$hidden <- nn_linear(d.in, h)
+        self$bn <- nn_batch_norm1d(h)
+        self$z.mean <- nn_linear(h, K)
+        self$z.logvar <- nn_linear(h, K)
+    },
+    forward = function(x) {
+        x <- torch_log1p(x)
+        h <- self$hidden(x) |> self$bn() |> nnf_relu()
+        mu <- self$z.mean(h)
+        lv <- self$z.logvar(h) |> torch_clamp(-8, 8)
+        ## reparameterization trick
+        z <- mu + torch_exp(lv / 2) * torch_randn_like(lv)
+        list(z = z, mu = mu, logvar = lv)
+    }
+)
+```
+
+## What changed? Only the encoder
+
+:::::: {.columns}
+::: {.column width=.45}
+
+### Autoencoder encoder
+
+```r
+forward = function(x) {
+  x |>
+    torch_log1p() |>
+    self$linear()
+}
+```
+
+Returns a **point** $\mathbf{z}$
+
+:::
+::: {.column width=.45}
+
+### VAE encoder
+
+```r
+forward = function(x) {
+  x <- torch_log1p(x)
+  h <- self$hidden(x) |>
+       self$bn() |> nnf_relu()
+  mu <- self$z.mean(h)
+  lv <- self$z.logvar(h) |>
+       torch_clamp(-8, 8)
+  z <- mu + torch_exp(lv/2) *
+       torch_randn_like(lv)
+  list(z=z, mu=mu, logvar=lv)
+}
+```
+
+Returns $\mathbf{z}$ **sampled** with hidden layer + batch norm + ReLU
+
+:::
+::::::
+
+## KL divergence: regularize the latent space
+
+$$D_{\text{KL}}\!\left(q(\mathbf{z}|\mathbf{x}) \,\|\, p(\mathbf{z})\right) = -\frac{1}{2}\sum_{k}\left(1 + \log\sigma^{2}_{k} - \mu^{2}_{k} - \sigma^{2}_{k}\right)$$
+
+* Pushes each $q(\mathbf{z}|\mathbf{x})$ toward the prior $\mathcal{N}(\mathbf{0}, I)$
+* Without it, the encoder would set $\sigma \to 0$ (killing the noise)
+
+```{r def-kl-loss, echo=TRUE}
+kl.loss <- function(mu, logvar) {
+    -0.5 * torch_mean(
+        torch_sum(1 + logvar - mu^2 - torch_exp(logvar), dim = 2)
+    )
+}
+```
+
+## VAE = encoder + decoder + new loss
+
+```{r def-vae, echo=TRUE}
+vae <- nn_module(
+    initialize = function(d.in, K) {
+        self$enc <- vae.encoder(d.in, K)
+        self$dec <- linear.decoder(K, d.in)
+    },
+    forward = function(x) {
+        q <- self$enc(x)
+        x.hat <- self$dec(q$z)
+        list(x.hat = x.hat, mu = q$mu,
+             logvar = q$logvar, z = q$z)
+    }
+)
+```
+
+* Same linear decoder as before
+* Loss = reconstruction + KL divergence
+
+## Train the VAE
+
+```{r train-vae-show, echo=TRUE, eval=FALSE}
+model.vae <- vae(n.genes, K)
+optimizer <- optim_adam(model.vae$parameters, lr = 1e-3)
+
+for (epoch in seq_len(n.epoch)) {
+    idx <- sample(n.cells, batch.size)
+    x.batch <- X.tensor[idx, ]
+    out <- model.vae(x.batch)
+    loss <- recon.loss(torch_log1p(x.batch), out$x.hat) +
+            kl.loss(out$mu, out$logvar)
+    optimizer$zero_grad()
+    loss$backward()
+    optimizer$step()
+}
+```
+
+* One extra term in the loss: that's it
+
+```{r train-vae, include=FALSE}
+vae.rds <- "../data/GSE155698_PDAC_Steele2020/vae_trained.rds"
+if.needed(vae.rds, {
+    set.seed(42)
+    model.vae <- vae(n.genes, K)
+    optimizer <- optim_adam(model.vae$parameters, lr = 1e-3)
+    n.epoch <- 2000
+    batch.size <- 256
+    loss.history <- c()
+    snapshots <- list()
+    record.at <- c(1, 100, 500, 2000)
+    for (epoch in seq_len(n.epoch)) {
+        idx <- sample(n.cells, batch.size)
+        x.batch <- X.tensor[idx, ]
+        out <- model.vae(x.batch)
+        loss <- recon.loss(torch_log1p(x.batch), out$x.hat) +
+                kl.loss(out$mu, out$logvar)
+        optimizer$zero_grad()
+        loss$backward()
+        optimizer$step()
+        loss.history <- c(loss.history, loss$item())
+        if (epoch %in% record.at) {
+            with_no_grad({
+                out.all <- model.vae(X.tensor[obs.data$idx, ])
+                snapshots[[as.character(epoch)]] <-
+                    out.all$x.hat |> as.array()
+            })
+        }
+    }
+    with_no_grad({
+        out.all <- model.vae(X.tensor)
+        z.all <- out.all$mu |> as.array()
+    })
+    saveRDS(list(loss = loss.history,
+                 z = z.all,
+                 snapshots = snapshots), vae.rds)
+})
+vae.result <- readRDS(vae.rds)
+```
+
+## VAE training loss
+
+```{r plot-vae-loss, echo=FALSE, fig.width=4.5, fig.height=2.5}
+data.table(epoch = seq_along(vae.result$loss),
+           loss = vae.result$loss) |>
+    ggplot(aes(epoch, loss)) +
+    geom_point(size = 0.3, alpha = 0.5) +
+    geom_smooth(se = FALSE, colour = "firebrick") +
+    ylab("reconstruction + KL loss") +
+    ggtitle("VAE training")
+```
+
+## VAE reconstruction across epochs
+
+```{r plot-vae-snapshots-prep, include=FALSE}
+p.obs.v <- .matshow(obs.data$X.sorted, .axis.lab = 0, .limits = .clim) +
+    ggtitle("Observed")
+p.vep1 <- .recon.heatmap(vae.result$snapshots[["1"]], "epoch 1")
+p.vep100 <- .recon.heatmap(vae.result$snapshots[["100"]], "epoch 100")
+p.vep500 <- .recon.heatmap(vae.result$snapshots[["500"]], "epoch 500")
+```
+
+```{r plot-vae-snap-0, echo=FALSE, fig.width=5.8, fig.height=2.9, only.plot="1"}
+p.obs.v | p.vep1
+```
+
+```{r plot-vae-snap-1, echo=FALSE, fig.width=5.8, fig.height=2.9, only.plot="2"}
+p.obs.v | p.vep100
+```
+
+```{r plot-vae-snap-2, echo=FALSE, fig.width=5.8, fig.height=2.9, only.plot="3"}
+p.obs.v | p.vep500
+```
+
+## VAE: observed vs. reconstructed (epoch 2000)
+
+```{r plot-vae-compare, echo=FALSE, fig.width=5.8, fig.height=2.9}
+p.obs.v2 <- .matshow(obs.data$X.sorted, .axis.lab = 0, .limits = .clim) +
+    ggtitle("Observed")
+p.vae.recon <- .recon.heatmap(vae.result$snapshots[["2000"]], "VAE (epoch 2000)")
+p.obs.v2 | p.vae.recon
+```
+
+## Latent space: autoencoder vs. VAE
+
+```{r plot-compare-latent-prep, include=FALSE}
+z.ae <- as.data.table(ae.result$z)
+colnames(z.ae) <- paste0("z", 1:K)
+z.vae <- as.data.table(vae.result$z)
+colnames(z.vae) <- paste0("z", 1:K)
+```
+
+```{r plot-compare-z12, echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="1"}
+p1 <- ggplot(z.ae, aes(z1, z2)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("Autoencoder: z1 vs z2")
+p2 <- ggplot(z.vae, aes(z1, z2)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("VAE: z1 vs z2")
+p1 | p2
+```
+
+```{r plot-compare-z34, echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="2"}
+p1 <- ggplot(z.ae, aes(z3, z4)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("Autoencoder: z3 vs z4")
+p2 <- ggplot(z.vae, aes(z3, z4)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("VAE: z3 vs z4")
+p1 | p2
+```
+
+```{r plot-compare-z56, echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="3"}
+p1 <- ggplot(z.ae, aes(z5, z6)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("Autoencoder: z5 vs z6")
+p2 <- ggplot(z.vae, aes(z5, z6)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("VAE: z5 vs z6")
+p1 | p2
+```
+
+* Each dot is a cell; the latent space has no particular structure yet
+* VAE latent space is more structured (KL pushes toward $\mathcal{N}(0,I)$)
+
+# Multinomial likelihood
+
+## The problem with MSE loss
+
+\large
+
+Our data is **counts**, not continuous values
+
+\normalsize
+
+* MSE on $\log(1+x)$ ignores the count nature of the data
+
+* A cell with 10,000 total reads and a cell with 1,000 reads are treated the same
+
+\vfill
+
+**Better**: model each cell's expression as a **multinomial** draw
+
+$$\mathbf{x}_{i} \sim \text{Multinomial}(N_{i},\, \boldsymbol{\pi}_{i})$$
+
+* $N_i = \sum_j x_{ij}$ is the library size
+* $\boldsymbol{\pi}_{i}$ is the gene probability vector
+
+## Multinomial decoder
+
+Each cell $i$ has **topic proportions** $\boldsymbol{\theta}_i$ and each topic $k$ has **gene probabilities** $\boldsymbol{\phi}_k$:
+
+$$\boldsymbol{\theta}_{i} = \text{softmax}(\mathbf{z}_{i}), \quad \boldsymbol{\phi}_{k} = \text{softmax}(\boldsymbol{\beta}_{k})$$
+
+$$\boldsymbol{\pi}_{i} = \boldsymbol{\theta}_{i}^{\top} \boldsymbol{\Phi} = \sum_{k} \theta_{ik} \, \boldsymbol{\phi}_{k}$$
+
+\vfill
+
+* This is exactly a **topic model**: cells are documents, genes are words
+
+## Multinomial decoder in `torch`
+
+```{r def-multinom-decoder, echo=TRUE}
+multinom.decoder <- nn_module(
+    initialize = function(K, d.out) {
+        self$logit.beta <- nn_parameter(
+            torch_randn(K, d.out)
+        )
+    },
+    forward = function(z) {
+        log.theta <- nnf_log_softmax(z, dim = 2)
+        log.phi <- nnf_log_softmax(self$logit.beta, dim = 2)
+        ## log(theta %*% phi)
+        log.pi <- torch_logsumexp(
+            log.theta$unsqueeze(3) + log.phi$unsqueeze(1),
+            dim = 2
+        )
+        log.pi
+    },
+    get_weight = function() {
+        self$logit.beta
+    }
+)
+```
+
+## Multinomial log-likelihood
+
+$$\log p(\mathbf{x}_i \mid \boldsymbol{\pi}_i) = \sum_{j} x_{ij} \log \pi_{ij} + \text{const.}$$
+
+```{r def-multinom-loss, echo=TRUE}
+multinom.llik <- function(x, log.pi) {
+    torch_mean(torch_sum(x * log.pi, dim = 2))
+}
+```
+
+* We maximize the log-likelihood (minimize negative log-likelihood)
+* No need for $\log(1+x)$ transform — we work directly with counts
+
+## Autoencoder with multinomial likelihood
+
+```{r def-ae-multinom, echo=TRUE}
+ae.multinom <- nn_module(
+    initialize = function(d.in, K) {
+        self$enc <- linear.encoder(d.in, K)
+        self$dec <- multinom.decoder(K, d.in)
+    },
+    forward = function(x) {
+        z <- self$enc(x)
+        log.pi <- self$dec(z)
+        list(z = z, log.pi = log.pi)
+    }
+)
+```
+
+## VAE with multinomial likelihood
+
+```{r def-vae-multinom, echo=TRUE}
+vae.multinom <- nn_module(
+    initialize = function(d.in, K) {
+        self$enc <- vae.encoder(d.in, K)
+        self$dec <- multinom.decoder(K, d.in)
+    },
+    forward = function(x) {
+        q <- self$enc(x)
+        log.pi <- self$dec(q$z)
+        list(log.pi = log.pi, mu = q$mu,
+             logvar = q$logvar, z = q$z)
+    }
+)
+```
+
+* Same encoder changes as before (point $\to$ distribution)
+* Now the decoder is shared: multinomial in both cases
+
+## Train both models
+
+```{r train-multinom, include=FALSE}
+mn.rds <- "../data/GSE155698_PDAC_Steele2020/multinom_trained.rds"
+if.needed(mn.rds, {
+    set.seed(42)
+    ## AE multinomial
+    model.ae.mn <- ae.multinom(n.genes, K)
+    opt.ae <- optim_adam(model.ae.mn$parameters, lr = 1e-3)
+
+    ## VAE multinomial
+    model.vae.mn <- vae.multinom(n.genes, K)
+    opt.vae <- optim_adam(model.vae.mn$parameters, lr = 1e-3)
+
+    n.epoch <- 2000
+    batch.size <- 256
+    ae.loss.hist <- c()
+    vae.loss.hist <- c()
+    ae.snaps <- list()
+    vae.snaps <- list()
+    record.at <- c(1, 100, 500, 2000)
+
+    for (epoch in seq_len(n.epoch)) {
+        ## AE step
+        idx <- sample(n.cells, batch.size)
+        x.batch <- X.tensor[idx, ]
+        out <- model.ae.mn(x.batch)
+        loss <- -multinom.llik(x.batch, out$log.pi)
+        opt.ae$zero_grad()
+        loss$backward()
+        opt.ae$step()
+        ae.loss.hist <- c(ae.loss.hist, loss$item())
+
+        ## VAE step
+        idx <- sample(n.cells, batch.size)
+        x.batch <- X.tensor[idx, ]
+        out <- model.vae.mn(x.batch)
+        loss <- -multinom.llik(x.batch, out$log.pi) +
+                kl.loss(out$mu, out$logvar)
+        opt.vae$zero_grad()
+        loss$backward()
+        opt.vae$step()
+        vae.loss.hist <- c(vae.loss.hist, loss$item())
+
+        if (epoch %in% record.at) {
+            with_no_grad({
+                out.ae <- model.ae.mn(X.tensor[obs.data$idx, ])
+                ae.snaps[[as.character(epoch)]] <-
+                    out.ae$log.pi |> torch_exp() |> as.array()
+                out.vae <- model.vae.mn(X.tensor[obs.data$idx, ])
+                vae.snaps[[as.character(epoch)]] <-
+                    out.vae$log.pi |> torch_exp() |> as.array()
+            })
+        }
+    }
+
+    with_no_grad({
+        z.ae <- model.ae.mn$enc(X.tensor) |> as.array()
+        z.vae <- (model.vae.mn$enc(X.tensor))$mu |> as.array()
+    })
+
+    saveRDS(list(ae.loss = ae.loss.hist, vae.loss = vae.loss.hist,
+                 ae.z = z.ae, vae.z = z.vae,
+                 ae.snaps = ae.snaps, vae.snaps = vae.snaps,
+                 model.vae = model.vae.mn),
+            mn.rds)
+})
+mn.result <- readRDS(mn.rds)
+```
+
+```{r train-multinom-show, echo=TRUE, eval=FALSE}
+## AE: minimize negative log-likelihood
+loss <- -multinom.llik(x.batch, out$log.pi)
+
+## VAE: add KL divergence
+loss <- -multinom.llik(x.batch, out$log.pi) +
+        kl.loss(out$mu, out$logvar)
+```
+
+* The only change from MSE: swap the reconstruction loss
+
+## Multinomial training loss
+
+```{r plot-mn-loss, echo=FALSE, fig.width=5.5, fig.height=2.5}
+dt.loss <- rbind(
+    data.table(epoch = seq_along(mn.result$ae.loss),
+               loss = mn.result$ae.loss, model = "AE"),
+    data.table(epoch = seq_along(mn.result$vae.loss),
+               loss = mn.result$vae.loss, model = "VAE")
+)
+ggplot(dt.loss, aes(epoch, loss, colour = model)) +
+    geom_point(size = 0.2, alpha = 0.3) +
+    geom_smooth(se = FALSE) +
+    ylab("negative log-likelihood") +
+    ggtitle("Multinomial AE vs. VAE")
+```
+
+## Multinomial reconstruction (AE vs. VAE, epoch 2000)
+
+```{r plot-mn-recon-helper, include=FALSE}
+## for multinomial, the decoder outputs probabilities (pi)
+## scale by library size then use same visualization
+.recon.heatmap.mn <- function(pi.mat, title = "") {
+    ## pi is probability; convert to expected log counts
+    lib.sizes <- rowSums(torch.data$X[obs.data$idx, ])
+    expected <- pi.mat * lib.sizes
+    recon.log <- log1p(expected[, obs.data$top.genes])
+    recon.scaled <- sweep(recon.log, 2, obs.data$col.center, `-`)
+    recon.scaled <- sweep(recon.scaled, 2, obs.data$col.scale, `/`)
+    recon.scaled[is.na(recon.scaled)] <- 0
+    .mat <- recon.scaled[obs.data$row.perm, obs.data$col.perm]
+    .matshow(.mat, .axis.lab = 0, .limits = .clim) + ggtitle(title)
+}
+```
+
+```{r plot-mn-recon, echo=FALSE, fig.width=5.5, fig.height=2.9}
+p.obs.mn <- .matshow(obs.data$X.sorted, .axis.lab = 0, .limits = .clim) +
+    ggtitle("Observed")
+p.ae.mn <- .recon.heatmap.mn(mn.result$ae.snaps[["2000"]], "AE (multinomial)")
+p.vae.mn <- .recon.heatmap.mn(mn.result$vae.snaps[["2000"]], "VAE (multinomial)")
+p.obs.mn | p.ae.mn | p.vae.mn
+```
+
+## Latent space: multinomial AE vs. VAE
+
+```{r plot-mn-latent-prep, include=FALSE}
+z.ae.mn <- as.data.table(mn.result$ae.z)
+colnames(z.ae.mn) <- paste0("z", 1:K)
+z.vae.mn <- as.data.table(mn.result$vae.z)
+colnames(z.vae.mn) <- paste0("z", 1:K)
+```
+
+```{r plot-mn-z12, echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="1"}
+p1 <- ggplot(z.ae.mn, aes(z1, z2)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("AE (multinomial): z1 vs z2")
+p2 <- ggplot(z.vae.mn, aes(z1, z2)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("VAE (multinomial): z1 vs z2")
+p1 | p2
+```
+
+```{r plot-mn-z34, echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="2"}
+p1 <- ggplot(z.ae.mn, aes(z3, z4)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("AE (multinomial): z3 vs z4")
+p2 <- ggplot(z.vae.mn, aes(z3, z4)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("VAE (multinomial): z3 vs z4")
+p1 | p2
+```
+
+```{r plot-mn-z56, echo=FALSE, fig.width=5.5, fig.height=2.8, only.plot="3"}
+p1 <- ggplot(z.ae.mn, aes(z5, z6)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("AE (multinomial): z5 vs z6")
+p2 <- ggplot(z.vae.mn, aes(z5, z6)) +
+    ggrastr::rasterise(geom_point(size = 0.2, alpha = 0.3), dpi = 300) +
+    ggtitle("VAE (multinomial): z5 vs z6")
+p1 | p2
+```
+
+## Decoder structure: top genes per factor
+
+\large
+
+Without the KL term, the encoder can "cheat":
+
+\normalsize
+
+* Set $\sigma \to 0$ — no noise, just a point estimate
+* The latent space becomes **irregular** — no structure
+* Some dimensions may **collapse** (carry no information)
+
+\vfill
+
+**$\beta$-VAE** [@Higgins2016-ml]: weight the KL term to control the tradeoff
+
+$$\mathcal{L} = -\log p(\mathbf{x}|\mathbf{z}) + \alert{\beta} \cdot D_{\text{KL}}(q(\mathbf{z}|\mathbf{x}) \| p(\mathbf{z}))$$
+
+* $\beta = 0$: pure autoencoder (no regularization)
+* $\beta = 1$: standard VAE
+* $\beta > 1$: stronger push toward $\mathcal{N}(0, I)$
+
+## Training with different $\beta$ values
+
+```{r train-beta-sweep, include=FALSE}
+beta.rds <- "../data/GSE155698_PDAC_Steele2020/beta_sweep.rds"
+if.needed(beta.rds, {
+    betas <- c(0, 0.1, 0.5, 1, 2, 5)
+    results <- list()
+
+    for (beta in betas) {
+        set.seed(42)
+        model <- vae.multinom(n.genes, K)
+        opt <- optim_adam(model$parameters, lr = 1e-3)
+
+        n.epoch <- 2000
+        batch.size <- 256
+        kl.hist <- c()
+        llik.hist <- c()
+
+        for (epoch in seq_len(n.epoch)) {
+            idx <- sample(n.cells, batch.size)
+            x.batch <- X.tensor[idx, ]
+            out <- model(x.batch)
+
+            llik.val <- multinom.llik(x.batch, out$log.pi)
+            kl.val <- kl.loss(out$mu, out$logvar)
+            loss <- -llik.val + beta * kl.val
+
+            opt$zero_grad()
+            loss$backward()
+            opt$step()
+
+            kl.hist <- c(kl.hist, kl.val$item())
+            llik.hist <- c(llik.hist, llik.val$item())
+        }
+
+        with_no_grad({
+            out.all <- model(X.tensor)
+            z.all <- out.all$mu |> as.array()
+            z.var <- apply(z.all, 2, var)
+            out.sub <- model(X.tensor[obs.data$idx, ])
+            pi.mat <- out.sub$log.pi |> torch_exp() |> as.array()
+        })
+
+        results[[as.character(beta)]] <- list(
+            kl = kl.hist, llik = llik.hist,
+            z = z.all, z.var = z.var, pi = pi.mat
+        )
+    }
+
+    saveRDS(results, beta.rds)
+})
+beta.results <- readRDS(beta.rds)
+```
+
+```{r train-beta-show, echo=TRUE, eval=FALSE}
+betas <- c(0, 0.1, 0.5, 1, 2, 5)
+
+for (beta in betas) {
+    ## ... same training loop, but:
+    loss <- -multinom.llik(x, out$log.pi) +
+            beta * kl.loss(out$mu, out$logvar)
+}
+```
+
+* We track KL and log-likelihood **separately** at each epoch
+
+## Loss traces across epochs
+
+```{r plot-beta-traces-prep, include=FALSE}
+show.betas <- c("0", "0.1", "1", "5")
+.beta.trace.plot <- function(b) {
+    n <- length(beta.results[[b]]$llik)
+    kl.vals <- beta.results[[b]]$kl
+    kl.upper <- quantile(kl.vals, 0.99)
+    dt <- rbind(
+        data.table(epoch = seq_len(n),
+                   value = beta.results[[b]]$llik,
+                   metric = "log-likelihood"),
+        data.table(epoch = seq_len(n),
+                   value = kl.vals,
+                   metric = "KL divergence")
+    )
+    dt <- dt[!(metric == "KL divergence" & value > kl.upper)]
+    ggplot(dt, aes(epoch, value)) +
+        geom_point(size = 0.1, alpha = 0.15) +
+        geom_smooth(se = FALSE, linewidth = 0.7) +
+        facet_wrap(~ metric, ncol = 1, scales = "free_y") +
+        ylab("") +
+        ggtitle(bquote(beta == .(as.numeric(b)))) +
+        theme(strip.text = element_text(size = 7))
+}
+```
+
+:::::: {.columns}
+::: {.column width=.6}
+
+```{r plot-beta-trace-0, echo=FALSE, fig.width=4, fig.height=3, only.plot="1"}
+.beta.trace.plot("0")
+```
+
+```{r plot-beta-trace-01, echo=FALSE, fig.width=4, fig.height=3, only.plot="2"}
+.beta.trace.plot("0.1")
+```
+
+```{r plot-beta-trace-1, echo=FALSE, fig.width=4, fig.height=3, only.plot="3"}
+.beta.trace.plot("1")
+```
+
+```{r plot-beta-trace-5, echo=FALSE, fig.width=4, fig.height=3, only.plot="4"}
+.beta.trace.plot("5")
+```
+
+:::
+::: {.column width=.35}
+
+* Higher $\beta$: lower KL (more Gaussian) but worse reconstruction
+
+:::
+::::::
+
+
+
+
+## Latent space shape at different $\beta$
+
+```{r plot-beta-latent-shape-prep, include=FALSE}
+beta.labels <- c("AE~(no~sampling)", paste0("beta == ", show.betas))
+.make.z.scatter <- function(dims, xlab, ylab) {
+    dt <- rbindlist(c(
+        list(data.table(zx = mn.result$ae.z[, dims[1]],
+                        zy = mn.result$ae.z[, dims[2]],
+                        beta = beta.labels[1])),
+        lapply(seq_along(show.betas), function(i) {
+            z <- beta.results[[show.betas[i]]]$z
+            data.table(zx = z[, dims[1]], zy = z[, dims[2]],
+                       beta = beta.labels[i + 1])
+        })
+    ))
+    dt[, beta := factor(beta, levels = beta.labels)]
+    ggplot(dt, aes(zx, zy)) +
+        ggrastr::rasterise(geom_point(size = 0.1, alpha = 0.2), dpi = 300) +
+        facet_wrap(~ beta, nrow = 1, scales = "free",
+                   labeller = label_parsed) +
+        xlab(xlab) + ylab(ylab) +
+        theme(strip.text = element_text(size = 7))
+}
+```
+
+```{r plot-beta-latent-z12, echo=FALSE, fig.width=6.1, fig.height=2.8, only.plot="1"}
+.make.z.scatter(c(1, 2), "z1", "z2")
+```
+
+```{r plot-beta-latent-z34, echo=FALSE, fig.width=6.1, fig.height=2.8, only.plot="2"}
+.make.z.scatter(c(3, 4), "z3", "z4")
+```
+
+```{r plot-beta-latent-z56, echo=FALSE, fig.width=6.1, fig.height=2.8, only.plot="3"}
+.make.z.scatter(c(5, 6), "z5", "z6")
+```
+
+```{r plot-beta-latent-z78, echo=FALSE, fig.width=6.1, fig.height=2.8, only.plot="4"}
+.make.z.scatter(c(7, 8), "z7", "z8")
+```
+
+```{r plot-beta-latent-z910, echo=FALSE, fig.width=6.1, fig.height=2.8, only.plot="5"}
+.make.z.scatter(c(9, 10), "z9", "z10")
+```
+
+<!-- * AE (deterministic): most irregular — no sampling to regularize -->
+<!-- * Even $\beta = 0$ (sampling, no KL) is smoother than AE -->
+
+## Topic proportions $\boldsymbol{\theta} = \text{softmax}(\mathbf{z})$
+
+```{r plot-beta-softmax, echo=FALSE, fig.width=5.5, fig.height=2.8}
+.softmax <- function(z) {
+    ez <- exp(z - apply(z, 1, max))
+    ez / rowSums(ez)
+}
+
+dt.sm <- rbindlist(c(
+    list(data.table(theta = as.vector(.softmax(mn.result$ae.z)),
+                    beta = beta.labels[1])),
+    lapply(seq_along(show.betas), function(i) {
+        data.table(theta = as.vector(.softmax(beta.results[[show.betas[i]]]$z)),
+                   beta = beta.labels[i + 1])
+    })
+))
+dt.sm[, beta := factor(beta, levels = beta.labels)]
+
+ggplot(dt.sm, aes(theta)) +
+    geom_histogram(bins = 50, fill = "steelblue", alpha = 0.7) +
+    scale_y_log10() +
+    facet_wrap(~ beta, nrow = 1, scales = "free_y",
+               labeller = label_parsed) +
+    xlab(expression(theta[k])) + ylab("count") +
+    theme(strip.text = element_text(size = 7),
+          axis.text = element_text(size = 5),
+          axis.title = element_text(size = 6))
+```
+
+* AE: spikes near 0 and 1 — one topic dominates per cell
+* Higher $\beta$: more uniform $\boldsymbol{\theta}$ — cells use multiple topics
+
+
+## Latent distribution: is $\mathbf{z}$ Gaussian?
+
+```{r plot-beta-zhist, echo=FALSE, fig.width=5.5, fig.height=2.8}
+dt.z <- rbindlist(lapply(show.betas, function(b) {
+    z <- beta.results[[b]]$z
+    data.table(value = as.vector(z),
+               beta = paste0("beta == ", b))
+}))
+
+ggplot(dt.z, aes(value)) +
+    geom_histogram(aes(y = after_stat(density)),
+                   bins = 50, fill = "steelblue", alpha = 0.6) +
+    facet_wrap(~ beta, nrow = 1, labeller = label_parsed, scales = "free") +
+    xlab("z value (all dimensions pooled)") + ylab("density") +
+    theme(strip.text = element_text(size = 8))
+```
+
+* Higher $\beta$ $\Rightarrow$ closer to the standard normal prior
+
+## Reconstruction at different $\beta$
+
+```{r plot-beta-recon, echo=FALSE, fig.width=5.5, fig.height=2.9}
+p.obs.b <- .matshow(obs.data$X.sorted, .axis.lab = 0, .limits = .clim) +
+    ggtitle("Observed")
+p.b0 <- .recon.heatmap.mn(beta.results[["0"]]$pi, expression(beta == 0))
+p.b1 <- .recon.heatmap.mn(beta.results[["1"]]$pi, expression(beta == 1))
+p.b5 <- .recon.heatmap.mn(beta.results[["5"]]$pi, expression(beta == 5))
+p.obs.b | p.b0 | p.b1 | p.b5
+```
+
+* $\beta = 0$ reconstructs best but latent space is unstructured
+* $\beta = 5$ has smooth latent space but blurry reconstruction
+
+## Latent space structure at different $\beta$
+
+```{r beta-tsne-prep, include=FALSE}
+library(Rtsne)
+
+beta.tsne.rds <- "../data/GSE155698_PDAC_Steele2020/beta_tsne.rds"
+if.needed(beta.tsne.rds, {
+    set.seed(42)
+    beta.tsne.list <- lapply(show.betas, function(b) {
+        z <- beta.results[[b]]$z
+        tsne.out <- Rtsne(z, dims = 2, perplexity = 30, verbose = FALSE)
+        data.table(
+            x = tsne.out$Y[, 1],
+            y = tsne.out$Y[, 2],
+            beta = b
+        )
+    })
+    saveRDS(beta.tsne.list, beta.tsne.rds)
+})
+beta.tsne.list <- readRDS(beta.tsne.rds)
+```
+
+```{r beta-tsne-0, echo=FALSE, fig.width=3.5, fig.height=2.8, only.plot="1"}
+ggplot(beta.tsne.list[[1]], aes(x, y)) +
+    geom_point(size = 0.3, alpha = 0.5, colour = "steelblue") +
+    ggtitle(expression(beta == 0)) +
+    labs(x = "t-SNE 1", y = "t-SNE 2") +
+    theme_minimal()
+```
+
+```{r beta-tsne-01, echo=FALSE, fig.width=3.5, fig.height=2.8, only.plot="2"}
+ggplot(beta.tsne.list[[2]], aes(x, y)) +
+    geom_point(size = 0.3, alpha = 0.5, colour = "steelblue") +
+    ggtitle(expression(beta == 0.1)) +
+    labs(x = "t-SNE 1", y = "t-SNE 2") +
+    theme_minimal()
+```
+
+```{r beta-tsne-1, echo=FALSE, fig.width=3.5, fig.height=2.8, only.plot="3"}
+ggplot(beta.tsne.list[[3]], aes(x, y)) +
+    geom_point(size = 0.3, alpha = 0.5, colour = "steelblue") +
+    ggtitle(expression(beta == 1)) +
+    labs(x = "t-SNE 1", y = "t-SNE 2") +
+    theme_minimal()
+```
+
+```{r beta-tsne-5, echo=FALSE, fig.width=3.5, fig.height=2.8, only.plot="4"}
+ggplot(beta.tsne.list[[4]], aes(x, y)) +
+    geom_point(size = 0.3, alpha = 0.5, colour = "steelblue") +
+    ggtitle(expression(beta == 5)) +
+    labs(x = "t-SNE 1", y = "t-SNE 2") +
+    theme_minimal()
+```
+
+* t-SNE visualization of latent space $\mathbf{z}$
+* Higher $\beta$ $\Rightarrow$ more structured, continuous latent space
+
+## Connection to topic models
+
+\centerline{\includegraphics[width=.8\linewidth]{img/BleiTopicLDA_0.pdf}}
+
+\vfill
+\tiny
+\flushright
+Slide credit: David Blei
+
+## Word frequencies define topics
+
+\centerline{\includegraphics[width=.8\linewidth]{img/BleiTopicLDA_1.pdf}}
+
+\vfill
+\tiny
+\flushright
+Slide credit: David Blei
+
+## This is LDVAE (Svensson et al., 2020)
+
+\large
+
+What we just built:
+
+* Linear encoder + multinomial decoder + VAE
+
+\normalsize
+
+\vfill
+
+This is exactly **Linearly Decoded VAE** (LDVAE):
+
+* The decoder weight matrix $\boldsymbol{\beta}$ is directly interpretable
+* Each row = a "topic" = a gene program
+* Equivalent to probabilistic PCA with count likelihood
+
+\vfill
+
+**scVI** (Lopez et al., 2018) extends this with:
+
+* Deep (nonlinear) encoder and decoder
+* ZINB likelihood (handles overdispersion + dropout)
+* Batch effect correction via conditional decoder
+
+
+## scVI: VAE with more flexible encoder, decoder
+
+\centerline{\includegraphics[height=.75\textheight]{img/scVI.pdf}}
+
+\vfill
+\tiny
+
+[@Lopez2018-lb]
+
+## Batch correction with scVI
+
+**Problem:** PDAC data has 3 tissues (3 batches)
+
+* Technical variation between batches can dominate biological signal
+* PCA/UMAP may cluster by batch instead of cell type
+
+\vfill
+
+**scVI solution:** Conditional decoder $p(x \mid z, s)$
+
+* Latent code $z$: biological variation (shared across batches)
+* Batch indicator $s \in \{T1, T2, T3\}$: technical variation
+* Decoder learns to generate batch-specific expression from shared $z$
+
+\vfill
+
+**Result:** Latent space $z$ is batch-corrected
+
+* Cells group by biology, not batch
+* Can integrate multiple datasets/experiments
+
+## Implementing scVI in R `torch`
+
+**Strategy:** Reuse VAE encoder, upgrade decoder to ZINB with batch conditioning
+
+* Same encoder as before (outputs $\mu$, $\log\sigma^2$, $z$)
+* New decoder: outputs ZINB parameters ($\mu$, $\theta$, $\pi$) conditioned on batch
+* Loss = $-\log p(x|z,s) + D_{\text{KL}}(q(z|x) \| p(z))$
+
+\vfill
+
+**Why ZINB likelihood?**
+
+* Negative binomial handles overdispersion (variance > mean)
+* Zero-inflation handles dropout (technical zeros)
+* Better fit than multinomial for scRNA-seq counts
+
+## ZINB likelihood math
+
+**Negative Binomial distribution:**
+
+$$\text{NB}(x|\mu, \theta) = \frac{\Gamma(x + \theta)}{\Gamma(\theta) \, \Gamma(x+1)} \left(\frac{\theta}{\theta + \mu}\right)^\theta \left(\frac{\mu}{\theta + \mu}\right)^x$$
+
+* $\mu$: mean expression
+* $\theta$: dispersion (inverse overdispersion)
+
+\vfill
+
+**Zero-Inflated NB:**
+
+$$\text{ZINB}(x|\mu, \theta, \pi) = \begin{cases}
+\pi + (1-\pi) \cdot \text{NB}(0|\mu,\theta) & \text{if } x = 0\\
+(1-\pi) \cdot \text{NB}(x|\mu,\theta) & \text{if } x > 0
+\end{cases}$$
+
+* $\pi$: dropout probability (probability of technical zero)
+
+## Why Zero-Inflated Negative Binomial (ZINB)?
+
+**Problem with multinomial/Poisson:** Cannot handle
+
+1. **Overdispersion**: variance $\gg$ mean in real scRNA-seq data
+2. **Excess zeros**: both biological (gene off) and technical (dropout)
+
+\vfill
+
+**Solution: ZINB** = mixture model with two sources of counts
+
+\vfill
+
+For gene $j$ in cell $i$:
+
+$$
+x_{ij} \sim \begin{cases}
+0 & \text{with probability } \pi_{ij} \text{ (dropout)}\\
+\text{NB}(\mu_{ij}, \theta_j) & \text{with probability } 1 - \pi_{ij}
+\end{cases}
+$$
+
+\vfill
+
+* $\mu_{ij}$: mean expression (from decoder)
+* $\theta_j$: dispersion parameter (gene-specific overdispersion)
+* $\pi_{ij}$: dropout probability (zero-inflation)
+
+## ZINB likelihood in `torch` - 1
+
+```{r zinb-utils, echo=TRUE}
+## Negative Binomial log-probability
+nb.log.prob <- function(x, mu, theta) {
+    eps <- 1e-6
+    mu <- torch_clamp(mu, min = eps, max = 1e6)
+    theta <- torch_clamp(theta, min = eps, max = 1e6)
+
+    log_nb <- (torch_lgamma(x + theta) - torch_lgamma(theta) -
+               torch_lgamma(x + 1) +
+               theta * torch_log(theta / (theta + mu)) +
+               x * torch_log(mu / (theta + mu)))
+    log_nb
+}
+```
+
+$$\text{NB}(x|\mu, \theta) = \frac{\Gamma(x + \theta)}{\Gamma(\theta) \, \Gamma(x+1)} \left(\frac{\theta}{\theta + \mu}\right)^\theta \left(\frac{\mu}{\theta + \mu}\right)^x$$
+
+* $\mu$: mean expression
+* $\theta$: dispersion (inverse overdispersion)
+
+## ZINB likelihood in `torch` - 2
+
+```{r echo=T}
+## Zero-Inflated NB log-probability
+zinb.log.prob <- function(x, mu, theta, pi) {
+    eps <- 1e-6
+    pi <- torch_clamp(pi, min = eps, max = 1 - eps)
+
+    ## For x = 0: log(π + (1-π)·NB(0))
+    ## For x > 0: log((1-π)·NB(x))
+    nb_logprob <- nb.log.prob(x, mu, theta)
+    zero_nb <- nb.log.prob(torch_zeros_like(x), mu, theta)
+
+    ## Use logaddexp for numerical stability
+    log_prob_zero <- torch_logaddexp(
+        torch_log(pi + eps),
+        torch_log(1 - pi + eps) + zero_nb
+    )
+    log_prob_nonzero <- torch_log(1 - pi + eps) + nb_logprob
+
+    ## Select based on whether x is zero
+    zero_mask <- (x < eps)
+    torch_where(zero_mask, log_prob_zero, log_prob_nonzero)
+}
+```
+
+$$
+x_{ij} \sim \begin{cases}
+0 & \text{with probability } \pi_{ij} \text{ (dropout)}\\
+\text{NB}(\mu_{ij}, \theta_j) & \text{with probability } 1 - \pi_{ij}
+\end{cases}
+$$
+
+## Putting them all together
+
+```{r echo=T}
+## Full ZINB log-likelihood (sum over genes, mean over cells)
+zinb.llik <- function(x, mu, theta, pi) {
+    log_probs <- zinb.log.prob(x, mu, theta, pi)
+    ## Clamp to avoid extreme values
+    log_probs <- torch_clamp(log_probs, min = -1e6, max = 1e6)
+    torch_mean(torch_sum(log_probs, dim = 2))
+}
+```
+
+## Batch-conditional ZINB decoder
+
+```{r zinb-decoder, include=FALSE}
+zinb.decoder <- nn_module(
+    initialize = function(K, d.out, n.batches, h = 128) {
+
+        self$batch.embed <- nn_embedding(n.batches, 8) # Batch embedding
+       
+        ## Hidden layer
+        self$hidden <- nn_linear(K + 8, h)  
+        ## Normalization
+        self$bn <- nn_batch_norm1d(h)       
+
+        ## Output for ZINB parameters
+        self$mu.head <- nn_linear(h, d.out) 
+        self$pi.head <- nn_linear(h, d.out)
+
+        ## Gene-specific dispersion
+        self$log.theta <- nn_parameter(torch_ones(d.out) * log(10))
+    },
+    forward = function(z, batch, lib.size) {
+        ## Concatenate latent code with batch embedding
+        batch.emb <- self$batch.embed(batch + 1L)  # +1 for 1-indexing
+        z.batch <- torch_cat(list(z, batch.emb), dim = 2)
+
+        ## Hidden layer with batch norm + ReLU
+        h <- self$hidden(z.batch) |> self$bn() |> nnf_relu()
+
+        ## Output ZINB parameters
+        ## μ: mean expression (scale by library size)
+        mu.raw <- nnf_softplus(self$mu.head(h))
+        ## Normalize library sizes to mean 1 for stability
+        lib.scale <- (lib.size / torch_mean(lib.size))$unsqueeze(2)
+        nb.mu <- mu.raw * lib.scale
+
+        ## π: dropout probability
+        nb.pi <- torch_sigmoid(self$pi.head(h))
+
+        ## θ: dispersion (shared across cells, gene-specific)
+        nb.theta <- torch_exp(self$log.theta)$unsqueeze(1)$expand_as(nb.mu)
+
+        list(nb.mu = nb.mu, nb.theta = nb.theta, nb.pi = nb.pi)
+    }
+)
+```
+
+:::::: {.columns}
+::: {.column width=.65}
+
+```{r zinb-decoder-init, eval=FALSE, echo=T}
+zinb.decoder <- nn_module(
+    initialize = function(K, d.out, n.batches, h = 128) {
+
+        ## Batch embedding
+        self$batch.embed <- nn_embedding(n.batches, 8) 
+       
+        ## Hidden layer
+        self$hidden <- nn_linear(K + 8, h)  
+        ## Normalization
+        self$bn <- nn_batch_norm1d(h)       
+
+        ## Output for ZINB parameters
+        self$mu.head <- nn_linear(h, d.out)
+        self$pi.head <- nn_linear(h, d.out)
+
+        ## Gene-specific dispersion
+        self$log.theta <- nn_parameter(torch_ones(d.out) * log(10))
+    },
+    forward = function(z, batch, lib.size) {
+        ## (...)
+    }
+)
+```
+
+:::
+::: {.column width=.3}
+
+\Large
+
+* Batch embedding: 3 batches → 8-dim vectors
+* Concatenate with latent code $z$ before decoder
+* Three output heads: $\mu$, $\pi$ (cell+gene-specific), $\theta$ (gene-specific)
+
+\normalsize
+
+:::
+::::::
+
+## Batch-conditional ZINB decoder (cont'd)
+
+
+:::::: {.columns}
+::: {.column width=.65}
+
+```{r zinb-decoder-forward, eval=FALSE, echo=T}
+zinb.decoder <- nn_module(
+    ## (...)
+    forward = function(z, batch, lib.size) {
+        batch.emb <- self$batch.embed(batch + 1L)  # 1-indexing
+        ## Concatenate latent code with batch embedding
+        z.batch <- torch_cat(list(z, batch.emb), dim = 2)
+        ## Hidden layer with batch norm + ReLU
+        h <- self$hidden(z.batch) |> self$bn() |> nnf_relu()
+        ## Output ZINB parameters
+        ## μ: mean expression (scale by library size)
+        mu.raw <- nnf_softplus(self$mu.head(h))
+        ## Normalize library sizes to mean 1 for stability
+        lib.scale <- (lib.size / torch_mean(lib.size))$unsqueeze(2)
+        nb.mu <- mu.raw * lib.scale
+        ## π: dropout probability
+        nb.pi <- torch_sigmoid(self$pi.head(h))
+        ## θ: dispersion (shared across cells, gene-specific)
+        nb.theta <- torch_exp(self$log.theta)$unsqueeze(1)$expand_as(nb.mu)
+        list(nb.mu = nb.mu, nb.theta = nb.theta, nb.pi = nb.pi)
+    }
+)
+```
+
+:::
+::: {.column width=.3}
+
+* Batch embedding: 3 batches → 8-dim vectors
+* Concatenate with latent code $z$ before decoder
+* Three output heads: $\mu$, $\pi$ (cell+gene-specific), $\theta$ (gene-specific)
+
+:::
+::::::
+
+## Complete `scVI` model
+
+```{r vae-zinb, echo=TRUE}
+vae.zinb <- nn_module(
+    initialize = function(d.in, K, n.batches) {
+        self$enc <- vae.encoder(d.in, K)         ## REUSE existing VAE encoder
+        self$dec <- zinb.decoder(K, d.in, n.batches)         ## NEW: ZINB decoder
+    },
+    forward = function(x, batch, lib.size) {
+        ## Encode
+        q <- self$enc(x)  # Returns: z, mu, logvar
+        ## Decode (batch-conditional)
+        params <- self$dec(q$z, batch, lib.size)
+        ## Return everything
+        list(z = q$z, mu = q$mu, logvar = q$logvar,
+             nb.mu = params$nb.mu,
+             nb.theta = params$nb.theta,
+             nb.pi = params$nb.pi)
+    }
+)
+```
+
+* Only decoder changes – encoder is identical to previous VAE!
+* Decoder now takes batch labels and library sizes as input
+
+## Train scVI with ZINB loss
+
+```{r train-scvi-zinb, include=FALSE, cache=TRUE}
+scvi.trained.rds <- "../data/GSE155698_PDAC_Steele2020/scvi_zinb_trained.rds"
+if.needed(scvi.trained.rds, {
+    set.seed(42)
+
+    ## Initialize model
+    model.scvi <- vae.zinb(n.genes, K, n.batches)
+    optimizer <- optim_adam(model.scvi$parameters, lr = 1e-3)
+
+    ## Training parameters
+    n.epoch <- 2000
+    batch.size <- 256
+
+    ## Track losses
+    losses <- data.frame(
+        epoch = integer(),
+        total = numeric(),
+        nll = numeric(),
+        kl = numeric()
+    )
+
+    ## Training loop
+    for (epoch in seq_len(n.epoch)) {
+        ## Sample mini-batch
+        idx <- sample(n.cells, batch.size)
+        x.batch <- X.tensor[idx, ]
+        batch.batch <- batch.tensor[idx]
+        lib.batch <- lib.size.tensor[idx]
+
+        ## Forward pass
+        out <- model.scvi(x.batch, batch.batch, lib.batch)
+
+        ## Loss = -ZINB log-likelihood + KL divergence
+        llik <- zinb.llik(x.batch, out$nb.mu, out$nb.theta, out$nb.pi)
+        kl <- kl.loss(out$mu, out$logvar)  # REUSE existing KL function!
+        loss <- -llik + kl
+
+        ## Check for NaN
+        if (is.nan(as.numeric(loss$item()))) {
+            warning("NaN loss at epoch ", epoch, ", skipping")
+            next
+        }
+
+        ## Backward pass
+        optimizer$zero_grad()
+        loss$backward()
+        ## Gradient clipping for stability
+        nn_utils_clip_grad_norm_(model.scvi$parameters, max_norm = 5.0)
+        optimizer$step()
+
+        ## Track progress
+        if (epoch %% 50 == 0) {
+            losses <- rbind(losses, data.frame(
+                epoch = epoch,
+                total = as.numeric(loss$item()),
+                nll = -as.numeric(llik$item()),
+                kl = as.numeric(kl$item())
+            ))
+        }
+    }
+
+    ## Extract latent representation
+    model.scvi$eval()
+    with_no_grad({
+        ## Use encoder mean (mu) instead of sampled z for stable embedding
+        out.full <- model.scvi(X.tensor, batch.tensor, lib.size.tensor)
+        z.scvi <- as.matrix(out.full$mu$cpu())  # Use mean, not sample
+    })
+
+    ## Verify no NaN values
+    if (any(is.na(z.scvi))) {
+        warning("NaN values in latent representation, falling back to safe extraction")
+        model.scvi$eval()
+        with_no_grad({
+            ## Extract just encoder output
+            enc.out <- model.scvi$enc(X.tensor)
+            z.scvi <- as.matrix(enc.out$mu$cpu())
+        })
+    }
+
+    saveRDS(list(model = model.scvi, losses = losses, z = z.scvi), scvi.trained.rds)
+})
+scvi.results <- readRDS(scvi.trained.rds)
+model.scvi <- scvi.results$model
+scvi.losses <- scvi.results$losses
+z.scvi <- scvi.results$z
+```
+
+```{r show-train-scvi, echo=TRUE, eval=FALSE}
+## Initialize
+model.scvi <- vae.zinb(n.genes, K, n.batches)
+optimizer <- optim_adam(model.scvi$parameters, lr = 1e-3)
+
+## Training loop
+for (epoch in seq_len(2000)) {
+    idx <- sample(n.cells, 256)
+    x.batch <- X.tensor[idx, ]
+    batch.batch <- batch.tensor[idx]
+    lib.batch <- lib.size.tensor[idx]
+
+    out <- model.scvi(x.batch, batch.batch, lib.batch)
+
+    ## Loss = -ZINB log-likelihood + KL
+    llik <- zinb.llik(x.batch, out$nb.mu, out$nb.theta, out$nb.pi)
+    kl <- kl.loss(out$mu, out$logvar)
+    loss <- -llik + kl
+
+    optimizer$zero_grad()
+    loss$backward()
+    optimizer$step()
+}
+```
+
+## scVI training converges smoothly
+
+```{r plot-scvi-losses, echo=FALSE, fig.width=6, fig.height=3}
+scvi.losses.long <- scvi.losses |>
+    pivot_longer(cols = c(total, nll, kl), names_to = "component", values_to = "loss")
+
+ggplot(scvi.losses.long, aes(x = epoch, y = loss, color = component)) +
+    geom_line(linewidth = 0.8) +
+    scale_color_manual(values = c(total = "black", nll = "#E41A1C", kl = "#377EB8"),
+                       labels = c(total = "Total loss", nll = "Neg. log-lik.", kl = "KL divergence")) +
+    labs(x = "Epoch", y = "Loss", color = NULL) +
+    theme_minimal() +
+    theme(legend.position = "top")
+```
+
+## Batch correction comparison
+
+```{r compute-scvi-umap, include=FALSE}
+scvi.umap.rds <- "../data/GSE155698_PDAC_Steele2020/scvi_umap.rds"
+if.needed(scvi.umap.rds, {
+    ## Check for NaN values in scVI latent representation
+    if (any(is.na(z.scvi))) {
+        stop("NaN values found in scVI latent representation. Check training stability.")
+    }
+
+    ## Compute UMAP on scVI latent space
+    library(uwot)
+    umap.scvi <- umap(z.scvi, n_neighbors = 15, min_dist = 0.3, metric = "euclidean")
+
+    ## Also get PCA UMAP for comparison
+    pca.embed <- Embeddings(pdac, "pca")[, 1:10]
+    umap.pca <- umap(pca.embed, n_neighbors = 15, min_dist = 0.3, metric = "euclidean")
+
+    saveRDS(list(scvi = umap.scvi, pca = umap.pca), scvi.umap.rds)
+})
+scvi.umap.results <- readRDS(scvi.umap.rds)
+umap.scvi <- scvi.umap.results$scvi
+umap.pca <- scvi.umap.results$pca
+
+## Create data frames for plotting
+umap.df <- data.frame(
+    UMAP1 = c(umap.pca[, 1], umap.scvi[, 1]),
+    UMAP2 = c(umap.pca[, 2], umap.scvi[, 2]),
+    batch = rep(batch.data$batch.idx, 2),
+    cluster = rep(as.integer(pdac$seurat_clusters), 2),
+    method = rep(c("PCA", "scVI"), each = n.cells)
+)
+umap.df$batch.label <- factor(umap.df$batch, levels = 0:2, labels = c("T1", "T2", "T3"))
+```
+
+:::::: {.columns}
+::: {.column width=.48}
+
+**PCA (batch-confounded)**
+
+```{r plot-pca-batch, echo=FALSE, fig.width=3, fig.height=3}
+umap.df |>
+    filter(method == "PCA") |>
+    ggplot(aes(x = UMAP1, y = UMAP2, color = batch.label)) +
+    geom_point(size = 0.3, alpha = 0.6, stroke = 0) +
+    scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+    labs(x = "UMAP 1", y = "UMAP 2") +
+    theme_minimal() +
+    theme(legend.position = "none")
+```
+
+* Clusters by tissue batch
+
+:::
+::: {.column width=.48}
+
+**scVI (batch-corrected)**
+
+```{r plot-scvi-batch, echo=FALSE, fig.width=3, fig.height=3}
+umap.df |>
+    filter(method == "scVI") |>
+    ggplot(aes(x = UMAP1, y = UMAP2, color = batch.label)) +
+    geom_point(size = 0.3, alpha = 0.6, stroke = 0) +
+    scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+    labs(x = "UMAP 1", y = "UMAP 2") +
+    theme_minimal() +
+    theme(legend.position = "none")
+```
+
+* Batches mix together
+
+:::
+::::::
+
+## `Seurat` PCA clustering $\approx$ `scVI`
+
+:::::: {.columns}
+::: {.column width=.48}
+
+`Seurat`
+
+```{r plot-pca-clusters, echo=FALSE, fig.width=3, fig.height=2.8}
+umap.df |>
+    filter(method == "PCA") |>
+    ggplot(aes(x = UMAP1, y = UMAP2, color = factor(cluster))) +
+    geom_point(size = 0.3, alpha = 0.6, stroke = 0) +
+    scale_color_manual(values = scales::hue_pal()(length(unique(umap.df$cluster)))) +
+    labs(x = "UMAP 1", y = "UMAP 2") +
+    theme_minimal() +
+    theme(legend.position = "none")
+```
+
+:::
+::: {.column width=.48}
+
+`scVI`
+
+```{r plot-scvi-clusters, echo=FALSE, fig.width=3, fig.height=2.8}
+umap.df |>
+    filter(method == "scVI") |>
+    ggplot(aes(x = UMAP1, y = UMAP2, color = factor(cluster))) +
+    geom_point(size = 0.3, alpha = 0.6, stroke = 0) +
+    scale_color_manual(values = scales::hue_pal()(length(unique(umap.df$cluster)))) +
+    labs(x = "UMAP 1", y = "UMAP 2") +
+    theme_minimal() +
+    theme(legend.position = "none")
+```
+
+:::
+::::::
+
+* Cell type structure (Seurat clusters) preserved after batch correction
+* scVI removes technical variation while keeping biological signal
+
+## Quantifying batch mixing
+
+```{r compute-batch-entropy, include=FALSE}
+## Compute batch entropy for each cell's k-NN
+library(FNN)
+
+compute.batch.entropy <- function(embedding, batch.labels, k = 30) {
+    nn.idx <- get.knn(embedding, k = k)$nn.index
+
+    entropies <- sapply(1:nrow(nn.idx), function(i) {
+        nn.batches <- batch.labels[nn.idx[i, ]]
+        batch.freqs <- table(nn.batches) / k
+        -sum(batch.freqs * log(batch.freqs + 1e-10))
+    })
+
+    mean(entropies)
+}
+
+pca.embed <- Embeddings(pdac, "pca")[, 1:10]
+entropy.pca <- compute.batch.entropy(pca.embed, batch.data$batch.idx)
+entropy.scvi <- compute.batch.entropy(z.scvi, batch.data$batch.idx)
+```
+
+**Batch entropy metric:**
+
+* For each cell, find $k=30$ nearest neighbors
+* Compute entropy of batch labels among neighbors
+* Higher entropy = better batch mixing (tissues)
+
+\vfill
+
+```{r show-batch-entropy, echo=FALSE}
+entropy.df <- data.frame(
+    Method = c("PCA", "scVI"),
+    `Batch Entropy` = c(entropy.pca, entropy.scvi)
+)
+knitr::kable(entropy.df, digits = 3, col.names = c("Method", "Batch Entropy"))
+```
+
+\vfill
+
+* scVI increases batch mixing by `r round((entropy.scvi - entropy.pca) / entropy.pca * 100, 1)`%
+
+## What did we learn?
+
+**scVI in R torch shows:**
+
+1. **Modular design:** Reuse VAE encoder, only change decoder + likelihood
+2. **ZINB likelihood:** Three parameters ($\mu$, $\theta$, $\pi$) handle overdispersion + dropout
+3. **Batch conditioning:** Simple embedding layer enables integration
+4. **Interpretable:** See exactly what each component does
+
+\vfill
+
+**Key takeaways:**
+
+* From multinomial → ZINB: better fit to scRNA-seq count data
+* Conditional decoder: batch correction without destroying biology
+* Build-it-yourself: understand what's "under the hood" of scvi-tools
+
+## Running scVI with Python `scvi-tools`
+
+```{python setup-scvi, eval=FALSE, echo=TRUE}
+import scvi
+import scanpy as sc
+import numpy as np
+
+# Load data (convert from Seurat to AnnData)
+# In practice: use sceasy or manual conversion
+adata = sc.read_h5ad("pdac_tissues123.h5ad")
+# Setup scVI model
+scvi.model.SCVI.setup_anndata(
+    adata,
+    layer="counts",           # raw counts
+    batch_key="orig.ident"    # tissue batch (T1, T2, T3)
+)
+# Create and train model
+model = scvi.model.SCVI(
+    adata,
+    n_latent=10,              # K = 10 latent dimensions
+    gene_likelihood="zinb"    # zero-inflated negative binomial
+)
+
+model.train(max_epochs=100)
+```
+
+## Extract latent representation
+
+```{python get-latent, eval=FALSE, echo=TRUE}
+# Get latent representation (batch-corrected)
+adata.obsm["X_scVI"] = model.get_latent_representation()
+
+# Compute UMAP on scVI latent space
+sc.pp.neighbors(adata, use_rep="X_scVI")
+sc.tl.umap(adata)
+
+# Compare: PCA vs scVI
+sc.pl.umap(adata, color=["orig.ident", "seurat_clusters"])
+```
+
+**Key difference from LDVAE:**
+
+* Deep encoder/decoder (nonlinear)
+* ZINB likelihood handles dropout
+* Batch correction via conditional generation
+
+##
+
+<!----------->
+<!-- blank -->
+<!----------->
+
+## References {.allowframebreaks}
+
