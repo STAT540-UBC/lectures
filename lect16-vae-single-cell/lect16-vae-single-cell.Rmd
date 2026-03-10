@@ -460,7 +460,7 @@ show.idx <- sapply(0:9, function(d) {
 \end{tikzpicture}
 \end{center}
 
-* All information about the digit must pass through **10 numbers**
+* All information about the digit must pass through **12 numbers**
 
 ## AE vs. VAE on all digits (K=12)
 
@@ -604,7 +604,7 @@ mnist.models <- list(
 :::
 ::: {.column width=.33}
 
-\centerline{\textbf{VAE (K=20)}}
+\centerline{\textbf{VAE (K=12)}}
 
 ```{r mnist-recon-vae, echo=FALSE, fig.width=1.8, fig.height=1.5}
 .show.digits(mnist.models$recon.vae[show.idx, ], nrow = 2, ncol = 5)
@@ -1103,7 +1103,7 @@ $$\mathbf{x} \xrightarrow{\text{encoder}} \mathbf{z} \xrightarrow{\text{decoder}
 $$\mathbf{z}_{i} = W \, \mathbf{x}_{i} + \mathbf{b}$$
 
 * Input: $\mathbf{x}_i \in \mathbb{R}^{p}$ (2000 genes)
-* Output: $\mathbf{z}_i \in \mathbb{R}^{K}$ (e.g., $K = 12$ latent dimensions)
+* Output: $\mathbf{z}_i \in \mathbb{R}^{K}$ (e.g., $K = 10$ latent dimensions)
 
 ```{r def-encoder, echo=TRUE}
 K <- 10
@@ -1397,7 +1397,7 @@ vae.encoder <- nn_module(
 ## What changed? Only the encoder
 
 :::::: {.columns}
-::: {.column width=.45}
+::: {.column width=.4}
 
 ### Autoencoder encoder
 
@@ -1412,7 +1412,7 @@ forward = function(x) {
 Returns a **point** $\mathbf{z}$
 
 :::
-::: {.column width=.45}
+::: {.column width=.55}
 
 ### VAE encoder
 
@@ -1430,7 +1430,7 @@ forward = function(x) {
 }
 ```
 
-Returns $\mathbf{z}$ **sampled** with hidden layer + batch norm + ReLU
+Returns $\mathbf{z}$ **sampled**
 
 :::
 ::::::
@@ -2486,13 +2486,11 @@ zinb.decoder <- nn_module(
 :::
 ::: {.column width=.3}
 
-\Large
 
 * Batch embedding: 3 batches → 8-dim vectors
 * Concatenate with latent code $z$ before decoder
 * Three output heads: $\mu$, $\pi$ (cell+gene-specific), $\theta$ (gene-specific)
 
-\normalsize
 
 :::
 ::::::
@@ -2680,16 +2678,27 @@ for (epoch in seq_len(2000)) {
 ## scVI training converges smoothly
 
 ```{r plot-scvi-losses, echo=FALSE, fig.width=6, fig.height=3}
-scvi.losses.long <- scvi.losses |>
-    pivot_longer(cols = c(total, nll, kl), names_to = "component", values_to = "loss")
+# Calculate scaling factor to fit both on same plot
+kl_range <- range(scvi.losses$kl)
+llik_range <- range(-scvi.losses$nll)
+scale_factor <- diff(llik_range) / diff(kl_range)
+offset <- llik_range[1] - kl_range[1] * scale_factor
 
-ggplot(scvi.losses.long, aes(x = epoch, y = loss, color = component)) +
-    geom_line(linewidth = 0.8) +
-    scale_color_manual(values = c(total = "black", nll = "#E41A1C", kl = "#377EB8"),
-                       labels = c(total = "Total loss", nll = "Neg. log-lik.", kl = "KL divergence")) +
-    labs(x = "Epoch", y = "Loss", color = NULL) +
+ggplot(scvi.losses, aes(x = epoch)) +
+    geom_line(aes(y = -nll), linewidth = 0.8, color = "#E41A1C") +
+    geom_line(aes(y = kl * scale_factor + offset), linewidth = 0.8, color = "#377EB8") +
+    scale_y_continuous(
+        name = "Log-likelihood",
+        sec.axis = sec_axis(~ (. - offset) / scale_factor, name = "KL divergence")
+    ) +
+    labs(x = "Epoch") +
     theme_minimal() +
-    theme(legend.position = "top")
+    theme(
+        axis.title.y.left = element_text(color = "#E41A1C"),
+        axis.text.y.left = element_text(color = "#E41A1C"),
+        axis.title.y.right = element_text(color = "#377EB8"),
+        axis.text.y.right = element_text(color = "#377EB8")
+    )
 ```
 
 ## Batch correction comparison
