@@ -59,8 +59,8 @@ theme_set(theme_minimal())
 \vfill
 \tiny
 \flushright
-[https://xkcd.com/1269/](https://xkcd.com/1269/)
 
+[https://xkcd.com/1269/](https://xkcd.com/1269/)
 
 # Genetic Data Utility vs. Privacy
 
@@ -1902,6 +1902,7 @@ Raw data **never leaves** each institution
 \vfill
 \tiny
 \flushright
+
 [https://xkcd.com/2169/](https://xkcd.com/2169/)
 
 ## Differential Privacy: Formal Privacy Guarantees
