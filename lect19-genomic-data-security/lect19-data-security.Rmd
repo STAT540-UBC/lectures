@@ -1,0 +1,2459 @@
+---
+title: "Genomic Data Security"
+author: "Yongjin Park"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+classoption: "aspectratio=169"
+fontsize: 12pt
+bibliography: genomic_security.bib
+output:
+    beamer_presentation:
+        theme: Madrid
+        keep_md: true
+        keep_tex: true
+        latex_engine: pdflatex
+        slide_level: 2
+header-includes:
+  - \usepackage{tikz}
+  - \usetikzlibrary{decorations.pathreplacing}
+  - \usepackage{cancel}
+  - \definecolor{UBCblue}{rgb}{0.04706, 0.13725, 0.26667}
+  - \usecolortheme[named=UBCblue]{structure}
+  - \setbeamertemplate{frametitle}{\color{UBCblue}\bfseries\insertframetitle\par\vskip-6pt\hrulefill}
+  - \setbeamercolor{title in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{section in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{author in head/foot}{bg=white,fg=gray}
+  - \setbeamercolor{date in head/foot}{bg=white,fg=gray}
+  - \setbeamertemplate{page number in head/foot}{}
+  - \setbeamertemplate{frame numbering}[none]
+  - \setbeamercolor{alerted text}{bg=yellow}
+  - \AtBeginSection[]{\begin{frame}\frametitle{Today's lecture}{\Large\tableofcontents[currentsection]}\end{frame}}
+  - |
+    \makeatletter
+    \def\ps@titlepage{%
+      \setbeamertemplate{footline}{}
+    }
+    \addtobeamertemplate{title page}{\thispagestyle{titlepage}}{}
+    \makeatother
+---
+
+
+```{r setup, include=FALSE}
+source("Setup.R")
+fig.dir <- "../Fig/genomic-data-security/"
+dir.create(fig.dir, showWarnings=FALSE)
+setup.env(fig.dir)
+dir.create("../data", showWarnings=FALSE)
+
+library(data.table)
+library(tidyverse)
+library(patchwork)
+library(matrixTests)
+
+theme_set(theme_minimal())
+```
+
+# {.plain}
+
+\centerline{\includegraphics[height=.8\textheight]{img/privacy_opinions.png}}
+
+\vfill
+\tiny
+\flushright
+[https://xkcd.com/1269/](https://xkcd.com/1269/)
+
+
+# Genetic Data Utility vs. Privacy
+
+##
+
+:::::: {.columns}
+::: {.column width=.2}
+
+:::
+::: {.column width=.6}
+
+\centerline{\includegraphics[width=\textwidth]{img/nyt_genetic_sleuth-1.png}}
+
+:::
+::: {.column width=.2}
+
+:::
+::::::
+
+\vfill
+
+With the help of a genomic database...
+
+\vfill
+\tiny
+
+[https://www.nytimes.com/2018/10/15/science/gedmatch-genealogy-cold-cases.html](https://www.nytimes.com/2018/10/15/science/gedmatch-genealogy-cold-cases.html)
+
+## Math based on (random) DNA recombination
+
+:::::: {.columns}
+::: {.column width=.2}
+
+:::
+::: {.column width=.5}
+
+\centerline{\includegraphics[width=\textwidth]{img/nyt_genetic_sleuth-2.png}}
+
+:::
+::: {.column width=.2}
+
+:::
+::::::
+
+\vfill
+\tiny
+
+[https://www.nytimes.com/2018/10/15/science/gedmatch-genealogy-cold-cases.html](https://www.nytimes.com/2018/10/15/science/gedmatch-genealogy-cold-cases.html)
+
+## The Golden State Killer
+
+\large
+
+- **Joseph James DeAngelo** arrested in 2018 after 40+ years
+
+- At least 13 murders, 50+ rapes across California (1970s-80s)
+
+- First major cold case solved using Investigative Genetic Genealogy
+
+## Back story: How the case was solved
+
+\vfill
+
+\only<1>{\centerline{\includegraphics[width=\textwidth]{img/gedmatch.png}}}
+
+\large
+
+\begin{enumerate}
+\item<2-> Crime scene DNA uploaded to {\color{teal}\tt\bf GEDmatch.com}
+\item<3-> Found matches to {\color{magenta} distant relatives} (not the suspect)
+\item<4-> Reconstructed family trees back 5-8 generations
+\item<5> Narrowed down the pool of suspects to a handful of living individuals
+\item<5> Confirmed by collecting discarded DNA (coffee cup) from DeAngelo
+\end{enumerate}
+
+\normalsize
+
+## {.plain}
+
+:::::: {.columns}
+::: {.column width=.1}
+
+:::
+::: {.column width=.8}
+
+\centerline{\includegraphics[width=\textwidth]{img/nyt-goldenstate-killer-1.png}}
+
+:::
+::: {.column width=.1}
+
+:::
+::::::
+
+\vfill
+\tiny
+
+[https://www.nytimes.com/2018/10/15/science/gedmatch-genealogy-cold-cases.html](https://www.nytimes.com/2018/10/15/science/gedmatch-genealogy-cold-cases.html)
+
+## {.plain}
+
+\begin{tikzpicture}[remember picture,overlay]
+\fill[black] (current page.south west) rectangle (current page.north east);
+\end{tikzpicture}
+
+\color{white}
+
+\centerline{\includegraphics[width=.95\textwidth]{img/nyt-goldenstate-killer-2.png}}
+
+\vfill
+\tiny
+
+\url{https://www.nytimes.com/2019/04/25/us/golden-state-killer-dna.html}
+
+## A tale from the other side of the GSK case
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\centerline{\includegraphics[width=\textwidth]{img/erlich-1.pdf}}
+
+:::
+::: {.column width=.6}
+
+\large
+
+- 60% success with database covering just 2% of population
+
+- As databases grow, nearly anyone can be identified
+
+- Privacy erosion inevitable?
+
+:::
+::::::
+
+\tiny
+\vfill
+
+@Erlich2018-es
+
+
+## Key security breach is to find someone in DB
+
+\centerline{\includegraphics[width=\textwidth]{img/erlich-2.pdf}}
+
+\tiny
+\vfill
+
+@Erlich2018-es
+
+
+## Genome-Wide Association Studies data could...
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[width=\textwidth]{img/erlich-2b.pdf}}
+
+:::
+::: {.column width=.6}
+
+\large
+
+- GWAS summary statistics
+
+- What if we can "look up" (or predict) phenotypes?
+
+- Public genealogical records amplify genetic databases.
+
+:::
+::::::
+
+\tiny
+
+@Erlich2018-es
+
+## Narrowing down: from genealogy to individual
+
+:::::: {.columns}
+::: {.column width=.3}
+
+\centerline{\includegraphics[width=\textwidth]{img/erlich-3.pdf}}
+
+:::
+::: {.column width=.5}
+
+- Demographic identifiers narrow search: genealogy match $\rightarrow$ age/location $\rightarrow$ individual
+
+- We can also narrow down to the most genomically informative locations...
+
+${}$
+
+\onslide<2>{\centerline{\includegraphics[width=\textwidth]{img/idb_wiki.png}}}
+
+\tiny
+
+[https://en.wikipedia.org/wiki/Identity_by_descent](https://en.wikipedia.org/wiki/Identity_by_descent)
+
+:::
+::::::
+
+\tiny
+\vfill
+
+@Erlich2018-es
+
+## Real Cases: From DNA to Identification
+
+\centerline{\includegraphics[width=\textwidth]{img/erlich-4.pdf}}
+
+
+\vfill
+\tiny
+
+@Erlich2018-es
+
+## {.plain}
+
+\centerline{\includegraphics[width=\textwidth]{img/nyt-23andme-1.png}}
+
+
+## {.plain}
+
+\centerline{\includegraphics[width=\textwidth]{img/nyt-23andme-2.png}}
+
+- 15 million customers' genetic data $\approx$ \$ 256M?
+
+## {.plain}
+
+\centerline{\includegraphics[width=\textwidth]{img/nyt-23andme-3.png}}
+
+
+## Privacy Concerns in the midst of corporate dynamics
+
+\large
+
+- Genetic data could be sold as an asset to pay creditors
+
+- Should genetic information have special protections in bankruptcy?
+
+- Commercial partnerships with pharma companies for drug discovery
+
+- Who owns data?
+
+## {.plain}
+
+\centerline{\includegraphics[width=\textwidth]{img/23andme-regeneron.png}}
+
+## How genetic data can compromise privacy
+
+\centerline{\includegraphics[width=\textwidth]{img/gursoy-2.pdf}}
+
+\vfill
+\tiny
+
+@Gursoy2022-od
+
+
+## We may be able to infer genotypes from ...
+
+\centerline{\includegraphics[height=.75\textheight]{img/gursoy-3.pdf}}
+
+\vfill
+\tiny
+\flushright
+
+@Gursoy2022-od
+
+## We could gain more information than we intended
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\centerline{\includegraphics[width=\textwidth]{img/gursoy-4.pdf}}
+
+:::
+::: {.column width=.35}
+
+* Single Nucleotide Variants
+
+* Although we didn't want to know SNVs, we would be able to infer them.
+
+* Almost every genomic technology involves "sequencing."
+
+:::
+::::::
+
+\tiny
+
+@Gursoy2022-od
+
+## Knowing what the genotypes are ... could open an "unprecedented" possibility?
+
+:::::: {.columns}
+::: {.column width=.7}
+
+\centerline{\includegraphics[width=\textwidth]{img/gursoy-5.pdf}}
+
+:::
+::: {.column width=.25}
+
+G $\to$ ?
+
+:::
+::::::
+
+\tiny
+
+@Gursoy2022-od
+
+## After all this... are we safe?
+
+\centerline{\includegraphics[width=\textwidth]{img/gursoy-6.pdf}}
+
+\tiny
+\vfill
+
+@Gursoy2022-od
+
+## Many outstanding questions...
+
+\large
+
+- Should we write "no technology" manifesto like "Unabomber?"
+
+- What if an insurance company attempts to "predict?"
+
+- What if we can link them to social media?
+
+\vfill
+
+1. How genomic data security can be breached
+
+2. How to prevent unwanted information leakage
+
+# Membership inference
+
+
+
+## Membership attack in genomic data
+
+:::::: {.columns}
+::: {.column width=.1}
+
+:::
+::: {.column width=.8}
+
+\centerline{\includegraphics[width=\textwidth]{img/homer_2008_pgen.g001.png}}
+
+:::
+::: {.column width=.1}
+
+:::
+::::::
+
+\tiny
+
+@Homer2008-mn
+
+
+## Basic idea 1: Membership inference
+
+\begin{tikzpicture}[>=stealth, font=\normalsize]
+% SNP j
+\node[left] at (-0.8, 2) {\textbf{SNP $j$}};
+\draw[thick] (0,2) -- (9,2);
+\foreach \x/\lab in {0/0, 2.25/0.25, 4.5/0.50, 6.75/0.75, 9/1.0}
+\draw (\x,1.9) -- (\x,2.1) node[above,font=\scriptsize] {\lab};
+\fill[blue!70] (2.25,2) circle (3.5pt) node[below=3pt,font=\scriptsize] {Pop};
+\fill[red!70] (6.75,2) circle (3.5pt) node[below=3pt,font=\scriptsize] {$M$};
+\fill[black] (9,2) circle (3.5pt) node[below=3pt,font=\scriptsize] {$Y$};
+\draw[blue!70,<->,thick] (2.25,1.45) -- node[below,font=\scriptsize] {0.75} (9,1.45);
+\draw[red!70,<->,thick] (6.75,1.55) -- node[above,font=\scriptsize] {0.25} (9,1.55);
+\node[right] at (9.3, 2) {\color{red!70} closer to $M$?};
+
+% SNP j+1
+\node[left] at (-0.8, 0) {\textbf{SNP $j\!+\!1$}};
+\draw[thick] (0,0) -- (9,0);
+\foreach \x/\lab in {0/0, 2.25/0.25, 4.5/0.50, 6.75/0.75, 9/1.0}
+\draw (\x,-0.1) -- (\x,0.1) node[above,font=\scriptsize] {\lab};
+\fill[blue!70] (2.25,0) circle (3.5pt) node[below=3pt,font=\scriptsize] {Pop};
+\fill[red!70] (6.75,0) circle (3.5pt) node[below=3pt,font=\scriptsize] {$M$};
+\fill[black] (4.5,0) circle (3.5pt) node[below=3pt,font=\scriptsize] {$Y$};
+\draw[blue!70,<->,thick] (2.25,-0.5) -- node[below,font=\scriptsize] {0.25} (4.5,-0.5);
+\draw[red!70,<->,thick] (4.5,-0.45) -- node[above,font=\scriptsize] {0.25} (6.75,-0.45);
+\node[right] at (9.3, 0) {\color{gray} equal};
+
+% SNP j+2
+\node[left] at (-0.8, -2) {\textbf{SNP $j\!+\!2$}};
+\draw[thick] (0,-2) -- (9,-2);
+\foreach \x/\lab in {0/0, 2.25/0.25, 4.5/0.50, 6.75/0.75, 9/1.0}
+\draw (\x,-2.1) -- (\x,-1.9) node[above,font=\scriptsize] {\lab};
+\fill[blue!70] (2.25,-2) circle (3.5pt) node[below=3pt,font=\scriptsize] {Pop};
+\fill[red!70] (6.75,-2) circle (3.5pt) node[below=3pt,font=\scriptsize] {$M$};
+\fill[black] (0,-2) circle (3.5pt) node[below=3pt,font=\scriptsize] {$Y$};
+\draw[blue!70,<->,thick] (0,-2.5) -- node[below,font=\scriptsize] {0.25} (2.25,-2.5);
+\draw[red!70,<->,thick] (0,-2.45) -- node[above,font=\scriptsize] {0.75} (6.75,-2.45);
+\node[right] at (9.3, -2) {\color{blue!70} closer to Pop?};
+\end{tikzpicture}
+
+\medskip
+\centering \textbf{Q: Is the person of interest in the mixture pool?}
+
+## Basic idea 2: Membership inference
+
+\begin{tikzpicture}[>=stealth, font=\normalsize]
+% Show accumulation across many SNPs
+\node[left] at (-0.5, 1.5) {\textbf{Per SNP:}};
+\node[right] at (0, 1.5) {$D_j = |Y_j - \text{Pop}_j| - |Y_j - M_j|$};
+
+% Visual bar chart of D_j values
+\node[left] at (-0.5, 0.3) {\textbf{Sum:}};
+\foreach \x/\h/\col in {0.3/0.6/red!70, 1.1/-0.3/blue!70, 1.9/0.4/red!70, 2.7/0.5/red!70, 3.5/-0.2/blue!70, 4.3/0.3/red!70, 5.1/-0.4/blue!70, 5.9/0.7/red!70, 6.7/0.2/red!70, 7.5/-0.1/blue!70, 8.3/0.5/red!70, 9.1/0.3/red!70}
+\fill[\col] (\x,-0.3) rectangle (\x+0.5, -0.3+\h);
+\draw[thick] (-0.1,-0.3) -- (9.8,-0.3);
+\node[font=\scriptsize] at (4.8, -1) {SNP $1, 2, \ldots, L$};
+
+% Arrow showing net positive
+\draw[->,thick,red!70] (10.1, 0.1) -- (10.1, 0.7) node[right,font=\scriptsize] {net $> 0$};
+\node[right,font=\scriptsize,red!70] at (10.1, -0.1) {member};
+
+\end{tikzpicture}
+
+Test statistic:
+
+$$T = \displaystyle\sum_{j=1}^{L} D_j \quad\begin{cases} \approx 0 & \text{non-member} \\ > 0 & \text{member}\end{cases}$$
+
+## The test statistic
+
+Deviation of target from population at SNP $j$:
+$$d_j = x_j - 2p_j$$
+
+Inner product with the mixture's deviation:
+$$D_{\text{mix}} = \sum_{j=1}^{L} \underbrace{(f_j^{\text{mix}} - p_j)}_{\text{mixture shift}} \cdot \underbrace{d_j}_{\text{target deviation}}$$
+
+**Decision rule:** declare "member" if $D_{\text{mix}} > D_{\text{ref}}$
+
+## Why it works
+
+**$H_0$ (not in pool):** $f_j^{\text{mix}}$ and $x_j$ are independent
+$$E[D_{\text{mix}}] \approx 0$$
+
+**$H_1$ (in pool of $n$):** target pulls $f_j^{\text{mix}}$ toward $x_j$
+
+$$f_j^{\text{mix}} = \frac{1}{2n}\Big(x_j + \textstyle\sum_{i \neq \text{target}} x_{ij}\Big)$$
+
+$$E[D_{\text{mix}} \mid H_1] \approx \frac{1}{2n}\sum_{j=1}^{L} d_j^2 > 0$$
+
+## Membership Test in Code
+
+```{r membership-test, echo=TRUE, eval=FALSE}
+# Homer's membership inference test
+                                        # Target genotype: x (0, 1, or 2 for each SNP)
+                                        # Mixture allele freq: f_mix
+                                        # Population allele freq: p_pop
+
+                                        # Target's deviation from population
+d <- x - 2 * p_pop
+
+                                        # Test statistic: inner product
+D_mix <- sum((f_mix - p_pop) * d)
+
+                                        # Decision
+is_member <- D_mix > threshold  # TRUE if in pool
+```
+
+\medskip
+
+**Key insight:** Aggregated statistics leak membership
+
+## Signal-to-Noise Ratio
+
+$$\text{SNR} \sim \frac{\sqrt{L}}{n}$$
+
+| $L$ (SNPs) | $n$ (pool) | SNR | Detectable? |
+|---:|---:|---:|:---:|
+| 500K | 100 | $\sim 7$ | Yes |
+| 500K | 1,000 | $\sim 0.7$ | Marginal |
+| 500K | 10,000 | $\sim 0.07$ | No |
+
+With $L = 500\text{K}$ common SNPs, membership detectable in pools up to $n \approx 1000$ [@Sankararaman2009-jt]
+
+## Fairly strong membership prediction
+
+\only<1>{\includegraphics[width=.3\textwidth]{img/sankararaman-1.pdf}}
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\only<1>{
+\includegraphics[width=\textwidth]{img/sankararaman-2.pdf}
+}
+
+\only<2>{
+Result is \textbf{not population-specific} (HapMap YRI):
+
+${}$
+
+\begin{itemize}
+\item Same pattern in African population
+\item $m = 100$: near-random
+\item $m = 1{,}000$: moderate power
+\item $m = 33{,}138$: near-perfect
+\end{itemize}
+\vfill
+$${}$$
+Theory matches empirical across populations
+}
+
+:::
+::: {.column width=.4}
+
+\only<1>{
+\small
+\begin{itemize}
+\item Pool size $n = 1{,}000$
+\item LR outperforms Homer et al.
+\item More SNPs ($m$) $\Rightarrow$ higher power
+\item Theory $\approx$ simulation
+\item Validated on real WTCCC data
+\end{itemize}
+}
+
+\only<2>{
+\includegraphics[width=\textwidth]{img/sankararaman-3.pdf}
+
+\medskip
+\scriptsize
+HapMap YRI (African) dataset
+}
+
+
+:::
+::::::
+
+## The Beacon Attack
+
+:::::: {.columns}
+::: {.column width=.35}
+
+\small
+
+A **beacon** answers one query:
+
+> "Does anyone carry allele A at position X?"
+
+Response: **yes** / **no** (1 bit)
+
+\medskip
+
+Even this minimal interface leaks membership via repeated queries + LR test
+
+:::
+::: {.column width=.6}
+
+\centerline{\includegraphics[width=\textwidth]{img/beacon-1.pdf}}
+
+\centerline{\includegraphics[width=\textwidth]{img/beacon-2.pdf}}
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Shringarpure2015-ut
+
+## {.plain}
+
+\centerline{\includegraphics[width=\textwidth]{img/surname-1.pdf}}
+
+- What's so special about Y chromosome?
+
+- Y-STRs co-segregate with surnames; ~12% of US Caucasian males can be identified
+
+- How does surname frequency affect vulnerability?
+
+- Can rare surnames protect privacy?
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+## Why Y-STR? No recombination in the patrilineal line
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\includegraphics[width=\textwidth]{img/surname-pedigree-1.pdf}
+
+:::
+::: {.column width=.5}
+
+- Y chromosome does not recombine $\Rightarrow$ Y-STR haplotype passed intact father $\to$ son
+
+- Red: all patrilineal males share the same Y-STR profile; Black filled: sequenced individuals
+
+- **Common surname** scenario: large lineage, many carriers in genealogy DB
+
+- Easy to find a Y-STR match, but harder to narrow down to one person
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+## Common surname: Y-STR reaches distant relatives
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\includegraphics[width=\textwidth]{img/surname-pedigree-2.pdf}
+
+:::
+::: {.column width=.5}
+
+- Arrows: individuals matched via genealogy DB, 2-7 meioses from the sequenced person
+
+- Identical Y-STR links distant relatives who never consented to data sharing
+
+- Large pedigree $\Rightarrow$ many males share the surname, requiring additional metadata to identify
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+## Rare surname: a single match is nearly unique
+
+:::::: {.columns}
+::: {.column width=.5}
+
+\includegraphics[width=\textwidth]{img/surname-pedigree-3.pdf}
+
+:::
+::: {.column width=.5}
+
+- Small lineage: few males carry this Y-STR haplotype
+
+- Dashed: genealogy DB record holder; Arrow: identified descendant
+
+- One match in DB $\Rightarrow$ probability of random match: 1 in $10^5$ to $5 \times 10^9$
+
+- Rare surnames are the most vulnerable to re-identification
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+## Surname coverage in genealogy databases
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[width=\textwidth]{img/surname-2.pdf}}
+
+:::
+::: {.column width=.5}
+
+- Genealogy DB coverage tracks US census surname frequency
+
+- Common surnames: many DB records $\Rightarrow$ easier to find a Y-STR match, but harder to narrow down to one person
+
+- Rare surnames: fewer DB records, but a single match is highly identifying
+
+- The attack surface grows as hobbyist databases expand
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+## Demographic Triangulation
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[width=\textwidth]{img/surname-3.pdf}}
+
+:::
+::: {.column width=.5}
+
+- Black: surname recovery rate; Gray: false positive rate
+
+- Trade-off: at $\delta = 0.82$, ~12% success with ~5% FPR
+
+- Surname + age + state narrows 60,000 candidates $\rightarrow$ median of 12 individuals
+
+- How much metadata is too much?
+
+- What should be protected beyond HIPAA?
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+## Real-World Re-identification: Craig Venter
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[width=\textwidth]{img/surname-4.pdf}}
+
+:::
+::: {.column width=.5}
+
+- Wait, where is Craig Venter's DNA data?
+
+- Clear match to "Venter" record in genetic genealogy database
+
+- Public genomes in GenBank can be identified by name
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+## How much does Y-STR matching narrow the search?
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[width=\textwidth]{img/surname-5.pdf}}
+
+:::
+::: {.column width=.5}
+
+- Red: candidate pool from census alone (median $\sim 10^5$ males); Black: after Y-STR surname match (median $\sim 10$)
+
+- 99% accuracy from Illumina sequencing; works even at $10\times$ coverage
+
+- Technical noise alone does not prevent the attack
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Gymrek2013-ho
+
+
+
+# Re-identification attack
+
+
+## eQTL Linking Attacks
+
+```{r eqtl-sim, include=FALSE}
+n <- 500; K <- 50
+
+## Generate realistic MAFs (minor allele frequencies)
+set.seed(42)
+mafs  <- runif(K, min=0.05, max=0.45)  ## MAF between 5% and 45%
+
+## Generate effect sizes
+betas <- runif(K, min=0.8, max=1.5)
+
+sigma <- 0.3  ## strong eQTLs: high signal-to-noise ratio
+
+G <- sapply(mafs, function(p) rbinom(n, 2, p))
+E <- sapply(1:K, function(k) betas[k] * G[,k] + rnorm(n, 0, sigma))
+
+pred.geno <- function(e, b) pmin(pmax(round(e / b), 0), 2)
+set.seed(73)
+target <- sample(1:n, 1)  ## random target individual
+
+## store results for narrowing slides (4 genes)
+pred <- sapply(1:K, function(k) pred.geno(E[target, k], betas[k]))
+cands <- list(); cs <- 1:n
+for(s in 1:K) { cs <- cs[G[cs, s] == pred[s]]; cands[[s]] <- cs }
+n.rem <- sapply(cands, length)
+
+## frequency-weighted scores: use MORE genes for clear separation
+set.seed(101)
+K.score <- 20
+mafs.s  <- runif(K.score, 0.05, 0.45)
+betas.s <- runif(K.score, 0.8, 1.4)
+G.s <- sapply(mafs.s, function(p) rbinom(n, 2, p))
+E.s <- sapply(1:K.score, function(k) betas.s[k] * G.s[,k] + rnorm(n, 0, sigma))
+pred.s <- sapply(1:K.score, function(k) pred.geno(E.s[target, k], betas.s[k]))
+
+gfreq <- function(g, p) dbinom(g, 2, p)
+scores <- sapply(1:n, function(i) {
+    sum(sapply(1:K.score, function(k) {
+        if(G.s[i, k] == pred.s[k]) log2(1 / gfreq(pred.s[k], mafs.s[k])) else 0
+    }))
+})
+
+                                        # Select 5 representative genes for visualization (spread across MAF range)
+maf.order <- order(mafs)
+viz.genes <- maf.order[round(seq(1, K, length.out=5))]
+
+                                        # plot helper: boxplot + expression heatmap
+plot.step <- function(step) {
+    pool <- if(step == 1) 1:n else cands[[step - 1]]
+    k <- step
+    matched <- cands[[step]]
+    unmatched <- setdiff(pool, matched)
+
+    ## left: boxplot
+    d <- data.frame(geno = factor(G[pool, k]),
+                    expr = E[pool, k],
+                    is.target = pool == target)
+    tgt.expr <- E[target, k]
+    p1 <- ggplot(d, aes(geno, expr)) +
+        geom_boxplot(outlier.shape=NA, fill="grey90", width=.5) +
+        ggrastr::rasterise(
+                     geom_jitter(aes(color=is.target, size=is.target),
+                                 width=.15, stroke=0),
+                     dpi=300) +
+        scale_color_manual(values=c("grey50","red")) +
+        scale_size_manual(values=c(0.6, 1.5)) +
+        geom_hline(yintercept=tgt.expr, lty=2, color="red", linewidth=.3) +
+        annotate("label", x=3.4, y=tgt.expr,
+                 label=paste0("predict g=", pred[k]),
+                 size=2.5, color="red", fill="white", hjust=1) +
+        labs(x="Genotype (hidden)", y="Expression",
+             subtitle=paste0(length(pool), " candidates  >  ",
+                             n.rem[step], " remain")) +
+        theme_minimal() +
+        theme(legend.position="none",
+              axis.title=element_text(size=7), axis.text=element_text(size=6),
+              plot.subtitle=element_text(size=8, face="bold"))
+
+    ## right: expression heatmap for genes 1..step
+    ids <- c(matched, unmatched)
+    grp <- c(rep("match", length(matched)), rep("no match", length(unmatched)))
+    ## Center expression for better color display
+    mat.centered <- scale(E[ids, 1:step, drop=FALSE], center=TRUE, scale=FALSE)
+    hd <- expand.grid(row=seq_along(ids), col=1:step)
+    hd$expr <- as.vector(mat.centered)
+    hd$gene <- factor(paste0("G", hd$col))
+    hd$group <- grp[hd$row]
+    hd$is.tgt <- ids[hd$row] == target
+
+    p2 <- ggplot(hd, aes(gene, reorder(row, -row), fill=expr)) +
+        ggrastr::rasterise(geom_tile(), dpi=300) +
+        scale_fill_gradient2(low="steelblue", mid="white", high="firebrick",
+                             midpoint=0) +
+        facet_grid(group ~ ., scales="free_y", space="free_y") +
+        labs(x=NULL, y="Individual", subtitle="Expression matrix") +
+        theme_minimal() +
+        theme(legend.position="none",
+              axis.text.y=element_blank(), axis.ticks.y=element_blank(),
+              axis.title=element_text(size=7), axis.text.x=element_text(size=6),
+              strip.text=element_text(size=6, face="bold"),
+              plot.subtitle=element_text(size=8, face="bold"))
+
+    p1 + p2 + plot_layout(widths=c(3, 2))
+}
+```
+
+\begin{tikzpicture}[>=stealth, font=\small, every node/.style={align=center}]
+\node[draw, rounded corners, fill=green!10, minimum width=2.2cm, minimum height=1cm] (expr) at (0,0) {Expression\\(public)};
+\node[draw, rounded corners, fill=yellow!15, minimum width=2.2cm, minimum height=1cm] (eqtl) at (3.5,0) {eQTL catalog\\(public)};
+\node[draw, rounded corners, fill=orange!15, minimum width=2.2cm, minimum height=1cm] (pred) at (7,0) {Predicted\\genotype};
+\node[draw, rounded corners, fill=red!10, minimum width=2.2cm, minimum height=1cm] (geno) at (10.5,0) {Genotype DB\\\footnotesize(private)};
+\draw[->,thick] (expr) -- (eqtl);
+\draw[->,thick] (eqtl) -- node[above,font=\scriptsize] {predict} (pred);
+\draw[->,thick] (pred) -- node[above,font=\scriptsize] {match} (geno);
+\node[font=\footnotesize, red!70!black] at (10.5, -1) {\textbf{Who is the target?}};
+\end{tikzpicture}
+
+## What is eQTL?
+
+:::::: {.columns}
+::: {.column width=.55}
+
+An **expression quantitative trait locus (eQTL)** is a genomic variant (SNP) whose genotype is associated with the expression level of a gene.
+
+\medskip
+
+\begin{tikzpicture}[>=stealth, font=\small]
+% DNA region
+\draw[thick, blue!60] (0,0) -- (6,0);
+\node[circle, fill=red!70, inner sep=2pt, label={[font=\scriptsize]above:SNP}] (snp) at (1.2,0) {};
+\draw[fill=blue!20, draw=blue!60, thick] (3.5,-0.15) rectangle (5.5,0.15);
+\node[font=\scriptsize, below=3pt] at (4.5,-0.15) {Gene};
+\draw[->, thick, red!60!black, dashed] (snp) to[bend left=25] node[above, font=\scriptsize] {regulates} (4.5, 0);
+
+% Genotype-expression boxplot sketch
+\foreach \x/\g/\h in {1/0/0.4, 2.2/1/1.0, 3.4/2/1.6} {
+\draw[fill=blue!15] (\x, -2.6) rectangle ++(0.8, \h);
+\node[font=\scriptsize] at (\x+0.4, -2.9) {$g{=}\g$};
+}
+\node[font=\scriptsize, rotate=90] at (0.5, -2.2) {Expression};
+\draw[->] (0.7,-2.8) -- (4.5,-2.8);
+\draw[->] (0.7,-2.8) -- (0.7,-1.7);
+
+\end{tikzpicture}
+
+:::
+::: {.column width=.43}
+
+$$e = \beta \cdot g + \epsilon$$
+
+- $g \in \{0, 1, 2\}$: genotype (minor allele count)
+- $e$: expression level
+- $\beta$: eQTL effect size
+
+<!-- \medskip -->
+<!-- **Key insight for attacks:** -->
+<!-- If $\beta$ is known (public eQTL catalog), observing $e$ reveals $g$: -->
+<!-- $$\hat{g} = \text{round}(e / \beta)$$ -->
+
+:::
+::::::
+
+## {.plain}
+
+${}$
+
+\centerline{\includegraphics[width=\textwidth]{img/harmanci-gerstein-1.pdf}}
+
+${}$
+
+**Input**:
+
+- Expression data
+- eQTL summary statistics
+
+**Output**:
+
+- Genotypes
+
+**Implication**: G $\to$ ?
+
+<!-- \vfill -->
+<!-- \tiny -->
+<!-- [@Harmanci2016-ua] -->
+
+
+## Genotypes are predictable from expression
+
+:::::: {.columns}
+::: {.column width=.1}
+:::
+
+::: {.column width=.65}
+
+\centerline{\includegraphics[width=\textwidth]{img/harmanci-gerstein-2.pdf}}
+
+:::
+::: {.column width=.25}
+
+- Correlation info links expression to variants
+
+- Predict genotypes from observed expression
+
+- Genotypes $\Rightarrow$ re-identification
+
+- Would involuntarily reveal sensitive information!
+
+$${}$$
+
+\tiny
+
+[@Harmanci2016-ua]
+
+:::
+::::::
+
+
+## Using expression QTL as backdoor...
+
+\centerline{\includegraphics[width=.9\textwidth]{img/harmanci-gerstein-3a.pdf}}
+
+\vfill
+
+- eQTL defines a joint distribution of expression ($E$) and genotype ($V$)
+
+- Given observed expression $e$, slice the joint distribution $\Rightarrow$ conditional $P(V | E = e)$
+
+- Strong eQTL: the slice is peaked at one genotype $\Rightarrow$ high information leakage
+
+\tiny
+
+[@Harmanci2016-ua]
+
+## Tradeoff: predictability vs. identifiability
+
+:::::: {.columns}
+::: {.column width=.65}
+
+\begin{tikzpicture}[>=stealth, font=\normalsize, yscale=0.7]
+% Common variant
+\node[font=\large, anchor=west] at (-0.5, 3.2) {\textbf{Common} (MAF $= 0.4$)};
+% Prior bars
+\node[font=\small, anchor=east] at (-0.2, 2.5) {Prior:};
+\fill[blue!30] (0, 2.0) rectangle (1.1, 2.9);
+\fill[blue!30] (1.4, 2.0) rectangle (2.87, 2.9);
+\fill[blue!30] (3.2, 2.0) rectangle (3.7, 2.9);
+\node[font=\scriptsize] at (0.55, 1.7) {$g{=}0$};
+\node[font=\scriptsize] at (2.13, 1.7) {$g{=}1$};
+\node[font=\scriptsize] at (3.45, 1.7) {$g{=}2$};
+\node[font=\scriptsize] at (0.55, 2.5) {.36};
+\node[font=\scriptsize] at (2.13, 2.5) {.48};
+\node[font=\scriptsize] at (3.45, 2.5) {.16};
+% Posterior bars
+\node[font=\small, anchor=east] at (-0.2, 0.8) {$P(V|E{=}e)$:};
+\fill[blue!15] (0, 0.3) rectangle (0.35, 1.2);
+\fill[red!50] (1.4, 0.3) rectangle (3.1, 1.2);
+\fill[blue!15] (3.2, 0.3) rectangle (3.45, 1.2);
+\node[font=\scriptsize] at (0.55, 0.0) {$g{=}0$};
+\node[font=\scriptsize] at (2.13, 0.0) {$g{=}1$};
+\node[font=\scriptsize] at (3.45, 0.0) {$g{=}2$};
+\node[font=\scriptsize] at (0.18, 0.75) {.10};
+\node[font=\scriptsize, red!70!black] at (2.25, 0.75) {\textbf{.80}};
+\node[font=\scriptsize] at (3.33, 0.75) {.10};
+\draw[->, thick] (4.0, 0.75) -- (5.0, 0.75) node[right, font=\small, text width=2.2cm] {predict $g{=}1$\\info $= 0.3$ bits};
+
+% Rare variant
+\node[font=\large, anchor=west] at (-0.5, -1.0) {\textbf{Rare} (MAF $= 0.05$)};
+% Prior bars
+\node[font=\small, anchor=east] at (-0.2, -1.7) {Prior:};
+\fill[blue!30] (0, -2.2) rectangle (2.7, -1.3);
+\fill[blue!30] (3.0, -2.2) rectangle (3.3, -1.3);
+\fill[blue!30] (3.6, -2.2) rectangle (3.67, -1.3);
+\node[font=\scriptsize] at (1.35, -2.5) {$g{=}0$};
+\node[font=\scriptsize] at (3.15, -2.5) {$g{=}1$};
+\node[font=\scriptsize] at (3.63, -2.5) {$g{=}2$};
+\node[font=\scriptsize] at (1.35, -1.7) {.90};
+\node[font=\scriptsize] at (3.15, -1.7) {.10};
+\node[font=\scriptsize] at (3.63, -1.7) {$\approx 0$};
+% Posterior bars
+\node[font=\small, anchor=east] at (-0.2, -3.4) {$P(V|E{=}e)$:};
+\fill[blue!15] (0, -3.9) rectangle (0.35, -3.0);
+\fill[red!50] (3.0, -3.9) rectangle (4.7, -3.0);
+\fill[blue!15] (5.0, -3.9) rectangle (5.07, -3.0);
+\node[font=\scriptsize] at (0.18, -4.2) {$g{=}0$};
+\node[font=\scriptsize] at (3.85, -4.2) {$g{=}1$};
+\node[font=\scriptsize] at (5.03, -4.2) {$g{=}2$};
+\node[font=\scriptsize] at (0.18, -3.45) {.10};
+\node[font=\scriptsize, red!70!black] at (3.85, -3.45) {\textbf{.80}};
+\node[font=\scriptsize] at (5.03, -3.45) {.10};
+\draw[->, thick] (5.5, -3.45) -- (5.7, -3.45) node[right, font=\small, text width=2.2cm] {predict $g{=}1$\\info $= 3.4$ bits};
+\end{tikzpicture}
+
+:::
+::: {.column width=.35}
+
+\small
+
+Conditional self-information:
+
+$$\log_2\!\frac{1}{P(V = g \mid E = e)}$$
+
+\medskip
+
+- Both predict $g{=}1$ with 80% confidence
+
+- Common: $g{=}1$ has prior .48 $\Rightarrow$ low surprise
+
+- Rare: $g{=}1$ has prior .10 $\Rightarrow$ high surprise, highly identifying
+
+:::
+::::::
+
+\vfill
+\tiny
+
+[@Harmanci2016-ua]
+
+
+## Three-Step Linking Framework
+
+:::::: {.columns}
+::: {.column width=.55}
+
+\centerline{\includegraphics[width=\textwidth]{img/harmanci-gerstein-4.pdf}}
+
+:::
+::: {.column width=.43}
+
+\large
+
+1. Select eQTLs (correlation threshold)
+2. Predict genotypes from expression
+3. Link to database via distance metric
+
+${}$
+
+\normalsize
+
+- Adding gender, population improves accuracy to >95%
+- Even genotypes alone achieve ~85% accuracy
+
+:::
+::::::
+
+
+\tiny
+\flushright
+
+[@Harmanci2016-ua]
+
+
+## {.plain}
+
+\vfill
+
+\centerline{\includegraphics[width=\textwidth]{img/harmanci-gerstein-5.pdf}}
+
+
+\tiny
+
+[@Harmanci2016-ua]
+
+
+## Simplified attack: extremity-based prediction
+
+${}$
+
+\centerline{\includegraphics[width=.9\textwidth]{img/harmanci-gerstein-6.pdf}}
+
+- Don't need the full joint distribution: just use extreme expression values
+
+- High expression $\Rightarrow$ predict $g = 2$; Low expression $\Rightarrow$ predict $g = 0$
+
+- Robust across eQTL selection criteria; PPV >95% for most thresholds
+
+\tiny
+\flushright
+
+[@Harmanci2016-ua]
+
+## A working example on eQTL linkage attack
+
+:::::: {.columns}
+::: {.column width=.48}
+
+**Attacker has (public):**
+
+- Target's expression: $\mathbf{e} = (e_1, \ldots, e_K)$
+- eQTL catalog: Gene $k$ $\leftrightarrow$ SNP $k$, effect $\beta_k$
+
+\medskip
+
+**Attacker wants:**
+
+- Predicted genotype: $\hat{g}_k = \text{round}(e_k / \beta_k)$
+- Match $\hat{\mathbf{g}}$ to a row in the genotype DB
+
+:::
+::: {.column width=.5}
+
+```{r eqtl-setup-table, echo=FALSE, results='asis'}
+cat("\\footnotesize\n")
+cat("\\begin{tabular}{cccc}\n")
+cat("\\hline\n")
+cat("Gene & Expression & $\\beta$ & Predicted $\\hat{g}$ \\\\\n")
+cat("\\hline\n")
+for(k in viz.genes) {
+    cat(sprintf("%d & %.1f & %.1f & %d \\\\\n",
+                k, E[target, k], betas[k], pred[k]))
+}
+cat("\\hline\n")
+cat("\\end{tabular}\n")
+cat("\\normalsize\n")
+```
+
+\medskip
+
+Match this vector against $n = `r n`$ individuals
+
+$${}$$
+
+* How many unknowns?
+
+* How many pieces of evidence?
+
+:::
+::::::
+
+## The Attack in Code
+
+```{r attack-code, echo=TRUE, eval=FALSE}
+## eQTL model: expression = beta * genotype + noise
+E <- beta * G + rnorm(n, sd = sigma)
+
+## Predict genotype from expression (reverse the model)
+pred_genotype <- round(E / beta)
+pred_genotype <- pmin(pmax(pred_genotype, 0), 2)  # clip to 0,1,2
+
+## Match predicted genotype to database
+## --> could be just nearest neighbour search
+matches <- which(G_database == pred_genotype)
+```
+
+\medskip
+
+Simple algebra can leak the identity...
+
+<!-- ## Let's see how gene expressions can unlock the identity
+
+```{r eqtl-zoom, echo=FALSE, fig.width=5.5, fig.height=3.2, eval=FALSE}
+## Cumulative match against ACTUAL genotypes using target's predicted genotype
+cum.match <- matrix(TRUE, n, K)
+for(s in 1:K)
+    cum.match[,s] <- rowSums(sweep(G[,1:s,drop=FALSE], 2, pred[1:s], "==")) == s
+
+## Order: target first, then by match depth (descending)
+n.total <- rowSums(cum.match)
+ro <- order(-n.total)
+row.ord <- c(target, ro[ro != target])
+
+## Only show top individuals to avoid overcrowding
+n.show <- min(30, n)
+row.ord.subset <- row.ord[1:n.show]
+
+## Find target's position in subset
+target.row <- which(row.ord.subset == target)
+
+## Center expression for better color visualization
+E.centered <- scale(E, center = TRUE, scale = FALSE)
+
+## For this cumulative visualization, use first 5 genes sequentially
+genes.show <- 1:5
+
+## Build panel data
+panels <- do.call(rbind, lapply(genes.show, function(s) {
+    data.frame(
+        row = rep(1:n.show, length(genes.show)),
+        col = rep(1:length(genes.show), each = n.show),
+        expr = as.vector(E.centered[row.ord.subset, genes.show]),
+        gene = factor(paste0("G", rep(genes.show, each = n.show))),
+        active = rep(cum.match[row.ord.subset, s], length(genes.show)),
+        is.tgt = rep(1:n.show == 1, length(genes.show)),
+        step = paste0("Gene ", s, ": ", sum(cum.match[,s]), " remain"),
+        gene.used = rep(genes.show, each = n.show) <= s
+    )
+}))
+panels$step <- factor(panels$step, levels = unique(panels$step))
+
+ggplot(panels, aes(gene, row)) +
+    ggrastr::rasterise(
+                 geom_tile(aes(fill = ifelse(active & gene.used, expr, NA))),
+                 dpi = 300) +
+    ggrastr::rasterise(
+                 geom_tile(data = panels[!panels$active & panels$gene.used, ],
+                           fill = "grey92"),
+                 dpi = 300) +
+    ggrastr::rasterise(
+                 geom_tile(data = panels[!panels$gene.used, ],
+                           fill = "grey97"),
+                 dpi = 300) +
+    scale_fill_gradient2(low = "steelblue", mid = "white", high = "firebrick",
+                         midpoint = 0, na.value = "grey92", guide = "none") +
+    ## Mark the target individual with a star on the first gene
+    geom_text(data = data.frame(
+                  step = factor(levels(panels$step), levels = levels(panels$step)),
+                  gene = factor("G1", levels = levels(panels$gene))),
+              aes(x = gene, label = "*"), y = target.row,
+              size = 5, color = "red", hjust = 0.5) +
+    facet_wrap(~ step, nrow = 1) +
+    scale_y_reverse() +
+    labs(x = NULL, y = "Individuals (top 30)") +
+    theme_minimal() +
+    theme(axis.text = element_blank(), axis.ticks = element_blank(),
+          axis.title.y = element_text(size = 7),
+          strip.text = element_text(size = 6, face = "bold"),
+          panel.spacing = unit(0.3, "lines"))
+```
+-->
+
+## Gene 1: predicting genotype from expression
+
+```{r eqtl-step1, echo=FALSE, fig.width=5, fig.height=2.5}
+plot.step(1)
+```
+
+## Gene 2: narrowing the pool
+
+```{r eqtl-step2, echo=FALSE, fig.width=5, fig.height=2.5}
+plot.step(2)
+```
+
+## Gene 3: a rare variant
+
+```{r eqtl-step3, echo=FALSE, fig.width=5, fig.height=2.5}
+plot.step(3)
+```
+
+## Gene 4: identified
+
+```{r eqtl-step4, echo=FALSE, fig.width=5, fig.height=2.5}
+plot.step(4)
+```
+
+## Genotype vs. expression: the full picture
+
+```{r eqtl-full-view, echo=FALSE, fig.width=5.5, fig.height=2.5}
+d.all <- do.call(rbind, lapply(viz.genes, function(k) {
+    data.frame(geno = factor(G[,k]),
+               expr = E[,k],
+               is.target = 1:n == target,
+               is.match = 1:n %in% cands[[K]],
+               gene = paste0("Gene ", k, " (MAF=", round(mafs[k], 2), ")"),
+               pred.g = pred[k])
+}))
+d.all$gene <- factor(d.all$gene, levels = unique(d.all$gene))
+
+ggplot(d.all, aes(geno, expr)) +
+    geom_boxplot(outlier.shape = NA, fill = "grey90", width = .5) +
+    ggrastr::rasterise(
+                 geom_jitter(color = "grey60", size = 0.4, width = .15, stroke = 0),
+                 dpi = 300) +
+    ggrastr::rasterise(
+                 geom_jitter(data = d.all[d.all$is.target, ],
+                             color = "red", size = 1.2, width = .15, stroke = 0),
+                 dpi = 300) +
+    geom_hline(data = data.frame(
+                   gene = factor(unique(d.all$gene), levels = levels(d.all$gene)),
+                   yint = E[target, viz.genes]),
+               aes(yintercept = yint), lty = 2, color = "red", linewidth = .3) +
+    facet_wrap(~ gene, nrow = 1, scales = "free_y") +
+    labs(x = "Genotype", y = "Expression") +
+    theme_minimal() +
+    theme(axis.title = element_text(size = 7),
+          axis.text = element_text(size = 6),
+          strip.text = element_text(size = 6, face = "bold"),
+          panel.spacing = unit(0.4, "lines"))
+```
+
+
+## Not all genes are equal
+
+```{r eqtl-funnel, echo=FALSE, fig.width=5, fig.height=2.5}
+before <- c(n, n.rem[1:3])
+after  <- n.rem[1:4]
+## Find the most informative gene among first 4 (lowest MAF)
+most.info.idx <- which.min(mafs[1:4])
+most.info.gene <- paste0("Gene ", most.info.idx)
+data.frame(
+    Gene = factor(paste0("Gene ", 1:4), levels=paste0("Gene ", 1:4)),
+    Frac = (before - after) / before,
+    Label = paste0(before, " -> ", after),
+    MAF = round(mafs[1:4], 2)
+) %>%
+    ggplot(aes(Gene, Frac)) +
+    geom_col(aes(fill = Gene == most.info.gene), width=.6, show.legend=FALSE) +
+    scale_fill_manual(values=c("steelblue","firebrick")) +
+    geom_text(aes(label=Label), vjust=-.3, size=3) +
+    scale_y_continuous(labels=scales::percent, limits=c(0,1)) +
+    labs(y="Fraction eliminated") +
+    theme_minimal() +
+    theme(axis.title=element_text(size=8), axis.text=element_text(size=7))
+```
+
+**Q: Why is a rare-variant gene more informative?**
+
+## Weight matches by rarity
+
+Exact matching is fragile: one wrong prediction breaks the chain.
+
+\medskip
+
+**Better approach**: score each match by how informative it is.
+
+\medskip
+
+- If 45% of people have genotype $g=1$, matching on it is **weak evidence**
+- If 5% of people have genotype $g=2$, matching on it is **strong evidence**
+
+\medskip
+
+$$S_i = \sum_{k} \mathbb{I}[G_{ik} = \hat{g}_k] \cdot \underbrace{\log_2 (1/f(\hat{g}_k))}_{\text{information content}}$$
+
+\medskip
+
+This is just information theory: rare events carry more information.
+
+## Accumulating evidence across genes
+
+```{r eqtl-scores-cumul, echo=FALSE, fig.width=5.5, fig.height=2.5}
+## Cumulative scores gene by gene
+cum.scores <- matrix(0, n, K)
+for(k in 1:K) {
+    contrib <- sapply(1:n, function(i)
+        if(G[i,k] == pred[k]) log2(1 / gfreq(pred[k], mafs[k])) else 0)
+    cum.scores[,k] <- if(k == 1) contrib else cum.scores[,k-1] + contrib
+}
+
+## Build panel data - only for viz.genes
+panels <- do.call(rbind, lapply(viz.genes, function(k) {
+    ord <- order(cum.scores[,k], decreasing=TRUE)
+    data.frame(rank = 1:n, score = cum.scores[ord, k],
+               is.target = ord == target,
+               step = paste0("+ Gene ", k))
+}))
+panels$step <- factor(panels$step, levels = paste0("+ Gene ", viz.genes))
+
+## Annotate target rank in each panel
+target.ranks <- do.call(rbind, lapply(viz.genes, function(k) {
+    ord <- order(cum.scores[,k], decreasing=TRUE)
+    r <- which(ord == target)
+    data.frame(rank = r, score = cum.scores[target, k],
+               step = paste0("+ Gene ", k))
+}))
+target.ranks$step <- factor(target.ranks$step, levels = paste0("+ Gene ", viz.genes))
+target.ranks$label <- paste0("rank ", target.ranks$rank)
+
+ggplot(panels, aes(rank, score, fill=is.target)) +
+    ggrastr::rasterise(geom_col(width=.8), dpi=300) +
+    scale_fill_manual(values=c("grey70","red")) +
+    geom_text(data=target.ranks,
+              aes(x=rank, y=score, label=label, fill=NULL),
+              vjust=-0.3, hjust=0, size=2.2, color="red", fontface="bold") +
+    facet_wrap(~ step, nrow=1) +
+    labs(x="Person (ranked by score)", y="Cumulative linking score") +
+    theme_minimal() +
+    theme(legend.position="none",
+          axis.title=element_text(size=7), axis.text=element_text(size=5),
+          strip.text=element_text(size=7, face="bold"),
+          panel.spacing=unit(0.3, "lines"))
+```
+
+Each panel adds one gene. The target (red) moves toward rank 1 as evidence accumulates.
+
+
+
+## Auxiliary metadata amplifies the attack
+
+\centerline{\includegraphics[width=\textwidth]{img/harmanci-gerstein-7.pdf}}
+
+- Genotypes alone: ~85% of individuals vulnerable at moderate eQTL threshold
+
+- Adding gender or population pushes vulnerability above 95%
+
+
+\tiny
+
+[@Harmanci2016-ua]
+
+
+## {.plain}
+
+${}$
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-1.pdf}}
+
+- Linking attack workflow: scRNA-seq $\rightarrow$ genotype prediction $\rightarrow$ database matching
+- How can we share valuable single-cell data while protecting donor identity?
+
+\tiny
+
+@Walker2024-rm
+
+
+## Linking with Bulk eQTLs
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-2.pdf}}
+
+\tiny
+
+- 93-98% linking accuracy using publicly available tissue eQTLs
+- Even "common" cell types leak identity. What counts as rare enough to be safe?
+
+\tiny
+@Walker2024-rm
+
+
+## {.plain}
+
+${}$
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-3.pdf}}
+
+${}$
+
+\tiny
+
+@Walker2024-rm
+
+
+## The way we called eQTLs can create a backdoor
+
+\centerline{\includegraphics[width=.7\textwidth]{img/walker-4.pdf}}
+
+* **Input**: (1) pseudobulk (2) eQTL catalogue
+
+\tiny
+
+@Walker2024-rm
+
+<!-- - Cell-type-specific eQTLs increase accuracy for rare cell types -->
+<!-- - Better biology $\rightarrow$ worse privacy. How do we balance scientific utility vs. risk? -->
+<!-- - High accuracy (>80%) even without eQTL information, using variant selection -->
+<!-- - Privacy breach possible with just scRNA-seq data. Can we trust "anonymization"? -->
+
+## Well, multiple cell types $\approx$ multiple lines of evidence
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-4.pdf}}
+
+${}$
+
+- Usually, 5-10 cell types in PBMC
+
+- Cell type specific eQTL data
+
+- Do genotypes change with cell types?
+
+:::
+::: {.column width=.6}
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-5.pdf}}
+
+:::
+::::::
+
+\vfill
+\tiny
+
+@Walker2024-rm
+
+
+## Revealing "donor" information using external DB!
+
+${}$
+
+\centerline{\includegraphics[width=.8\textwidth]{img/walker-6.pdf}}
+
+<!-- \tiny -->
+<!-- - Predicted genotypes from scRNA-seq can identify individuals in external databases -->
+<!-- - Your data becomes more identifiable as public databases grow. Future-proof privacy? -->
+
+- Rarer cell types $\Rightarrow$ higher linking accuracy (lines trend upward, common $\to$ rare)
+
+- More cells per type $\Rightarrow$ better pseudobulk estimates $\Rightarrow$ better genotype prediction
+
+<!-- - Even with 200 cells, linking accuracy reaches 20-40% -->
+
+\tiny
+\flushright
+
+@Walker2024-rm
+
+
+## What if we have single-cell data and eQTLs?
+
+:::::: {.columns}
+::: {.column width=.65}
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-7.pdf}}
+
+:::
+::: {.column width=.3}
+
+- Can normalization and PCA remove non-genetic individual-specific information?
+
+- Single-cell count matrices aggregated into cell-type-specific pseudobulk
+
+:::
+::::::
+
+
+
+## What if we have single-cell data and eQTLs?
+
+:::::: {.columns}
+::: {.column width=.3}
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-7.pdf}}
+
+${}$
+
+\large
+
+The power of multiple lines of evidence across different cell types
+
+:::
+::: {.column width=.5}
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-8.pdf}}
+
+:::
+::::::
+
+\tiny
+
+@Walker2024-rm
+
+
+## Again, strong prediction performance...
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-9.pdf}}
+
+<!-- - Each approach generates $10^3$-$10^6$ unique predicted genotypes per sample -->
+<!-- - More genetic signal extracted $\rightarrow$ easier to identify. Is dimensionality reduction protective? -->
+
+\tiny
+
+@Walker2024-rm
+
+
+## Do we even need scQTL summary statistics data?
+
+
+:::::: {.columns}
+::: {.column width=.7}
+\centerline{\includegraphics[width=\textwidth]{img/walker-10.pdf}}
+:::
+::: {.column width=.3}
+
+- No external eQTL catalog needed
+
+- AAF = alternative allele frequency
+
+- Split by expression (high/low), compare AAF per locus
+
+- Large $\Delta$AAF $\Rightarrow$ informative variant
+
+- **Cross-cohort**: learn variants from training cohort, attack a different target cohort
+
+:::
+::::::
+
+\tiny
+
+@Walker2024-rm
+
+
+## Genotypes in training data $\to$ predict other cohorts
+
+:::::: {.columns}
+::: {.column width=.1}
+:::
+
+::: {.column width=.35}
+\centerline{\includegraphics[width=\textwidth]{img/walker-11.pdf}}
+:::
+::: {.column width=.35}
+\centerline{\includegraphics[width=\textwidth]{img/walker-12.pdf}}
+:::
+::: {.column width=.2}
+:::
+::::::
+
+\tiny
+
+@Walker2024-rm
+
+## Auxiliary metadata amplifies the single-cell attack
+
+:::::: {.columns}
+::: {.column width=.6}
+
+\centerline{\includegraphics[width=\textwidth]{img/walker-13.pdf}}
+
+:::
+::: {.column width=.4}
+
+- **OneK1K**: genotypes alone reach 97--100 percent; metadata barely helps
+
+- **Lupus**: genotypes alone 60--70 percent; adding sex + population pushes to 85 percent; all metadata reaches near 100 percent
+
+- Linking individuals in one cohort to the other
+
+- Implication?
+
+\tiny
+
+@Walker2024-rm
+
+:::
+::::::
+
+
+# Secured protocols for genomic data analysis 
+
+## {.plain}
+
+\begin{center}\includegraphics[width=0.7\textwidth]{img/gursoy-1} \end{center}
+
+\vfill
+\tiny
+
+@Gursoy2022-od
+
+## How can we safely estimate eQTLs?
+
+\begin{center}\includegraphics[width=0.7\textwidth]{img/gursoy-eqtl-1} \end{center}
+
+\vfill
+
+**Goal**: Protect expression profiled individuals from re-identification attacks
+
+\vfill
+\tiny
+
+@Gursoy2022-od
+
+## Trusted Execution Environments (TEE) {.plain}
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\begin{center}\includegraphics[height=0.8\textheight]{img/gursoy-eqtl-2} \end{center}
+
+:::
+::: {.column width=.55}
+
+- Data encrypted in transit and at rest
+- Decrypted only inside hardware **enclave** (e.g., Intel SGX)
+- Even the OS cannot read enclave memory
+
+\medskip
+
+**Pros:** 
+
+* near-plaintext speed
+* no utility loss
+
+**Cons:** 
+
+* side-channel attacks
+* trust in hardware vendor
+* limited enclave memory
+
+:::
+::::::
+
+\tiny\flushright
+@Gursoy2022-od
+
+## Homomorphic Encryption (HE) {.plain}
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\begin{center}\includegraphics[height=0.8\textheight]{img/gursoy-eqtl-3} \end{center}
+
+:::
+::: {.column width=.55}
+
+Arithmetic on **encrypted data** yields correct results when decrypted:
+
+$\text{Dec}(f(\text{Enc}(x))) = f(x)$
+
+- Server runs eQTL caller on encrypted genotypes and expression (never sees the actual data)
+- Only the user holds the private key to decrypt the result
+
+\medskip
+
+**Pros:** strong formal guarantee (computational)
+
+**Cons:** $10^3$–$10^6 \times$ slowdown vs.\ plaintext
+
+:::
+::::::
+
+\tiny\flushright
+@Gursoy2022-od
+
+## Secure Multiparty Computation (MPC) {.plain}
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\begin{center}\includegraphics[height=0.8\textheight]{img/gursoy-eqtl-4} \end{center}
+
+:::
+::: {.column width=.55}
+
+Multiple hospitals pool data **without sharing it**
+
+- Each site splits data into random **secret shares**
+- Third-party servers compute on shares
+- No single party can reconstruct individual data
+
+\medskip
+
+**Key property:** **no utility loss**. Exact same result as pooled plaintext.
+
+:::
+::::::
+
+\tiny\flushright
+@Gursoy2022-od
+
+## Federated Learning (FL) {.plain}
+
+:::::: {.columns}
+::: {.column width=.4}
+
+\begin{center}\includegraphics[height=0.8\textheight]{img/gursoy-eqtl-5} \end{center}
+
+:::
+::: {.column width=.55}
+
+Raw data **never leaves** each institution
+
+1. Train local models
+2. Add noise to model updates
+3. Combine noised models centrally
+4. Iterate until convergence
+
+\medskip
+
+**Caveat:** gradients can leak training data. FL alone provides only informal privacy guarantees.
+
+:::
+::::::
+
+\tiny\flushright
+@Gursoy2022-od
+
+
+# Differential Privacy
+
+## {.plain}
+
+\centerline{\includegraphics[height=.8\textheight]{img/predictive_models.png}}
+
+\vfill
+\tiny
+\flushright
+[https://xkcd.com/2169/](https://xkcd.com/2169/)
+
+## Differential Privacy: Formal Privacy Guarantees
+
+A randomized mechanism $M$ satisfies $\varepsilon$-DP if for all neighboring datasets $D, D'$:
+
+$$P(M(D) \in S) \leq e^\varepsilon \cdot P(M(D') \in S)$$
+
+**Intuition:** whether or not you participate, published results change by at most $e^\varepsilon$.
+
+\medskip
+
+| $\varepsilon$ | $e^\varepsilon$ | Interpretation |
+|:---:|:---:|:---|
+| 0.1 | 1.11 | Strong privacy |
+| 1 | 2.72 | Moderate |
+| 10 | $\sim 22{,}000$ | Essentially vacuous |
+
+\vfill
+\tiny
+[@Uhler2012-kz]
+
+## DP for GWAS: Adding Noise to Protect Individuals
+
+**Private MAF** at a single SNP in $n$ diploid individuals [@Uhler2012-kz; @Yamamoto2021-qw]:
+
+$$\hat{f}_{\text{priv}} = \underbrace{\frac{1}{2n}\sum_{i=1}^{n}x_i}_{f} + \text{Lap}\!\left(\frac{1}{n\varepsilon}\right)$$
+
+- Sensitivity: changing one person shifts $f$ by at most $\Delta f = 1/n$
+- For $n = 5{,}000$, $\varepsilon = 1$: noise SD $\approx 0.00028$ vs. sampling error $\sim 0.01$
+
+\medskip
+
+**Tradeoff:** DP adds statistical noise. Most painful for **rare variants** where the signal is already small.
+
+<!-- ## Proof Sketch: Why Laplace Mechanism Satisfies DP -->
+<!-- **Goal:** Show $P(M(D) \in S) \leq e^\varepsilon \cdot P(M(D') \in S)$ -->
+<!-- \small -->
+<!-- **Step 1:** Neighboring databases $D, D'$ differ by one person -->
+<!-- $$|f(D) - f(D')| \leq \Delta f = \frac{1}{n}$$ -->
+<!-- **Step 2:** Published value: $f_{\text{priv}} = f + Z$ where $Z \sim \text{Lap}(b)$, $b = \frac{\Delta f}{\varepsilon} = \frac{1}{n\varepsilon}$ -->
+<!-- **Step 3:** Probability ratio for any output $s$: -->
+<!-- $$\frac{P(f_{\text{priv}}(D) = s)}{P(f_{\text{priv}}(D') = s)} = \frac{e^{-|s - f(D)|/b}}{e^{-|s - f(D')|/b}} = e^{(|s - f(D')| - |s - f(D)|)/b}$$ -->
+<!-- **Step 4:** By triangle inequality: $|s - f(D')| - |s - f(D)| \leq |f(D) - f(D')| \leq \frac{1}{n}$ -->
+<!-- **Step 5:** Therefore: $\frac{P(M(D) = s)}{P(M(D') = s)} \leq e^{\frac{1/n}{1/(n\varepsilon)}} = e^\varepsilon$ $\checkmark$ -->
+
+## DP in Code: Laplace Mechanism
+
+```{r dp-laplace, echo=TRUE, eval=FALSE}
+# Add Laplace noise for epsilon-differential privacy
+                                        # Sensitivity: max change from adding/removing one person
+
+                                        # Allele frequency with DP
+n <- 5000
+epsilon <- 1.0
+f <- mean(genotypes) / 2  # true MAF
+
+                                        # Add Laplace noise: Lap(sensitivity/epsilon)
+sensitivity <- 1/n
+noise <- rlaplace(1, scale = sensitivity/epsilon)
+f_private <- f + noise
+
+                                        # Publish f_private instead of f
+```
+
+\medskip
+
+**Key insight:** Controlled noise gives privacy guarantee
+
+## DP for Association Tests: Protecting $\chi^2$ Statistics
+
+For a GWAS with genotype $\{0,1,2\}$ $\times$ case/control, form a $3 \times 2$ contingency table [@Uhler2012-kz]:
+
+\small
+
+| | Case | Control |
+|:---:|:---:|:---:|
+| $g=0$ | $n_{00}$ | $n_{01}$ |
+| $g=1$ | $n_{10}$ | $n_{11}$ |
+| $g=2$ | $n_{20}$ | $n_{21}$ |
+
+\normalsize
+
+**Sensitivity** (Uhler Thm 3.2): Adding or removing one person changes $\chi^2$ by at most
+$$\Delta(\chi^2) = \frac{4N}{N+2}$$
+
+For large $N$, this is $\approx 4$, while $\chi^2$ for true associations grows with $N$
+$\Rightarrow$ relative noise shrinks as sample size grows.
+
+## Private $\chi^2$ Release
+
+**Private release:**
+$$\chi^2_{\text{priv}} = \chi^2 + \text{Lap}\!\left(\frac{1}{\varepsilon}\cdot\frac{4N}{N+2}\right)$$
+
+\medskip
+
+**Example:** $N = 5{,}000$, $\varepsilon = 1$
+
+- Sensitivity: $(4 \times 5000)/5002 \approx 4.0$
+- Noise SD: $4.0/1.0 \times \sqrt{2} \approx 5.7$
+- A genome-wide significant SNP has $\chi^2 \approx 30$ $\Rightarrow$ signal-to-noise $\approx 5:1$
+
+\medskip
+
+But do we need to release **all** $M'$ test statistics? Noise grows with number released.
+
+<!-- ## Why Raw p-Values Fail [@Uhler2012-kz; @Yamamoto2021-qw]
+
+Raw p-values are **tiny numbers** concentrated near zero:
+
+- Genome-wide significance: $p < 5 \times 10^{-8}$
+- Sensitivity of a single raw p-value from a $3\times2$ table: $e^{-2/3}/\varepsilon \approx 0.51/\varepsilon$
+
+\medskip
+
+**Problem:** Laplace noise of scale $\sim 0.5$ overwhelms a signal of $5 \times 10^{-8}$
+
+$$\underbrace{5 \times 10^{-8}}_{\text{signal}} \ll \underbrace{0.51 / \varepsilon}_{\text{noise scale}}$$
+
+\medskip
+
+Uhler (2012, Fig.\ 7) showed that ROC curves for detecting true associations from noisy raw p-values are near the diagonal --- essentially **random guessing**. -->
+
+## Making DP Practical: Use $\log_{10}$ p-Values
+
+**Key insight:** release $-\log_{10}(p)$ instead of $p$ [@Yamamoto2021-qw].
+
+\medskip
+
+**Sensitivity** for a $3 \times 2$ table (Yamamoto Prop.\ 2):
+$$\Delta(-\log_{10} p) = \log_{10}(e) \cdot \frac{2N}{N+2}$$
+
+For $N = 100{,}000$: sensitivity $\approx 0.87$ $\Rightarrow$ **manageable noise**
+
+\medskip
+
+**Private release:**
+$$(-\log_{10} p)_{\text{priv}} = -\log_{10}(p) + \text{Lap}\!\left(\frac{0.87}{\varepsilon}\right)$$
+
+\medskip
+
+The significance threshold is now **additive**: $-\log_{10}(5 \times 10^{-8}) = 7.3$
+
+$\Rightarrow$ Compare noisy $-\log_{10}(p)$ directly against $7.3$
+
+## {.plain}
+
+```{r dp-log10-aha, echo=FALSE, fig.width=6, fig.height=2.5}
+## The "aha moment": why log10 scale saves differential privacy
+
+## Laplace random variable generator
+rlaplace <- function(n, scale) {
+    u <- runif(n, -0.5, 0.5)
+    return(-scale * sign(u) * log(1 - 2 * abs(u)))
+}
+
+set.seed(42)
+epsilon <- 1.0
+
+## Raw p-value scale
+p_signal <- 5e-8  ## genome-wide significant
+noise_scale_raw <- 0.51 / epsilon  ## sensitivity on raw scale
+
+## Log10 p-value scale
+log10p_signal <- -log10(p_signal)  ## = 7.3
+noise_scale_log <- 0.87 / epsilon  ## sensitivity on log scale
+
+## Create comparison data
+comparison_data <- data.frame(
+    scale = rep(c("Raw p-value", "-log10(p)"), each = 2),
+    type = rep(c("Signal", "Noise scale"), 2),
+    value = c(p_signal, noise_scale_raw, log10p_signal, noise_scale_log),
+    y_pos = rep(c(1, 2), 2)
+)
+
+## Panel 1: Raw scale (disaster)
+p_raw <- ggplot() +
+    ## Noise scale (huge bar)
+    geom_segment(aes(x = 0, xend = noise_scale_raw, y = 2, yend = 2),
+                 color = "#d62728", linewidth = 6, alpha = 0.7) +
+    geom_text(aes(x = noise_scale_raw/2, y = 2,
+                  label = sprintf("Noise: %.2f", noise_scale_raw)),
+              hjust=0, color = "black", fontface = "bold", size = 3) +
+    ## Signal (tiny, invisible)
+    geom_segment(aes(x = 0, xend = p_signal, y = 1, yend = 1),
+                 color = "#2ca02c", linewidth = 6, alpha = 0.7) +
+    geom_text(aes(x = 0.25, y = 1, label = "Signal: 5e-8\n(invisible!)"),
+              color = "black", fontface = "bold", size = 3, hjust = 0) +
+    scale_x_continuous(expand = c(0, 0), limits = c(0, 0.6)) +
+    scale_y_continuous(limits = c(0.5, 2.5)) +
+    labs(title = "Raw p-value scale",
+         subtitle = "Signal completely buried by noise",
+         x = NULL, y = NULL) +
+    theme_minimal(base_size = 10) +
+    theme(
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(face = "bold", size = 11),
+        plot.subtitle = element_text(color = "#d62728", size = 9, face = "bold")
+    )
+
+## Panel 2: Log scale (success!)
+p_log <- ggplot() +
+    ## Signal
+    geom_segment(aes(x = 0, xend = log10p_signal, y = 1, yend = 1),
+                 color = "#2ca02c", linewidth = 6, alpha = 0.7) +
+    geom_text(aes(x = log10p_signal/2, y = 1,
+                  label = sprintf("Signal: %.1f", log10p_signal)),
+              color = "black", fontface = "bold", size = 3) +
+    ## Noise scale
+    geom_segment(aes(x = 0, xend = noise_scale_log, y = 2, yend = 2),
+                 color = "#ff7f0e", linewidth = 6, alpha = 0.7) +
+    geom_text(aes(x = noise_scale_log/2, y = 2,
+                  label = sprintf("Noise: %.2f", noise_scale_log)),
+              color = "black", fontface = "bold", size = 3) +
+    ## Threshold line
+    geom_vline(xintercept = 7.3, linetype = "dashed", linewidth = 1, alpha = 0.5) +
+    annotate("text", x = 7.4, y = 2.3, label = "Significance\nthreshold",
+             hjust = 0, size = 2.5, fontface = "italic") +
+    scale_x_continuous(expand = c(0, 0), limits = c(0, 8.5)) +
+    scale_y_continuous(limits = c(0.5, 2.5)) +
+    labs(title = "-log10(p) scale",
+         subtitle = "Signal clearly exceeds noise!",
+         x = NULL, y = NULL) +
+    theme_minimal(base_size = 10) +
+    theme(
+        axis.text.y = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        plot.title = element_text(face = "bold", size = 11),
+        plot.subtitle = element_text(color = "#2ca02c", size = 9, face = "bold")
+    )
+
+p_raw + p_log
+```
+
+## Efficient DP: Release Only Top SNPs, Not All
+
+**Uhler Algorithm 1** [@Uhler2012-kz] (3 steps, $\varepsilon$-DP by Thm 3.7):
+
+Let $S(\chi^2) = 4N/(N+2)$. Given $M'$ total SNPs, release top $M$:
+
+\medskip
+
+1. **Noisy ranking:** Add $\text{Lap}\!\left(\frac{4M}{\varepsilon} \cdot S(\chi^2)\right)$ to all $M'$ statistics
+
+2. **Select top $M$:** Pick the $M$ SNPs with largest noisy $\chi^2$ $\Rightarrow$ set $\mathcal{S}$
+
+3. **Re-noise the winners:** Add *fresh* $\text{Lap}\!\left(\frac{2M}{\varepsilon} \cdot S(\chi^2)\right)$ to the **true** $\chi^2$ values of SNPs in $\mathcal{S}$
+
+\medskip
+
+**Key property:** noise scales with $M$ (number released), **not** $M'$ (total SNPs tested).
+
+## Safe Z-Score Release via Post-Processing
+
+\textbf{Post-processing theorem:} Any function of a DP output is also DP - no additional privacy cost.
+
+\medskip
+
+Since $Z^2 = \chi^2$ for 1-df tests, derive a private Z-score from the private $\chi^2$:
+
+$$Z_{\text{priv}} = \text{sign}(\hat{\beta}) \cdot \sqrt{\max(0,\; \chi^2_{\text{priv}})}$$
+
+\medskip
+
+Alternatively, derive from the private $-\log_{10}(p)$:
+
+$$Z_{\text{priv}} = \Phi^{-1}\!\left(\tfrac{1}{2}\cdot 10^{-(-\log_{10} p)_{\text{priv}}}\right)$$
+
+\medskip
+
+This lets downstream consumers use **familiar Z-scores** for meta-analysis, fine-mapping, etc. All for free under DP composition.
+
+## Code: Uhler Algorithm 1 + Z-Score Derivation
+
+```{r dp-topM-algorithm, echo=TRUE, eval=FALSE}
+# Uhler Algorithm 1: Release top M SNPs privately
+N <- 5000; M <- 100; M_prime <- 500000; eps <- 1.0
+
+                                        # Sensitivity of chi-squared for a 3x2 table
+sens_chi2 <- 4 * N / (N + 2)
+
+                                        # Step 1: Noisy ranking
+chi2_noisy <- chi2_all +
+    rlaplace(M_prime, scale = 4 * M / eps * sens_chi2)
+
+                                        # Step 2: Pick top M
+top_M <- order(chi2_noisy, decreasing = TRUE)[1:M]
+
+                                        # Step 3: Re-noise the winners (fresh noise on true values)
+chi2_private <- chi2_all[top_M] +
+    rlaplace(M, scale = 2 * M / eps * sens_chi2)
+
+                                        # Post-process to Z-scores (free by DP composition)
+Z_private <- sign(beta_hat[top_M]) *
+    sqrt(pmax(0, chi2_private))
+```
+
+## DP in Action: Privacy vs. Statistical Power
+
+```{r dp-tradeoff, echo=FALSE, fig.width=5.5, fig.height=2.5}
+## Simulate power to detect associations vs. epsilon
+
+## Laplace random variable generator
+rlaplace <- function(n, scale) {
+    u <- runif(n, -0.5, 0.5)
+    return(-scale * sign(u) * log(1 - 2 * abs(u)))
+}
+
+set.seed(123)
+n_sim <- 1000
+true_effect_size <- 30  ## chi-squared for true association
+N <- 5000
+
+## Range of epsilon values
+epsilon_vals <- c(0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 100)
+
+## For each epsilon, calculate detection power
+power_data <- map_dfr(epsilon_vals, function(eps) {
+    sens_chi2 <- 4 * N / (N + 2)
+    noise_scale <- sens_chi2 / eps
+    noisy_vals <- true_effect_size + rlaplace(n_sim, scale = noise_scale)
+    threshold <- qchisq(0.995, df = 1)
+    power <- mean(noisy_vals > threshold)
+    data.frame(epsilon = eps, power = power)
+})
+
+## Single clean plot
+ggplot(power_data, aes(x = epsilon, y = power)) +
+    geom_line(linewidth = 1.5, color = "#1f77b4") +
+    geom_point(size = 3, color = "#1f77b4") +
+    geom_vline(xintercept = 1, linetype = "dashed", color = "#2ca02c", linewidth = 1) +
+    annotate("rect", xmin = 0.5, xmax = 2, ymin = 0, ymax = 1,
+             alpha = 0.15, fill = "#2ca02c") +
+    annotate("text", x = 1, y = 0.92, label = "ε = 1\n(practical)",
+             color = "#2ca02c", fontface = "bold", size = 2.5, hjust = 0) +
+    scale_x_log10(breaks = c(0.01, 0.1, 1, 10, 100)) +
+    scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+    labs(x = "Privacy parameter ε", y = "Power") +
+    theme_minimal(base_size = 9) +
+    theme(
+        panel.grid.minor = element_blank(),
+        plot.margin = margin(5, 5, 5, 5)
+    )
+```
+
+**Key insight:** DP doesn't mean "no utility". It means calibrated noise that preserves strong signals while protecting individuals.
+
+## Recall: The eQTL Linking Attack
+
+**The vulnerability:**
+
+1. Published expression data for anonymous samples
+2. Public eQTL catalog (genotype $\leftrightarrow$ expression)
+3. Reference genotype database
+
+\medskip
+
+**The attack:**
+
+$$\text{Expression} \xrightarrow{\text{eQTL}} \text{Predicted genotype} \xrightarrow{\text{match}} \text{Individual ID}$$
+
+\medskip
+
+**Result:** With 50 genes, individuals can be uniquely identified
+
+\medskip
+
+**Now:** Can differential privacy stop this attack?
+
+## Can DP Protect Against eQTL Attacks?
+
+**Setup:** Realistic scenario (50 genes, 500 individuals)
+
+**Defense:** Add Laplace noise to expression values before publishing
+
+$$e_k^{\text{priv}} = e_k + \text{Lap}(b)$$
+
+**Attack:** Predict genotypes from noisy expression, then match to database
+
+\medskip
+
+**Question:** How much noise is needed to stop the attack?
+
+## Does DP Stop the eQTL Attack?
+
+```{r dp-eqtl, echo=FALSE, fig.width=6, fig.height=2.5}
+set.seed(42)
+noise.scales <- c(0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0, 3.0)
+n.rep <- 200
+
+## Cache file paths
+cache.dir <- "../data/cache"
+dir.create(cache.dir, showWarnings=FALSE, recursive=TRUE)
+dp.results.file <- file.path(cache.dir, "dp_eqtl_results.rds")
+corr.results.file <- file.path(cache.dir, "dp_eqtl_corr.rds")
+
+## Compute or load DP attack results
+if.needed(dp.results.file, {
+    dp.results <- do.call(rbind, lapply(noise.scales, function(b) {
+        ranks <- sapply(1:n.rep, function(r) {
+            ## Add Laplace noise to expression
+            noisy.E <- E + matrix(
+                               if(b > 0) sample(c(-1,1), n*K, replace=TRUE) * rexp(n*K, rate=1/b)
+                               else rep(0, n*K),
+                               nrow=n, ncol=K)
+            ## Attacker predicts from noisy expression
+            noisy.pred <- sapply(1:K, function(k) pred.geno(noisy.E[target, k], betas[k]))
+            ## Compute matching scores
+            sc <- sapply(1:n, function(i) {
+                sum(sapply(1:K, function(k) {
+                    if(G[i,k] == noisy.pred[k]) log2(1 / gfreq(noisy.pred[k], mafs[k])) else 0
+                }))
+            })
+            rank(-(sc + runif(n, 0, 1e-6)))[target]
+        })
+        data.frame(noise = paste0("b = ", b),
+                   rank = ranks,
+                   identified = ranks == 1,
+                   b = b)
+    }))
+    saveRDS(dp.results, dp.results.file)
+})
+dp.results <- readRDS(dp.results.file)
+dp.results$noise <- factor(dp.results$noise, levels = paste0("b = ", noise.scales))
+
+## Compute or load correlation results
+if.needed(corr.results.file, {
+    corr.results <- do.call(rbind, lapply(noise.scales, function(b) {
+        correlations <- sapply(1:50, function(r) {
+            noisy.E <- E + matrix(
+                               if(b > 0) sample(c(-1,1), n*K, replace=TRUE) * rexp(n*K, rate=1/b)
+                               else rep(0, n*K),
+                               nrow=n, ncol=K)
+            cor(as.vector(E), as.vector(noisy.E))
+        })
+        data.frame(b = b, correlation = mean(correlations))
+    }))
+    saveRDS(corr.results, corr.results.file)
+})
+corr.results <- readRDS(corr.results.file)
+
+## Combine rank and correlation data
+rank_summary <- dp.results %>%
+    group_by(b) %>%
+    summarise(mean_rank = mean(rank), .groups="drop")
+
+combined_data <- rank_summary %>%
+    left_join(corr.results, by="b")
+
+## Dual y-axis plot
+max_rank <- max(combined_data$mean_rank)
+scaling_factor <- max_rank / 1.0  ## scale correlation (0-1) to match rank range
+
+ggplot(combined_data, aes(x=b)) +
+    ## Privacy: rank (left axis)
+    geom_line(aes(y=mean_rank), color="firebrick", linewidth=0.7) +
+    geom_point(aes(y=mean_rank), color="firebrick", size=1.5) +
+    ## Utility: correlation (scaled to right axis)
+    geom_line(aes(y=correlation * scaling_factor), color="steelblue", linewidth=0.7, linetype="dashed") +
+    geom_point(aes(y=correlation * scaling_factor), color="steelblue", size=1.5) +
+    ## Reference line: rank 1 = uniquely identified
+    geom_hline(yintercept=1, linetype="dotted", color="gray40", linewidth=0.4, alpha=0.5) +
+    annotate("text", x=max(combined_data$b)*0.95, y=1.8,
+             label="Identified as #1", color="gray40", size=2, hjust=1) +
+    ## Scales
+    scale_y_continuous(
+        name="Privacy: Target's position in ranked list",
+        sec.axis=sec_axis(~./scaling_factor, name="Utility: Correlation(obs, noisy)")
+    ) +
+    labs(x="Noise scale (b)") +
+    theme_minimal(base_size=9) +
+    theme(
+        panel.grid.minor=element_blank(),
+        axis.title.y.left=element_text(color="firebrick", face="bold", size=8),
+        axis.title.y.right=element_text(color="steelblue", face="bold", size=8),
+        axis.text.y.left=element_text(color="firebrick"),
+        axis.text.y.right=element_text(color="steelblue")
+    )
+```
+
+## The DP Tradeoff for eQTL Data
+
+**What we learned:**
+
+\medskip
+
+:::::: {.columns}
+::: {.column width="50%"}
+
+**Privacy side:**
+
+- No noise ($b = 0$): Target at rank ~1 (identified)
+- Small noise ($b < 0.6$): Rank ~5-10 (still narrow)
+- Moderate noise ($b \geq 1$): Rank ~20+ (lost in crowd)
+
+:::
+::: {.column width="50%"}
+
+**Utility side:**
+
+- No noise: Perfect correlation (r=1.0)
+- Moderate noise: Correlation ~0.6-0.7
+- High noise: Data quality severely degraded
+
+:::
+::::::
+
+\medskip
+
+**Bottom line:** DP can protect individuals, but you pay with statistical power for discovery.
+
+# Summary
+
+## Comparison of approaches
+
+\footnotesize
+
+| | DP | MPC | HE | FL | TEE |
+|:---|:---:|:---:|:---:|:---:|:---:|
+| Privacy guarantee | Formal ($\varepsilon$) | Info-theoretic | Computational | Informal | Hardware |
+| Utility loss | Yes (noise) | None | None | Some | None |
+| Computational cost | Low | Moderate | High | Moderate | Low |
+| Multi-party native | -- | Yes | Limited | Yes | Limited |
+
+\normalsize
+
+\medskip
+
+In practice these are **combined**: e.g., federated learning + DP noise + MPC aggregation.
+
+## Genomic privacy
+
+1. **Summary statistics are not safe.** Membership inference from pooled allele frequencies.
+
+2. **Expression data leaks genotypes.** eQTL linking attacks on RNA-seq and scRNA-seq.
+
+3. **Defenses exist but involve tradeoffs.** No single mechanism suffices; layered approaches are the norm.
+
+
+## Nevertheless, information has to be shared
+
+\large
+
+- Why?
+
+- How?
+
+- Ownership?
+
+- Should a government use it?
+
+## References {.allowframebreaks}
