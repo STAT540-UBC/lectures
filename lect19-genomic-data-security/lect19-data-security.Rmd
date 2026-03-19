@@ -52,7 +52,7 @@ library(matrixTests)
 theme_set(theme_minimal())
 ```
 
-# {.plain}
+## {.plain}
 
 \centerline{\includegraphics[height=.8\textheight]{img/privacy_opinions.png}}
 
@@ -511,18 +511,18 @@ $$E[D_{\text{mix}} \mid H_1] \approx \frac{1}{2n}\sum_{j=1}^{L} d_j^2 > 0$$
 ## Membership Test in Code
 
 ```{r membership-test, echo=TRUE, eval=FALSE}
-# Homer's membership inference test
-                                        # Target genotype: x (0, 1, or 2 for each SNP)
-                                        # Mixture allele freq: f_mix
-                                        # Population allele freq: p_pop
+## Homer's membership inference test
+                                        ## Target genotype: x (0, 1, or 2 for each SNP)
+## Mixture allele freq: f_mix
+## Population allele freq: p_pop
 
-                                        # Target's deviation from population
+## Target's deviation from population
 d <- x - 2 * p_pop
 
-                                        # Test statistic: inner product
+## Test statistic: inner product
 D_mix <- sum((f_mix - p_pop) * d)
 
-                                        # Decision
+## Decision
 is_member <- D_mix > threshold  # TRUE if in pool
 ```
 
@@ -1952,20 +1952,20 @@ $$\hat{f}_{\text{priv}} = \underbrace{\frac{1}{2n}\sum_{i=1}^{n}x_i}_{f} + \text
 ## DP in Code: Laplace Mechanism
 
 ```{r dp-laplace, echo=TRUE, eval=FALSE}
-# Add Laplace noise for epsilon-differential privacy
-                                        # Sensitivity: max change from adding/removing one person
+## Add Laplace noise for epsilon-differential privacy
+## Sensitivity: max change from adding/removing one person
 
-                                        # Allele frequency with DP
+## Allele frequency with DP
 n <- 5000
 epsilon <- 1.0
 f <- mean(genotypes) / 2  # true MAF
 
-                                        # Add Laplace noise: Lap(sensitivity/epsilon)
+## Add Laplace noise: Lap(sensitivity/epsilon)
 sensitivity <- 1/n
 noise <- rlaplace(1, scale = sensitivity/epsilon)
 f_private <- f + noise
 
-                                        # Publish f_private instead of f
+## Publish f_private instead of f
 ```
 
 \medskip
@@ -2181,24 +2181,24 @@ This lets downstream consumers use **familiar Z-scores** for meta-analysis, fine
 ## Code: Uhler Algorithm 1 + Z-Score Derivation
 
 ```{r dp-topM-algorithm, echo=TRUE, eval=FALSE}
-# Uhler Algorithm 1: Release top M SNPs privately
+## Uhler Algorithm 1: Release top M SNPs privately
 N <- 5000; M <- 100; M_prime <- 500000; eps <- 1.0
 
-                                        # Sensitivity of chi-squared for a 3x2 table
+## Sensitivity of chi-squared for a 3x2 table
 sens_chi2 <- 4 * N / (N + 2)
 
-                                        # Step 1: Noisy ranking
+## Step 1: Noisy ranking
 chi2_noisy <- chi2_all +
     rlaplace(M_prime, scale = 4 * M / eps * sens_chi2)
 
-                                        # Step 2: Pick top M
+## Step 2: Pick top M
 top_M <- order(chi2_noisy, decreasing = TRUE)[1:M]
 
-                                        # Step 3: Re-noise the winners (fresh noise on true values)
+## Step 3: Re-noise the winners (fresh noise on true values)
 chi2_private <- chi2_all[top_M] +
     rlaplace(M, scale = 2 * M / eps * sens_chi2)
 
-                                        # Post-process to Z-scores (free by DP composition)
+## Post-process to Z-scores (free by DP composition)
 Z_private <- sign(beta_hat[top_M]) *
     sqrt(pmax(0, chi2_private))
 ```
